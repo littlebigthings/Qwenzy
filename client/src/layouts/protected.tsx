@@ -8,7 +8,7 @@ type ProtectedProps = {
 }
 
 export function Protected({ children }: ProtectedProps) {
-  const { user, loading, hasProfile } = useAuthContext()
+  const { user, loading, hasProfile, hasOrganization } = useAuthContext()
   const [location] = useLocation()
 
   // Don't show loading state if we're already on a public route
@@ -29,8 +29,9 @@ export function Protected({ children }: ProtectedProps) {
     return <Redirect to="/login" />
   }
 
-  // If user is logged in but doesn't have a profile, redirect to profile setup
-  if (!hasProfile && location !== '/profile-setup') {
+  // If user is logged in but doesn't have a profile or organization
+  // and they're not already on the profile setup page
+  if ((!hasProfile || !hasOrganization) && location !== '/profile-setup') {
     return <Redirect to="/profile-setup" />
   }
 

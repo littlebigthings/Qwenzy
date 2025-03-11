@@ -8,6 +8,7 @@ export function useAuth() {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [hasProfile, setHasProfile] = useState<boolean>(false)
+  const [hasOrganization, setHasOrganization] = useState<boolean>(false)
   const { toast } = useToast()
   const [, setLocation] = useLocation()
 
@@ -22,24 +23,31 @@ export function useAuth() {
       setUser(session?.user ?? null)
 
       if (session?.user) {
-        // Check if user has a profile
+        // Check if user has a profile and organization
         const { data: profile } = await supabase
           .from('profiles')
-          .select('*')
+          .select('*, organizations(*)')
           .eq('user_id', session.user.id)
           .single()
 
-        setHasProfile(!!profile)
+        const hasValidProfile = !!profile
+        const hasValidOrg = !!profile?.organizations
 
-        if (event === 'SIGNED_IN' && !profile) {
-          setLocation('/profile-setup')
-        } else if (event === 'SIGNED_IN') {
-          setLocation('/')
+        setHasProfile(hasValidProfile)
+        setHasOrganization(hasValidOrg)
+
+        if (event === 'SIGNED_IN') {
+          if (!hasValidProfile || !hasValidOrg) {
+            setLocation('/profile-setup')
+          } else {
+            setLocation('/')
+          }
         }
       } else {
         // If no user, make sure we're not showing loading state
         setLoading(false)
         setHasProfile(false)
+        setHasOrganization(false)
 
         // Only redirect to login if we're not already there
         if (!['/login', '/register', '/reset-password'].includes(window.location.pathname)) {
@@ -72,7 +80,7 @@ export function useAuth() {
           title: "Error signing up",
           description: error.message
         })
-        return // Don't throw error, just return
+        return
       }
 
       console.log('Signup response:', data)
@@ -110,7 +118,6 @@ export function useAuth() {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
 
       if (error) {
-        // Handle common auth errors with user-friendly messages
         let errorMessage = "Invalid email or password"
         if (error.message.includes("Invalid login credentials")) {
           errorMessage = "Invalid email or password. Please try again."
@@ -123,7 +130,7 @@ export function useAuth() {
           title: "Login failed",
           description: errorMessage
         })
-        return // Don't throw error, just return
+        return
       }
 
       toast({
@@ -131,7 +138,6 @@ export function useAuth() {
         description: "You have successfully signed in."
       })
     } catch (error: any) {
-      // This will only catch unexpected errors
       console.error('Unexpected login error:', error)
       toast({
         variant: "destructive",
@@ -192,6 +198,7 @@ export function useAuth() {
     user,
     loading,
     hasProfile,
+    hasOrganization,
     signIn,
     signUp,
     signOut,
