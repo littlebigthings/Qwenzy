@@ -7,6 +7,7 @@ import { useLocation } from 'wouter'
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [hasProfile, setHasProfile] = useState<boolean>(false)
   const { toast } = useToast()
   const [, setLocation] = useLocation()
 
@@ -16,11 +17,25 @@ export function useAuth() {
       setLoading(false)
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth event:', event, session)
       setUser(session?.user ?? null)
-      if (event === 'SIGNED_IN') {
-        setLocation('/')
+
+      if (session?.user) {
+        // Check if user has a profile
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .single()
+
+        setHasProfile(!!profile)
+
+        if (event === 'SIGNED_IN' && !profile) {
+          setLocation('/profile-setup')
+        } else if (event === 'SIGNED_IN') {
+          setLocation('/')
+        }
       }
     })
 
@@ -142,6 +157,7 @@ export function useAuth() {
   return {
     user,
     loading,
+    hasProfile,
     signIn,
     signUp,
     signOut,

@@ -7,6 +7,7 @@ import Login from "@/pages/login"
 import Register from "@/pages/register"
 import ResetPassword from "@/pages/reset-password"
 import Home from "@/pages/home"
+import ProfileSetup from "@/pages/profile-setup"
 import { Protected } from "@/layouts/protected"
 
 function Router() {
@@ -15,6 +16,11 @@ function Router() {
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
       <Route path="/reset-password" component={ResetPassword} />
+      <Route path="/profile-setup">
+        <Protected>
+          <ProfileSetup />
+        </Protected>
+      </Route>
       <Route path="/">
         <Protected>
           <Home />
