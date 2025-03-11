@@ -92,18 +92,36 @@ export function useAuth() {
     try {
       setLoading(true)
       const { error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) throw error
+
+      if (error) {
+        // Handle common auth errors with user-friendly messages
+        let errorMessage = "Invalid email or password"
+        if (error.message.includes("Invalid login credentials")) {
+          errorMessage = "Invalid email or password. Please try again."
+        } else if (error.message.includes("Email not confirmed")) {
+          errorMessage = "Please verify your email before logging in."
+        }
+
+        toast({
+          variant: "destructive",
+          title: "Login failed",
+          description: errorMessage
+        })
+        return // Don't throw error, just return
+      }
+
       toast({
         title: "Welcome back!",
         description: "You have successfully signed in."
       })
     } catch (error: any) {
+      // This will only catch unexpected errors
+      console.error('Unexpected login error:', error)
       toast({
         variant: "destructive",
-        title: "Error signing in",
-        description: error.message
+        title: "Login error",
+        description: "An unexpected error occurred. Please try again."
       })
-      throw error
     } finally {
       setLoading(false)
     }
