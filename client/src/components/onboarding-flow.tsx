@@ -7,7 +7,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { Loader2, Upload, Building2, UserCircle, CheckCircle } from "lucide-react"
+import { Loader2, Upload, Building2, UserCircle, CheckCircle, X } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import { useLocation } from "wouter"
@@ -222,6 +222,10 @@ export function OnboardingFlow() {
     }
   }
 
+  const resetLogo = () => {
+    setOrganizationLogoUrl(null)
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50">
       <Card className="w-full max-w-4xl">
@@ -300,33 +304,55 @@ export function OnboardingFlow() {
                           )}
                         />
 
-                        <div>
-                          <Input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => handleImageUpload(e, 'logo')}
-                            disabled={uploading}
-                            className="hidden"
-                            id="logo-upload"
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => document.getElementById('logo-upload')?.click()}
-                            disabled={uploading}
-                          >
-                            {uploading ? (
-                              <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Uploading...
-                              </>
-                            ) : (
-                              'Upload Organization Logo'
-                            )}
-                          </Button>
+                        <div className="space-y-4">
+                          {organizationLogoUrl ? (
+                            <div className="relative w-32 h-32 mx-auto">
+                              <img 
+                                src={organizationLogoUrl} 
+                                alt="Organization logo" 
+                                className="w-full h-full object-contain rounded-lg border border-gray-200"
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
+                                onClick={resetLogo}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <>
+                              <Input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => handleImageUpload(e, 'logo')}
+                                disabled={uploading}
+                                className="hidden"
+                                id="logo-upload"
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => document.getElementById('logo-upload')?.click()}
+                                disabled={uploading}
+                                className="w-full"
+                              >
+                                {uploading ? (
+                                  <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Uploading...
+                                  </>
+                                ) : (
+                                  'Upload Organization Logo'
+                                )}
+                              </Button>
+                            </>
+                          )}
                         </div>
 
-                        <Button type="submit">Create Organization</Button>
+                        <Button type="submit" className="w-full">Create Organization</Button>
                       </form>
                     </Form>
                   )}
