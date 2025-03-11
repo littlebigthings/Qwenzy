@@ -1,6 +1,5 @@
 import { useAuth } from "@/hooks/use-auth"
 import { Button } from "@/components/ui/button"
-import { clearStorageAndReload } from "@/lib/utils"
 
 export default function Home() {
   const { user, signOut } = useAuth()
@@ -14,16 +13,7 @@ export default function Home() {
         <p className="text-gray-600 mb-8">
           You are signed in as {user?.email}
         </p>
-        <div className="space-y-2">
-          <Button onClick={signOut} className="w-full">Sign Out</Button>
-          <Button 
-            onClick={clearStorageAndReload} 
-            variant="outline" 
-            className="w-full"
-          >
-            Clear Storage & Restart
-          </Button>
-        </div>
+        <Button onClick={signOut} className="w-full">Sign Out</Button>
       </div>
     </div>
   )
