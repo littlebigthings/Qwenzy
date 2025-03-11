@@ -93,13 +93,21 @@ export default function ProfileSetup() {
         user_id: user.id,
         first_name: data.firstName,
         last_name: data.lastName,
-        email: user.email,
+        email: user.email || '',
         avatar_url: avatarUrl,
-      });
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }).select().single();
 
       if (error) {
         console.error('Profile creation error:', error);
-        throw error;
+        if (error.code === '42P01') {
+          throw new Error("Profiles table not found. Please ensure the database is properly set up.");
+        } else if (error.code === '23503') {
+          throw new Error("Invalid user reference. Please try logging in again.");
+        } else {
+          throw error;
+        }
       }
 
       toast({
