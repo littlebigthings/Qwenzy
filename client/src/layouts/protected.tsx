@@ -1,6 +1,7 @@
 import { ReactNode } from "react"
 import { useAuthContext } from "@/providers/auth-provider"
-import { Redirect } from "wouter"
+import { Redirect, useLocation } from "wouter"
+import { Loader2 } from "lucide-react"
 
 type ProtectedProps = {
   children: ReactNode
@@ -8,11 +9,18 @@ type ProtectedProps = {
 
 export function Protected({ children }: ProtectedProps) {
   const { user, loading, hasProfile } = useAuthContext()
+  const [location] = useLocation()
 
-  if (loading) {
+  // Don't show loading state if we're already on a public route
+  const isPublicRoute = ['/login', '/register', '/reset-password'].includes(location)
+
+  if (loading && !isPublicRoute) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="flex items-center gap-2">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-lg text-gray-600">Loading...</p>
+        </div>
       </div>
     )
   }
@@ -22,7 +30,7 @@ export function Protected({ children }: ProtectedProps) {
   }
 
   // If user is logged in but doesn't have a profile, redirect to profile setup
-  if (!hasProfile) {
+  if (!hasProfile && location !== '/profile-setup') {
     return <Redirect to="/profile-setup" />
   }
 
