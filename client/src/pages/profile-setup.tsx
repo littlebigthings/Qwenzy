@@ -40,15 +40,30 @@ export default function ProfileSetup() {
       const file = event.target.files?.[0];
       if (!file) return;
 
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        throw new Error("File size must be less than 5MB");
+      }
+
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        throw new Error("Please upload an image file");
+      }
+
       const fileExt = file.name.split('.').pop();
       const filePath = `${user?.id}/${Math.random()}.${fileExt}`;
 
+      // First, try to upload the file
       const { error: uploadError, data } = await supabase.storage
         .from('avatars')
         .upload(filePath, file);
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        throw uploadError;
+      }
 
+      // Then get the public URL
       const { data: { publicUrl } } = supabase.storage
         .from('avatars')
         .getPublicUrl(filePath);
@@ -59,10 +74,11 @@ export default function ProfileSetup() {
         description: "Profile picture uploaded successfully",
       });
     } catch (error: any) {
+      console.error('Profile picture upload error:', error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Error uploading profile picture",
+        description: error.message || "Error uploading profile picture",
       });
     } finally {
       setUploading(false);
@@ -71,7 +87,7 @@ export default function ProfileSetup() {
 
   const onSubmit = async (data: ProfileFormValues) => {
     try {
-      if (!user?.email) throw new Error("No user email found");
+      if (!user?.id) throw new Error("No user ID found");
 
       const { error } = await supabase.from('profiles').insert({
         user_id: user.id,
@@ -81,7 +97,10 @@ export default function ProfileSetup() {
         avatar_url: avatarUrl,
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Profile creation error:', error);
+        throw error;
+      }
 
       toast({
         title: "Profile created",
@@ -90,10 +109,11 @@ export default function ProfileSetup() {
 
       setLocation('/');
     } catch (error: any) {
+      console.error('Profile setup error:', error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message,
+        description: error.message || "Error creating profile",
       });
     }
   };
