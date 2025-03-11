@@ -189,7 +189,19 @@ export function OnboardingFlow() {
 
   const completeProfile = async (data: z.infer<typeof profileSchema>) => {
     try {
-      if (!user?.id || !foundOrganization?.id) throw new Error("Missing user or organization information")
+      if (!user?.id) throw new Error("Missing user information")
+      if (!user.email) throw new Error("Missing user email")
+
+      // Get organization based on email domain
+      const domain = user.email.split('@')[1]
+      const { data: org, error: orgError } = await supabase
+        .from('organizations')
+        .select('id')
+        .eq('domain', domain)
+        .single()
+
+      if (orgError) throw new Error("Error fetching organization")
+      if (!org?.id) throw new Error("Organization not found")
 
       const { error } = await supabase.from('profiles').insert({
         user_id: user.id,
@@ -198,7 +210,7 @@ export function OnboardingFlow() {
         job_title: data.jobTitle,
         email: user.email,
         avatar_url: avatarUrl,
-        organization_id: foundOrganization.id,
+        organization_id: org.id,
       }).select().single()
 
       if (error) throw error
@@ -214,6 +226,7 @@ export function OnboardingFlow() {
         setLocation('/')
       }, 2000)
     } catch (error: any) {
+      console.error('Profile completion error:', error)
       toast({
         variant: "destructive",
         title: "Error",
@@ -307,9 +320,9 @@ export function OnboardingFlow() {
                         <div className="space-y-4">
                           {organizationLogoUrl ? (
                             <div className="relative w-32 h-32 mx-auto">
-                              <img 
-                                src={organizationLogoUrl} 
-                                alt="Organization logo" 
+                              <img
+                                src={organizationLogoUrl}
+                                alt="Organization logo"
                                 className="w-full h-full object-contain rounded-lg border border-gray-200"
                               />
                               <Button
