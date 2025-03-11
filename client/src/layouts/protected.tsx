@@ -1,5 +1,5 @@
 import { ReactNode } from "react"
-import { useAuth } from "@/hooks/use-auth"
+import { useAuthContext } from "@/providers/auth-provider"
 import { Redirect } from "wouter"
 
 type ProtectedProps = {
@@ -7,7 +7,7 @@ type ProtectedProps = {
 }
 
 export function Protected({ children }: ProtectedProps) {
-  const { user, loading } = useAuth()
+  const { user, loading } = useAuthContext()
 
   if (loading) {
     return (
