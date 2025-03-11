@@ -56,7 +56,15 @@ export function useAuth() {
         }
       })
 
-      if (error) throw error
+      if (error) {
+        console.error('Signup error:', error)
+        toast({
+          variant: "destructive",
+          title: "Error signing up",
+          description: error.message
+        })
+        return // Don't throw error, just return
+      }
 
       console.log('Signup response:', data)
 
@@ -76,13 +84,12 @@ export function useAuth() {
       })
 
     } catch (error: any) {
-      console.error('Signup error:', error)
+      console.error('Unexpected signup error:', error)
       toast({
         variant: "destructive",
         title: "Error signing up",
-        description: error.message
+        description: "An unexpected error occurred. Please try again."
       })
-      throw error
     } finally {
       setLoading(false)
     }
