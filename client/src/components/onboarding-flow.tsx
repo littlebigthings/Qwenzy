@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -14,12 +14,6 @@ import { useLocation } from "wouter"
 import { useAuth } from "@/hooks/use-auth"
 
 const steps = [
-  {
-    id: "org-check",
-    title: "Organization Check",
-    icon: Building2,
-    description: "Verify your organization"
-  },
   {
     id: "org-setup",
     title: "Organization Setup",
@@ -52,7 +46,7 @@ const profileSchema = z.object({
 })
 
 export function OnboardingFlow() {
-  const [currentStep, setCurrentStep] = useState("org-check")
+  const [currentStep, setCurrentStep] = useState("org-setup")
   const [uploading, setUploading] = useState(false)
   const [organizationLogoUrl, setOrganizationLogoUrl] = useState<string | null>(null)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
@@ -77,6 +71,13 @@ export function OnboardingFlow() {
       jobTitle: "",
     },
   })
+
+  // Auto-check for organization on component mount
+  useEffect(() => {
+    if (user?.email) {
+      checkOrganization();
+    }
+  }, [user?.email]);
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>, type: 'avatar' | 'logo') => {
     try {
@@ -147,14 +148,18 @@ export function OnboardingFlow() {
       return
     }
 
-    setFoundOrganization(org)
     if (org) {
+      setFoundOrganization(org)
+      // If organization exists, move to profile setup
+      setCurrentStep('profile')
       toast({
         title: "Organization found",
         description: `Found organization: ${org.name}`,
       })
     } else {
-      setCurrentStep('org-setup')
+      // If no organization exists, stay on org-setup step
+      // Pre-fill the domain in the form
+      orgForm.setValue('domain', domain)
     }
   }
 
@@ -252,78 +257,79 @@ export function OnboardingFlow() {
             {/* Content Area */}
             <div className="flex-1">
               <Tabs value={currentStep} className="w-full">
-                <TabsContent value="org-check">
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-medium">Checking Your Organization</h3>
-                    <p className="text-gray-600">
-                      We'll check if your organization is already registered based on your email domain.
-                    </p>
-                    <Button onClick={checkOrganization}>
-                      Check Organization
-                    </Button>
-                  </div>
-                </TabsContent>
-
                 <TabsContent value="org-setup">
-                  <Form {...orgForm}>
-                    <form onSubmit={orgForm.handleSubmit(createOrganization)} className="space-y-4">
-                      <FormField
-                        control={orgForm.control}
-                        name="name"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Organization Name</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Acme Inc." {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={orgForm.control}
-                        name="domain"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Domain</FormLabel>
-                            <FormControl>
-                              <Input {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <div>
-                        <Input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => handleImageUpload(e, 'logo')}
-                          disabled={uploading}
-                          className="hidden"
-                          id="logo-upload"
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => document.getElementById('logo-upload')?.click()}
-                          disabled={uploading}
-                        >
-                          {uploading ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Uploading...
-                            </>
-                          ) : (
-                            'Upload Organization Logo'
-                          )}
-                        </Button>
+                  {foundOrganization ? (
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-medium">Organization Found</h3>
+                      <div className="p-4 bg-gray-50 rounded-lg">
+                        <p className="font-medium">{foundOrganization.name}</p>
+                        <p className="text-sm text-gray-600">{foundOrganization.domain}</p>
                       </div>
+                      <Button onClick={() => setCurrentStep('profile')}>
+                        Continue to Profile Setup
+                      </Button>
+                    </div>
+                  ) : (
+                    <Form {...orgForm}>
+                      <form onSubmit={orgForm.handleSubmit(createOrganization)} className="space-y-4">
+                        <FormField
+                          control={orgForm.control}
+                          name="name"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Organization Name</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Acme Inc." {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
 
-                      <Button type="submit">Create Organization</Button>
-                    </form>
-                  </Form>
+                        <FormField
+                          control={orgForm.control}
+                          name="domain"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Domain</FormLabel>
+                              <FormControl>
+                                <Input {...field} disabled />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <div>
+                          <Input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => handleImageUpload(e, 'logo')}
+                            disabled={uploading}
+                            className="hidden"
+                            id="logo-upload"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => document.getElementById('logo-upload')?.click()}
+                            disabled={uploading}
+                          >
+                            {uploading ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Uploading...
+                              </>
+                            ) : (
+                              'Upload Organization Logo'
+                            )}
+                          </Button>
+                        </div>
+
+                        <Button type="submit">Create Organization</Button>
+                      </form>
+                    </Form>
+                  )}
                 </TabsContent>
 
                 <TabsContent value="profile">
