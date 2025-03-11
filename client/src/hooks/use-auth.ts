@@ -17,7 +17,7 @@ export function useAuth() {
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth event:', event)
+      console.log('Auth event:', event, session)
       setUser(session?.user ?? null)
       if (event === 'SIGNED_IN') {
         setLocation('/')
@@ -26,6 +26,52 @@ export function useAuth() {
 
     return () => subscription.unsubscribe()
   }, [setLocation])
+
+  const signUp = async (email: string, password: string) => {
+    try {
+      setLoading(true)
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/login`,
+          data: {
+            email_confirm_url: `${window.location.origin}/login`
+          }
+        }
+      })
+
+      if (error) throw error
+
+      console.log('Signup response:', data)
+
+      if (data?.user?.identities?.length === 0) {
+        toast({
+          title: "Email already registered",
+          description: "This email is already registered. Please try logging in instead.",
+          variant: "destructive"
+        })
+        setLocation('/login')
+        return
+      }
+
+      toast({
+        title: "Signup initiated",
+        description: "We're setting up your account. Please check your email (including spam folder) for the verification link. This may take a few minutes."
+      })
+
+    } catch (error: any) {
+      console.error('Signup error:', error)
+      toast({
+        variant: "destructive",
+        title: "Error signing up",
+        description: error.message
+      })
+      throw error
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const signIn = async (email: string, password: string) => {
     try {
@@ -40,33 +86,6 @@ export function useAuth() {
       toast({
         variant: "destructive",
         title: "Error signing in",
-        description: error.message
-      })
-      throw error
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const signUp = async (email: string, password: string) => {
-    try {
-      setLoading(true)
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: window.location.origin + '/login'
-        }
-      })
-      if (error) throw error
-      toast({
-        title: "Check your email",
-        description: "We've sent you a verification link. Please check your inbox (and spam folder) to verify your account."
-      })
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Error signing up",
         description: error.message
       })
       throw error
@@ -101,7 +120,7 @@ export function useAuth() {
     try {
       setLoading(true)
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin + '/login'
+        redirectTo: `${window.location.origin}/login`
       })
       if (error) throw error
       toast({
