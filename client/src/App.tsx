@@ -14,19 +14,25 @@ import { Protected } from "@/layouts/protected"
 function Router() {
   return (
     <Switch>
+      {/* Public routes */}
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
       <Route path="/reset-password" component={ResetPassword} />
-      <Route path="/profile-setup">
-        <Protected>
-          <ProfileSetup />
-        </Protected>
-      </Route>
+
+      {/* Protected routes */}
       <Route path="/">
         <Protected>
           <Home />
         </Protected>
       </Route>
+
+      <Route path="/profile-setup">
+        <Protected>
+          <ProfileSetup />
+        </Protected>
+      </Route>
+
+      {/* 404 route */}
       <Route component={NotFound} />
     </Switch>
   )

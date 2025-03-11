@@ -15,7 +15,11 @@ export function useAuth() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null)
-      setLoading(false)
+      if (session?.user) {
+        checkUserStatus(session.user)
+      } else {
+        setLoading(false)
+      }
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -23,33 +27,12 @@ export function useAuth() {
       setUser(session?.user ?? null)
 
       if (session?.user) {
-        // Check if user has a profile and organization
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*, organizations(*)')
-          .eq('user_id', session.user.id)
-          .single()
-
-        const hasValidProfile = !!profile
-        const hasValidOrg = !!profile?.organizations
-
-        setHasProfile(hasValidProfile)
-        setHasOrganization(hasValidOrg)
-
-        if (event === 'SIGNED_IN') {
-          if (!hasValidProfile || !hasValidOrg) {
-            setLocation('/profile-setup')
-          } else {
-            setLocation('/')
-          }
-        }
+        await checkUserStatus(session.user)
       } else {
-        // If no user, make sure we're not showing loading state
         setLoading(false)
         setHasProfile(false)
         setHasOrganization(false)
 
-        // Only redirect to login if we're not already there
         if (!['/login', '/register', '/reset-password'].includes(window.location.pathname)) {
           setLocation('/login')
         }
@@ -58,6 +41,49 @@ export function useAuth() {
 
     return () => subscription.unsubscribe()
   }, [setLocation])
+
+  const checkUserStatus = async (user: User) => {
+    try {
+      // First check if user has an organization based on their email domain
+      const domain = user.email?.split('@')[1]
+      const { data: org, error: orgError } = await supabase
+        .from('organizations')
+        .select('*')
+        .eq('domain', domain)
+        .single()
+
+      if (orgError && orgError.code !== 'PGRST116') {
+        console.error('Error checking organization:', orgError)
+      }
+
+      // Then check if user has a profile
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .single()
+
+      if (profileError && profileError.code !== 'PGRST116') {
+        console.error('Error checking profile:', profileError)
+      }
+
+      const hasValidOrg = !!org
+      const hasValidProfile = !!profile
+
+      setHasOrganization(hasValidOrg)
+      setHasProfile(hasValidProfile)
+
+      if (!hasValidProfile || !hasValidOrg) {
+        setLocation('/profile-setup')
+      } else if (window.location.pathname === '/profile-setup') {
+        setLocation('/')
+      }
+    } catch (error) {
+      console.error('Error checking user status:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const signUp = async (email: string, password: string) => {
     try {
@@ -83,8 +109,6 @@ export function useAuth() {
         return
       }
 
-      console.log('Signup response:', data)
-
       if (data?.user?.identities?.length === 0) {
         toast({
           title: "Email already registered",
@@ -99,7 +123,6 @@ export function useAuth() {
         title: "Signup initiated",
         description: "We're setting up your account. Please check your email (including spam folder) for the verification link. This may take a few minutes."
       })
-
     } catch (error: any) {
       console.error('Unexpected signup error:', error)
       toast({
@@ -165,30 +188,6 @@ export function useAuth() {
         title: "Error signing out",
         description: error.message
       })
-      throw error
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const resetPassword = async (email: string) => {
-    try {
-      setLoading(true)
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/login`
-      })
-      if (error) throw error
-      toast({
-        title: "Check your email",
-        description: "If an account exists with this email, you will receive a password reset link."
-      })
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Error resetting password",
-        description: error.message
-      })
-      throw error
     } finally {
       setLoading(false)
     }
@@ -201,7 +200,6 @@ export function useAuth() {
     hasOrganization,
     signIn,
     signUp,
-    signOut,
-    resetPassword
+    signOut
   }
 }
