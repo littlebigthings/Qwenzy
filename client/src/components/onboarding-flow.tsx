@@ -11,6 +11,7 @@ import { Loader2, Upload, Building2, UserCircle, CheckCircle } from "lucide-reac
 import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import { useLocation } from "wouter"
+import { useAuth } from "@/hooks/use-auth"
 
 const steps = [
   {
@@ -202,7 +203,7 @@ export function OnboardingFlow() {
         description: "Profile completed successfully. Welcome aboard!",
       })
       setCurrentStep('complete')
-      
+
       // Redirect to home after a short delay
       setTimeout(() => {
         setLocation('/')
