@@ -7,7 +7,7 @@ type ProtectedProps = {
 }
 
 export function Protected({ children }: ProtectedProps) {
-  const { user, loading } = useAuthContext()
+  const { user, loading, hasProfile } = useAuthContext()
 
   if (loading) {
     return (
@@ -19,6 +19,11 @@ export function Protected({ children }: ProtectedProps) {
 
   if (!user) {
     return <Redirect to="/login" />
+  }
+
+  // If user is logged in but doesn't have a profile, redirect to profile setup
+  if (!hasProfile) {
+    return <Redirect to="/profile-setup" />
   }
 
   return <>{children}</>

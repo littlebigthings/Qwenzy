@@ -36,6 +36,15 @@ export function useAuth() {
         } else if (event === 'SIGNED_IN') {
           setLocation('/')
         }
+      } else {
+        // If no user, make sure we're not showing loading state
+        setLoading(false)
+        setHasProfile(false)
+
+        // Only redirect to login if we're not already there
+        if (!['/login', '/register', '/reset-password'].includes(window.location.pathname)) {
+          setLocation('/login')
+        }
       }
     })
 
