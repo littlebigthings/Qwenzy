@@ -111,11 +111,15 @@ export default function ProfileSetup() {
       }
 
       toast({
-        title: "Profile created",
-        description: "Your profile has been set up successfully",
+        title: "Profile created successfully! 🎉",
+        description: "Welcome to Qwenzy! You'll be redirected to your dashboard shortly.",
       });
 
-      setLocation('/');
+      // Add a small delay before redirecting to give user time to see the success message
+      setTimeout(() => {
+        setLocation('/');
+      }, 2000);
+
     } catch (error: any) {
       console.error('Profile setup error:', error);
       toast({
