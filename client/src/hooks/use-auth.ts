@@ -22,12 +22,11 @@ export function useAuth() {
       }
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth event:', event, session)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
 
       if (session?.user) {
-        await checkUserStatus(session.user)
+        checkUserStatus(session.user)
       } else {
         setLoading(false)
         setHasProfile(false)
@@ -44,8 +43,12 @@ export function useAuth() {
 
   const checkUserStatus = async (user: User) => {
     try {
-      // First check if user has an organization based on their email domain
       const domain = user.email?.split('@')[1]
+      if (!domain) {
+        throw new Error('Invalid email domain')
+      }
+
+      // Check for organization first
       const { data: org, error: orgError } = await supabase
         .from('organizations')
         .select('*')
@@ -56,7 +59,7 @@ export function useAuth() {
         console.error('Error checking organization:', orgError)
       }
 
-      // Then check if user has a profile
+      // Then check for profile
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
@@ -73,62 +76,21 @@ export function useAuth() {
       setHasOrganization(hasValidOrg)
       setHasProfile(hasValidProfile)
 
+      // Only redirect if we're on a path that requires these checks
+      const currentPath = window.location.pathname
       if (!hasValidProfile || !hasValidOrg) {
-        setLocation('/profile-setup')
-      } else if (window.location.pathname === '/profile-setup') {
+        if (currentPath !== '/profile-setup') {
+          setLocation('/profile-setup')
+        }
+      } else if (currentPath === '/profile-setup') {
         setLocation('/')
       }
     } catch (error) {
       console.error('Error checking user status:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const signUp = async (email: string, password: string) => {
-    try {
-      setLoading(true)
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/login`,
-          data: {
-            email_confirm_url: `${window.location.origin}/login`
-          }
-        }
-      })
-
-      if (error) {
-        console.error('Signup error:', error)
-        toast({
-          variant: "destructive",
-          title: "Error signing up",
-          description: error.message
-        })
-        return
-      }
-
-      if (data?.user?.identities?.length === 0) {
-        toast({
-          title: "Email already registered",
-          description: "This email is already registered. Please try logging in instead.",
-          variant: "destructive"
-        })
-        setLocation('/login')
-        return
-      }
-
-      toast({
-        title: "Signup initiated",
-        description: "We're setting up your account. Please check your email (including spam folder) for the verification link. This may take a few minutes."
-      })
-    } catch (error: any) {
-      console.error('Unexpected signup error:', error)
       toast({
         variant: "destructive",
-        title: "Error signing up",
-        description: "An unexpected error occurred. Please try again."
+        title: "Error",
+        description: "Failed to check user status"
       })
     } finally {
       setLoading(false)
@@ -172,11 +134,54 @@ export function useAuth() {
     }
   }
 
+  const signUp = async (email: string, password: string) => {
+    try {
+      setLoading(true)
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/login`,
+        }
+      })
+
+      if (error) throw error
+
+      if (data?.user?.identities?.length === 0) {
+        toast({
+          title: "Email already registered",
+          description: "This email is already registered. Please try logging in instead.",
+          variant: "destructive"
+        })
+        setLocation('/login')
+        return
+      }
+
+      toast({
+        title: "Signup initiated",
+        description: "Please check your email for the verification link."
+      })
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error signing up",
+        description: error.message
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const signOut = async () => {
     try {
       setLoading(true)
       const { error } = await supabase.auth.signOut()
       if (error) throw error
+
+      setUser(null)
+      setHasProfile(false)
+      setHasOrganization(false)
+
       toast({
         title: "Signed out",
         description: "You have been successfully signed out."

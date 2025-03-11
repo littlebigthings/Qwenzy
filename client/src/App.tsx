@@ -20,20 +20,20 @@ function Router() {
       <Route path="/reset-password" component={ResetPassword} />
 
       {/* Protected routes */}
-      <Route path="/">
-        <Protected>
-          <Home />
-        </Protected>
-      </Route>
-
       <Route path="/profile-setup">
         <Protected>
           <ProfileSetup />
         </Protected>
       </Route>
 
+      <Route path="/">
+        <Protected>
+          <Home />
+        </Protected>
+      </Route>
+
       {/* 404 route */}
-      <Route component={NotFound} />
+      <Route path="*" component={NotFound} />
     </Switch>
   )
 }

@@ -11,10 +11,13 @@ export function Protected({ children }: ProtectedProps) {
   const { user, loading, hasProfile, hasOrganization } = useAuthContext()
   const [location] = useLocation()
 
-  // Don't show loading state if we're already on a public route
-  const isPublicRoute = ['/login', '/register', '/reset-password'].includes(location)
+  // Always show login page if no user
+  if (!user) {
+    return <Redirect to="/login" />
+  }
 
-  if (loading && !isPublicRoute) {
+  // Show loading only during initial auth check
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="flex items-center gap-2">
@@ -25,14 +28,13 @@ export function Protected({ children }: ProtectedProps) {
     )
   }
 
-  if (!user) {
-    return <Redirect to="/login" />
-  }
-
-  // If user is logged in but doesn't have a profile or organization
-  // and they're not already on the profile setup page
-  if ((!hasProfile || !hasOrganization) && location !== '/profile-setup') {
-    return <Redirect to="/profile-setup" />
+  // Handle profile/organization setup routing
+  if (!hasProfile || !hasOrganization) {
+    if (location !== '/profile-setup') {
+      return <Redirect to="/profile-setup" />
+    }
+  } else if (location === '/profile-setup') {
+    return <Redirect to="/" />
   }
 
   return <>{children}</>
