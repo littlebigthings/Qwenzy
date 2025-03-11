@@ -14,6 +14,7 @@ export const profiles = pgTable("profiles", {
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
   email: text("email").notNull(),
+  jobTitle: text("job_title").notNull(),
   avatarUrl: text("avatar_url"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -28,6 +29,7 @@ export const insertProfileSchema = createInsertSchema(profiles).pick({
   firstName: true,
   lastName: true,
   email: true,
+  jobTitle: true,
   avatarUrl: true,
 });
 
