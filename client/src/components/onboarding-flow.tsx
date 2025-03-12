@@ -64,7 +64,7 @@ export function OnboardingFlow() {
   const [uploading, setUploading] = useState(false)
   const [organizationLogoUrl, setOrganizationLogoUrl] = useState<string | null>(null)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
-  const [foundOrganization, setFoundOrganization] = useState<any>(null)
+  const [organizationId, setOrganizationId] = useState<number | null>(null)
   const { toast } = useToast()
   const [, setLocation] = useLocation()
   const { user } = useAuth()
@@ -173,7 +173,7 @@ export function OnboardingFlow() {
     }
 
     if (org) {
-      setFoundOrganization(org)
+      setOrganizationId(org.id)
       // If organization exists, move to profile setup
       setCurrentStep('profile')
       toast({
@@ -189,7 +189,7 @@ export function OnboardingFlow() {
 
   const createOrganization = async (data: z.infer<typeof organizationSchema>) => {
     try {
-      const { error } = await supabase.from('organizations').insert({
+      const { data: newOrg, error } = await supabase.from('organizations').insert({
         name: data.name,
         domain: data.domain,
         logo_url: organizationLogoUrl,
@@ -197,12 +197,14 @@ export function OnboardingFlow() {
 
       if (error) throw error
 
+      setOrganizationId(newOrg.id)
       toast({
         title: "Success",
         description: "Organization created successfully",
       })
       setCurrentStep('profile')
     } catch (error: any) {
+      console.error('Organization creation error:', error)
       toast({
         variant: "destructive",
         title: "Error",
@@ -216,16 +218,21 @@ export function OnboardingFlow() {
       if (!user?.id) throw new Error("Missing user information")
       if (!user.email) throw new Error("Missing user email")
 
-      // Get organization based on email domain
-      const domain = user.email.split('@')[1]
-      const { data: org, error: orgError } = await supabase
-        .from('organizations')
-        .select('id')
-        .eq('domain', domain)
-        .single()
+      // Get organization ID - either from state or fetch it
+      let orgId = organizationId
+      if (!orgId) {
+        const domain = user.email.split('@')[1]
+        const { data: org, error: orgError } = await supabase
+          .from('organizations')
+          .select('id')
+          .eq('domain', domain)
+          .single()
 
-      if (orgError) throw new Error("Error fetching organization")
-      if (!org?.id) throw new Error("Organization not found")
+        if (orgError) throw new Error("Error fetching organization")
+        if (!org?.id) throw new Error("Organization not found")
+        orgId = org.id
+        setOrganizationId(orgId)
+      }
 
       const { error } = await supabase.from('profiles').insert({
         user_id: user.id,
@@ -234,21 +241,16 @@ export function OnboardingFlow() {
         job_title: data.jobTitle,
         email: user.email,
         avatar_url: avatarUrl,
-        organization_id: org.id,
+        organization_id: orgId,
       }).select().single()
 
       if (error) throw error
 
       toast({
         title: "Success!",
-        description: "Profile completed successfully. Welcome aboard!",
+        description: "Profile completed successfully",
       })
       setCurrentStep('team')
-
-      // Redirect to home after a short delay
-      setTimeout(() => {
-        setLocation('/')
-      }, 2000)
     } catch (error: any) {
       console.error('Profile completion error:', error)
       toast({
@@ -259,29 +261,15 @@ export function OnboardingFlow() {
     }
   }
 
-  const resetLogo = () => {
-    setOrganizationLogoUrl(null)
-  }
-
   const handleTeamInvites = async (data: z.infer<typeof teamInviteSchema>) => {
     try {
-      if (!user?.email) throw new Error("Missing user email")
-      const domain = user.email.split('@')[1]
-
-      // Get organization ID
-      const { data: org, error: orgError } = await supabase
-        .from('organizations')
-        .select('id')
-        .eq('domain', domain)
-        .single()
-
-      if (orgError) throw new Error("Error fetching organization")
-      if (!org?.id) throw new Error("Organization not found")
+      if (!organizationId) throw new Error("Organization not found")
+      if (!user?.id) throw new Error("User not found")
 
       // Insert invites into the invitations table
       const { error } = await supabase.from('invitations').insert(
         emails.map(email => ({
-          organization_id: org.id,
+          organization_id: organizationId,
           email,
           invited_by: user.id,
           auto_join: data.allowDomainJoin
@@ -308,6 +296,10 @@ export function OnboardingFlow() {
         description: error.message || "Error sending team invites",
       })
     }
+  }
+
+  const resetLogo = () => {
+    setOrganizationLogoUrl(null)
   }
 
   return (
@@ -346,100 +338,87 @@ export function OnboardingFlow() {
             <div className="flex-1">
               <Tabs value={currentStep} className="w-full">
                 <TabsContent value="org-setup">
-                  {foundOrganization ? (
-                    <div className="space-y-4">
-                      <h3 className="text-lg font-medium">Organization Found</h3>
-                      <div className="p-4 bg-gray-50 rounded-lg">
-                        <p className="font-medium">{foundOrganization.name}</p>
-                        <p className="text-sm text-gray-600">{foundOrganization.domain}</p>
+                  <Form {...orgForm}>
+                    <form onSubmit={orgForm.handleSubmit(createOrganization)} className="space-y-4">
+                      <FormField
+                        control={orgForm.control}
+                        name="name"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Organization Name</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Acme Inc." {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={orgForm.control}
+                        name="domain"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Domain</FormLabel>
+                            <FormControl>
+                              <Input {...field} disabled />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <div className="space-y-4">
+                        {organizationLogoUrl ? (
+                          <div className="relative w-32 h-32 mx-auto">
+                            <img
+                              src={organizationLogoUrl}
+                              alt="Organization logo"
+                              className="w-full h-full object-contain rounded-lg border border-gray-200"
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
+                              onClick={resetLogo}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <>
+                            <Input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => handleImageUpload(e, 'logo')}
+                              disabled={uploading}
+                              className="hidden"
+                              id="logo-upload"
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => document.getElementById('logo-upload')?.click()}
+                              disabled={uploading}
+                              className="w-full"
+                            >
+                              {uploading ? (
+                                <>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  Uploading...
+                                </>
+                              ) : (
+                                'Upload Organization Logo'
+                              )}
+                            </Button>
+                          </>
+                        )}
                       </div>
-                      <Button onClick={() => setCurrentStep('profile')}>
-                        Continue to Profile Setup
-                      </Button>
-                    </div>
-                  ) : (
-                    <Form {...orgForm}>
-                      <form onSubmit={orgForm.handleSubmit(createOrganization)} className="space-y-4">
-                        <FormField
-                          control={orgForm.control}
-                          name="name"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Organization Name</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Acme Inc." {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
 
-                        <FormField
-                          control={orgForm.control}
-                          name="domain"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Domain</FormLabel>
-                              <FormControl>
-                                <Input {...field} disabled />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <div className="space-y-4">
-                          {organizationLogoUrl ? (
-                            <div className="relative w-32 h-32 mx-auto">
-                              <img
-                                src={organizationLogoUrl}
-                                alt="Organization logo"
-                                className="w-full h-full object-contain rounded-lg border border-gray-200"
-                              />
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="icon"
-                                className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
-                                onClick={resetLogo}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ) : (
-                            <>
-                              <Input
-                                type="file"
-                                accept="image/*"
-                                onChange={(e) => handleImageUpload(e, 'logo')}
-                                disabled={uploading}
-                                className="hidden"
-                                id="logo-upload"
-                              />
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => document.getElementById('logo-upload')?.click()}
-                                disabled={uploading}
-                                className="w-full"
-                              >
-                                {uploading ? (
-                                  <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Uploading...
-                                  </>
-                                ) : (
-                                  'Upload Organization Logo'
-                                )}
-                              </Button>
-                            </>
-                          )}
-                        </div>
-
-                        <Button type="submit" className="w-full">Create Organization</Button>
-                      </form>
-                    </Form>
-                  )}
+                      <Button type="submit" className="w-full">Create Organization</Button>
+                    </form>
+                  </Form>
                 </TabsContent>
 
                 <TabsContent value="profile">
