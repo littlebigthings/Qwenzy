@@ -20,6 +20,17 @@ export const profiles = pgTable("profiles", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const invitations = pgTable("invitations", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").notNull(),
+  email: text("email").notNull(),
+  invitedBy: text("invited_by").notNull(),
+  autoJoin: boolean("auto_join").default(false).notNull(),
+  accepted: boolean("accepted").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at").defaultNow().notNull(),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -33,7 +44,16 @@ export const insertProfileSchema = createInsertSchema(profiles).pick({
   avatarUrl: true,
 });
 
+export const insertInvitationSchema = createInsertSchema(invitations).pick({
+  email: true,
+  organizationId: true,
+  invitedBy: true,
+  autoJoin: true,
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type Profile = typeof profiles.$inferSelect;
 export type InsertProfile = z.infer<typeof insertProfileSchema>;
+export type InsertInvitation = z.infer<typeof insertInvitationSchema>;
+export type Invitation = typeof invitations.$inferSelect;
