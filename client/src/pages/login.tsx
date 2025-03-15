@@ -1,6 +1,7 @@
 import { useAuth } from "@/hooks/use-auth"
 import { AuthForm } from "@/components/auth-form"
 import { Link } from "wouter"
+import logo from "../assets/logo.png"
 
 export default function Login() {
   const { signIn } = useAuth()
@@ -16,7 +17,7 @@ export default function Login() {
 
       <div className="w-full max-w-md text-center mb-8 relative">
         <img 
-          src="/client/src/assets/logo.png" 
+          src={logo} 
           alt="Qwenzy" 
           className="h-12 mx-auto"
         />
