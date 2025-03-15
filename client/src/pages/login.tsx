@@ -2,6 +2,7 @@ import { useAuth } from "@/hooks/use-auth"
 import { AuthForm } from "@/components/auth-form"
 import { Link } from "wouter"
 import logo from "../assets/logo.png"
+import bg from "../assets/bg.png"
 
 export default function Login() {
   const { signIn } = useAuth()
@@ -9,11 +10,13 @@ export default function Login() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 relative bg-[#f8fafc]">
       {/* Background Pattern */}
-      <div className="absolute inset-0 grid grid-cols-6 gap-4 p-8 opacity-5">
-        {Array(36).fill(null).map((_, i) => (
-          <div key={i} className="aspect-square rounded-lg bg-gray-400" />
-        ))}
-      </div>
+      <div 
+        className="absolute inset-0 bg-repeat opacity-5"
+        style={{
+          backgroundImage: `url(${bg})`,
+          backgroundSize: '800px',
+        }}
+      />
 
       <div className="w-full max-w-md text-center mb-8 relative">
         <img 
