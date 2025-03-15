@@ -1,12 +1,13 @@
 import { useAuth } from "@/hooks/use-auth"
 import { AuthForm } from "@/components/auth-form"
-import { Link } from "wouter"
+import { Link, useLocation } from "wouter"
 import { Card } from "@/components/ui/card"
 import logo from "../assets/logo.png"
 import { BackgroundPattern } from "@/components/background-pattern"
 
 export default function Register() {
   const { signUp } = useAuth()
+  const [, setLocation] = useLocation()
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-[#f8fafc] relative">
@@ -31,6 +32,7 @@ export default function Register() {
 
         <AuthForm mode="register" onSubmit={async ({ email, password }) => {
           await signUp(email, password)
+          setLocation('/verify-email')
         }} />
 
         <div className="mt-6 text-sm text-center">
