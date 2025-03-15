@@ -17,8 +17,26 @@ import { Checkbox } from "@/components/ui/checkbox"
 const formSchema = z.object({
   email: z.string().email("Invalid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
-  rememberMe: z.boolean().default(false)
-})
+  rememberMe: z.boolean().default(false),
+  confirmPassword: z.string().optional(),
+  acceptTerms: z.boolean().optional(),
+}).refine((data) => {
+  if (data.confirmPassword !== undefined) {
+    return data.password === data.confirmPassword
+  }
+  return true
+}, {
+  message: "Passwords do not match",
+  path: ["confirmPassword"],
+}).refine((data) => {
+  if (data.acceptTerms !== undefined) {
+    return data.acceptTerms === true
+  }
+  return true
+}, {
+  message: "You must accept the terms",
+  path: ["acceptTerms"],
+});
 
 type AuthFormProps = {
   mode: "login" | "register" | "reset"
@@ -33,7 +51,9 @@ export function AuthForm({ mode, onSubmit }: AuthFormProps) {
     defaultValues: {
       email: "",
       password: "",
-      rememberMe: false
+      rememberMe: false,
+      confirmPassword: "",
+      acceptTerms: false
     }
   })
 
@@ -65,54 +85,99 @@ export function AuthForm({ mode, onSubmit }: AuthFormProps) {
             </FormItem>
           )}
         />
-        {mode !== "reset" && (
-          <FormField
-            control={form.control}
-            name="password"
-            render={({ field }) => (
-              <FormItem>
-                <FormControl>
-                  <div className="relative">
-                    <Input 
-                      type="password" 
-                      placeholder="Password" 
-                      {...field}
-                      className="h-12 px-4 rounded-md border-gray-200 focus:border-[#407c87] focus:ring-[#407c87]" 
-                    />
-                    <a 
-                      href="/forgot-password" 
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[#407c87] hover:text-[#386d77]"
-                    >
-                      Forgot Password?
-                    </a>
-                  </div>
-                </FormControl>
-                <FormMessage className="mt-2 text-sm text-[#dc6571] bg-[#fef2f2] p-2 rounded" />
-              </FormItem>
-            )}
-          />
-        )}
 
         <FormField
           control={form.control}
-          name="rememberMe"
+          name="password"
           render={({ field }) => (
-            <div className="flex items-center">
-              <Checkbox
-                id="remember"
-                checked={field.value}
-                onCheckedChange={field.onChange}
-                className="border-gray-300 rounded"
-              />
-              <label
-                htmlFor="remember"
-                className="ml-2 text-sm text-gray-600"
-              >
-                Remember Me
-              </label>
-            </div>
+            <FormItem>
+              <FormControl>
+                <Input 
+                  type="password" 
+                  placeholder="Enter password" 
+                  {...field}
+                  className="h-12 px-4 rounded-md border-gray-200 focus:border-[#407c87] focus:ring-[#407c87]" 
+                />
+              </FormControl>
+              <FormMessage className="mt-2 text-sm text-[#dc6571] bg-[#fef2f2] p-2 rounded" />
+            </FormItem>
           )}
         />
+
+        {mode === "register" && (
+          <>
+            <FormField
+              control={form.control}
+              name="confirmPassword"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <Input 
+                      type="password" 
+                      placeholder="Confirm Password" 
+                      {...field}
+                      className="h-12 px-4 rounded-md border-gray-200 focus:border-[#407c87] focus:ring-[#407c87]" 
+                    />
+                  </FormControl>
+                  <FormMessage className="mt-2 text-sm text-[#dc6571] bg-[#fef2f2] p-2 rounded" />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="acceptTerms"
+              render={({ field }) => (
+                <div className="flex items-center">
+                  <Checkbox
+                    id="terms"
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    className="border-gray-300 rounded"
+                  />
+                  <label
+                    htmlFor="terms"
+                    className="ml-2 text-sm text-gray-600"
+                  >
+                    I agree to{" "}
+                    <a href="/privacy" className="text-[#407c87] hover:text-[#386d77]">
+                      privacy policy
+                    </a>
+                    {" & "}
+                    <a href="/terms" className="text-[#407c87] hover:text-[#386d77]">
+                      terms
+                    </a>
+                  </label>
+                </div>
+              )}
+            />
+          </>
+        )}
+
+        {mode === "login" && (
+          <>
+            <FormField
+              control={form.control}
+              name="rememberMe"
+              render={({ field }) => (
+                <div className="flex items-center">
+                  <Checkbox
+                    id="remember"
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    className="border-gray-300 rounded"
+                  />
+                  <label
+                    htmlFor="remember"
+                    className="ml-2 text-sm text-gray-600"
+                  >
+                    Remember Me
+                  </label>
+                </div>
+              )}
+            />
+          </>
+        )}
 
         <Button 
           type="submit" 
@@ -120,7 +185,7 @@ export function AuthForm({ mode, onSubmit }: AuthFormProps) {
           disabled={loading}
         >
           {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Sign in
+          {mode === "login" ? "Sign in" : "Sign up"}
         </Button>
       </form>
     </Form>
