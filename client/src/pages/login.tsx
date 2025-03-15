@@ -6,23 +6,38 @@ export default function Login() {
   const { signIn } = useAuth()
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gray-50">
-      <div className="w-full max-w-md text-center mb-8">
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent mb-2">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 relative bg-slate-50">
+      {/* Background Pattern */}
+      <div className="absolute inset-0 grid grid-cols-6 gap-4 p-8 opacity-10">
+        {Array(36).fill(null).map((_, i) => (
+          <div key={i} className="aspect-square rounded-lg bg-slate-200" />
+        ))}
+      </div>
+
+      <div className="w-full max-w-md text-center mb-8 relative">
+        <h1 className="text-4xl font-bold text-[#407c87] mb-2">
           Qwenzy
         </h1>
       </div>
-      <AuthForm mode="login" onSubmit={async ({ email, password }) => {
-        await signIn(email, password)
-      }} />
-      <div className="mt-4 text-sm text-gray-600">
-        <Link href="/register" className="text-blue-600 hover:underline">
-          Don't have an account? Sign up
-        </Link>
-        <span className="mx-2">•</span>
-        <Link href="/reset-password" className="text-blue-600 hover:underline">
-          Forgot password?
-        </Link>
+
+      <div className="w-full max-w-md bg-white rounded-lg shadow-sm p-8 relative">
+        <div className="text-center mb-8">
+          <h2 className="text-xl font-medium text-gray-900">Welcome to Qwenzy!</h2>
+          <p className="text-sm text-gray-500 mt-2">
+            Please sign in to your account and start the adventure
+          </p>
+        </div>
+
+        <AuthForm mode="login" onSubmit={async ({ email, password }) => {
+          await signIn(email, password)
+        }} />
+
+        <div className="mt-6 text-sm text-center space-x-1">
+          <span className="text-gray-500">New on our platform?</span>
+          <Link href="/register" className="text-[#407c87] hover:underline font-medium">
+            Create an account
+          </Link>
+        </div>
       </div>
     </div>
   )

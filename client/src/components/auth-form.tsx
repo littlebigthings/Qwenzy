@@ -7,11 +7,9 @@ import {
   FormControl,
   FormField,
   FormItem,
-  FormLabel,
   FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useState } from "react"
 import { Loader2 } from "lucide-react"
 
@@ -27,7 +25,7 @@ type AuthFormProps = {
 
 export function AuthForm({ mode, onSubmit }: AuthFormProps) {
   const [loading, setLoading] = useState(false)
-  
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -45,56 +43,53 @@ export function AuthForm({ mode, onSubmit }: AuthFormProps) {
     }
   }
 
-  const titles = {
-    login: { title: "Welcome back", description: "Enter your credentials to sign in" },
-    register: { title: "Create an account", description: "Enter your details to sign up" },
-    reset: { title: "Reset password", description: "Enter your email to receive a reset link" }
-  }
-
   return (
-    <Card className="w-full max-w-md mx-auto">
-      <CardHeader>
-        <CardTitle className="text-2xl font-bold">{titles[mode].title}</CardTitle>
-        <CardDescription>{titles[mode].description}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email</FormLabel>
-                  <FormControl>
-                    <Input placeholder="your@email.com" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            {mode !== "reset" && (
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <Input type="password" placeholder="••••••" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="email"
+          render={({ field }) => (
+            <FormItem>
+              <FormControl>
+                <Input 
+                  placeholder="Email" 
+                  {...field}
+                  className="h-12 px-4 rounded-md border-gray-200 focus:border-[#407c87] focus:ring-[#407c87]" 
+                />
+              </FormControl>
+              <FormMessage className="text-sm text-red-500" />
+            </FormItem>
+          )}
+        />
+        {mode !== "reset" && (
+          <FormField
+            control={form.control}
+            name="password"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  <Input 
+                    type="password" 
+                    placeholder="Password" 
+                    {...field}
+                    className="h-12 px-4 rounded-md border-gray-200 focus:border-[#407c87] focus:ring-[#407c87]" 
+                  />
+                </FormControl>
+                <FormMessage className="text-sm text-red-500" />
+              </FormItem>
             )}
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {mode === "login" ? "Sign In" : mode === "register" ? "Sign Up" : "Reset Password"}
-            </Button>
-          </form>
-        </Form>
-      </CardContent>
-    </Card>
+          />
+        )}
+        <Button 
+          type="submit" 
+          className="w-full h-12 bg-[#407c87] hover:bg-[#386d77] text-white font-medium rounded-md"
+          disabled={loading}
+        >
+          {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Sign in
+        </Button>
+      </form>
+    </Form>
   )
 }
