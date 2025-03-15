@@ -9,17 +9,19 @@ export default function Register() {
   const { signUp } = useAuth()
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-[#f8fafc]">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-[#f8fafc] relative">
       {/* Background Pattern */}
       <div 
-        className="absolute inset-0 bg-repeat opacity-5"
+        className="absolute inset-0 bg-repeat opacity-5 pointer-events-none"
         style={{
           backgroundImage: `url(${bg})`,
           backgroundSize: '800px',
+          zIndex: 0
         }}
       />
 
-      <div className="w-full max-w-md text-center mb-8">
+      {/* Content */}
+      <div className="relative z-10 w-full max-w-md text-center mb-8">
         <img 
           src={logo} 
           alt="Qwenzy" 
@@ -27,7 +29,7 @@ export default function Register() {
         />
       </div>
 
-      <Card className="w-full max-w-md p-8">
+      <Card className="relative z-10 w-full max-w-md p-8">
         <div className="text-center mb-8">
           <h2 className="text-2xl font-semibold text-gray-900">Welcome to Qwenzy</h2>
           <p className="text-base text-gray-600 mt-2">

@@ -11,14 +11,16 @@ export default function Login() {
     <div className="min-h-screen flex flex-col items-center justify-center p-4 relative bg-[#f8fafc]">
       {/* Background Pattern */}
       <div 
-        className="absolute inset-0 bg-repeat opacity-5"
+        className="absolute inset-0 bg-repeat opacity-5 pointer-events-none"
         style={{
           backgroundImage: `url(${bg})`,
           backgroundSize: '800px',
+          zIndex: 0
         }}
       />
 
-      <div className="w-full max-w-md text-center mb-8 relative">
+      {/* Content */}
+      <div className="relative z-10 w-full max-w-md text-center mb-8">
         <img 
           src={logo} 
           alt="Qwenzy" 
@@ -26,7 +28,7 @@ export default function Login() {
         />
       </div>
 
-      <div className="w-full max-w-md bg-white rounded-lg shadow-md p-8 relative">
+      <div className="relative z-10 w-full max-w-md bg-white rounded-lg shadow-md p-8">
         <div className="text-center mb-8">
           <h2 className="text-2xl font-semibold text-gray-900">Welcome to Qwenzy!</h2>
           <p className="text-base text-gray-600 mt-2">
