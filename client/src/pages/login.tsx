@@ -15,9 +15,11 @@ export default function Login() {
       </div>
 
       <div className="w-full max-w-md text-center mb-8 relative">
-        <h1 className="text-4xl font-bold text-[#407c87] mb-2">
-          Qwenzy
-        </h1>
+        <img 
+          src="/client/src/assets/logo.png" 
+          alt="Qwenzy" 
+          className="h-12 mx-auto"
+        />
       </div>
 
       <div className="w-full max-w-md bg-white rounded-lg shadow-sm p-8 relative">
