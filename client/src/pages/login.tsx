@@ -2,22 +2,14 @@ import { useAuth } from "@/hooks/use-auth"
 import { AuthForm } from "@/components/auth-form"
 import { Link } from "wouter"
 import logo from "../assets/logo.png"
-import bg from "../assets/bg.png"
+import { BackgroundPattern } from "@/components/background-pattern"
 
 export default function Login() {
   const { signIn } = useAuth()
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 relative bg-[#f8fafc]">
-      {/* Background Pattern */}
-      <div 
-        className="absolute inset-0 bg-repeat opacity-5 pointer-events-none"
-        style={{
-          backgroundImage: `url(${bg})`,
-          backgroundSize: '800px',
-          zIndex: 0
-        }}
-      />
+      <BackgroundPattern />
 
       {/* Content */}
       <div className="relative z-10 w-full max-w-md text-center mb-8">
