@@ -3,10 +3,10 @@ import bg from "../assets/bg.png"
 export function BackgroundPattern() {
   return (
     <div 
-      className="fixed inset-0 bg-repeat opacity-[0.03] pointer-events-none"
+      className="fixed pointer-events-none"
       style={{
         backgroundImage: `url(${bg})`,
-        backgroundSize: '800px',
+        backgroundSize: '100%',
         backgroundPosition: 'center',
         zIndex: 0
       }}
