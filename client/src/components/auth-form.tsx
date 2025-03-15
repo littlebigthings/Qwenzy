@@ -12,10 +12,12 @@ import {
 import { Input } from "@/components/ui/input"
 import { useState } from "react"
 import { Loader2 } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
 
 const formSchema = z.object({
   email: z.string().email("Invalid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters")
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  rememberMe: z.boolean().default(false)
 })
 
 type AuthFormProps = {
@@ -30,7 +32,8 @@ export function AuthForm({ mode, onSubmit }: AuthFormProps) {
     resolver: zodResolver(formSchema),
     defaultValues: {
       email: "",
-      password: ""
+      password: "",
+      rememberMe: false
     }
   })
 
@@ -45,7 +48,7 @@ export function AuthForm({ mode, onSubmit }: AuthFormProps) {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
         <FormField
           control={form.control}
           name="email"
@@ -58,7 +61,7 @@ export function AuthForm({ mode, onSubmit }: AuthFormProps) {
                   className="h-12 px-4 rounded-md border-gray-200 focus:border-[#407c87] focus:ring-[#407c87]" 
                 />
               </FormControl>
-              <FormMessage className="text-sm text-red-500" />
+              <FormMessage className="mt-2 text-sm text-[#dc6571] bg-[#fef2f2] p-2 rounded" />
             </FormItem>
           )}
         />
@@ -69,18 +72,48 @@ export function AuthForm({ mode, onSubmit }: AuthFormProps) {
             render={({ field }) => (
               <FormItem>
                 <FormControl>
-                  <Input 
-                    type="password" 
-                    placeholder="Password" 
-                    {...field}
-                    className="h-12 px-4 rounded-md border-gray-200 focus:border-[#407c87] focus:ring-[#407c87]" 
-                  />
+                  <div className="relative">
+                    <Input 
+                      type="password" 
+                      placeholder="Password" 
+                      {...field}
+                      className="h-12 px-4 rounded-md border-gray-200 focus:border-[#407c87] focus:ring-[#407c87]" 
+                    />
+                    <a 
+                      href="/forgot-password" 
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[#407c87] hover:text-[#386d77]"
+                    >
+                      Forgot Password?
+                    </a>
+                  </div>
                 </FormControl>
-                <FormMessage className="text-sm text-red-500" />
+                <FormMessage className="mt-2 text-sm text-[#dc6571] bg-[#fef2f2] p-2 rounded" />
               </FormItem>
             )}
           />
         )}
+
+        <FormField
+          control={form.control}
+          name="rememberMe"
+          render={({ field }) => (
+            <div className="flex items-center">
+              <Checkbox
+                id="remember"
+                checked={field.value}
+                onCheckedChange={field.onChange}
+                className="border-gray-300 rounded"
+              />
+              <label
+                htmlFor="remember"
+                className="ml-2 text-sm text-gray-600"
+              >
+                Remember Me
+              </label>
+            </div>
+          )}
+        />
+
         <Button 
           type="submit" 
           className="w-full h-12 bg-[#407c87] hover:bg-[#386d77] text-white font-medium rounded-md"
