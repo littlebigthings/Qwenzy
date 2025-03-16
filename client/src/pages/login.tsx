@@ -33,8 +33,20 @@ export default function Login() {
       if (!email || !password) {
         throw new Error("Email and password are required");
       }
-      await signIn(email, password);
-      console.log("Login successful");
+      const result = await signIn(email, password);
+      console.log("Login response:", result);
+      
+      if (result?.error) {
+        throw result.error;
+      }
+      
+      console.log("Login successful, redirecting...");
+      toast({
+        title: "Success",
+        description: "Login successful!",
+      });
+      setLocation("/");
+      
     } catch (error: any) {
       console.error("Login error details:", {
         message: error.message,
