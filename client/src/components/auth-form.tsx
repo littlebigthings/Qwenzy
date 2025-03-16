@@ -14,13 +14,12 @@ import { useState } from "react"
 import { Loader2 } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { useToast } from "@/hooks/use-toast"
+import { Link } from "wouter"
 
 const formSchema = z.object({
   email: z.string().email("Invalid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   rememberMe: z.boolean().default(false),
-  confirmPassword: z.string().optional(),
-  acceptTerms: z.boolean().optional(),
 })
 
 type AuthFormProps = {
@@ -37,9 +36,7 @@ export function AuthForm({ mode, onSubmit }: AuthFormProps) {
     defaultValues: {
       email: "",
       password: "",
-      rememberMe: false,
-      confirmPassword: "",
-      acceptTerms: false
+      rememberMe: false
     }
   })
 
@@ -88,7 +85,7 @@ export function AuthForm({ mode, onSubmit }: AuthFormProps) {
                   className="h-12 px-4 rounded-md border-gray-200 focus:border-[#407c87] focus:ring-[#407c87]"
                 />
               </FormControl>
-              <FormMessage />
+              <FormMessage className="text-sm text-red-500" />
             </FormItem>
           )}
         />
@@ -107,60 +104,20 @@ export function AuthForm({ mode, onSubmit }: AuthFormProps) {
                   className="h-12 px-4 rounded-md border-gray-200 focus:border-[#407c87] focus:ring-[#407c87]"
                 />
               </FormControl>
-              <FormMessage />
+              <FormMessage className="text-sm text-red-500" />
+              {mode === "login" && (
+                <div className="flex justify-end">
+                  <Link 
+                    href="/forgot-password"
+                    className="text-sm text-[#407c87] hover:text-[#386d77]"
+                  >
+                    Forgot Password?
+                  </Link>
+                </div>
+              )}
             </FormItem>
           )}
         />
-
-        {mode === "register" && (
-          <>
-            <FormField
-              control={form.control}
-              name="confirmPassword"
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <Input
-                      type="password"
-                      placeholder="Confirm Password"
-                      {...field}
-                      className="h-12 px-4 rounded-md border-gray-200 focus:border-[#407c87] focus:ring-[#407c87]"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="acceptTerms"
-              render={({ field }) => (
-                <div className="flex items-center">
-                  <Checkbox
-                    id="terms"
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                    className="border-gray-300 rounded"
-                  />
-                  <label
-                    htmlFor="terms"
-                    className="ml-2 text-sm text-gray-600"
-                  >
-                    I agree to{" "}
-                    <a href="/privacy" className="text-[#407c87] hover:text-[#386d77]">
-                      privacy policy
-                    </a>
-                    {" & "}
-                    <a href="/terms" className="text-[#407c87] hover:text-[#386d77]">
-                      terms
-                    </a>
-                  </label>
-                </div>
-              )}
-            />
-          </>
-        )}
 
         {mode === "login" && (
           <FormField

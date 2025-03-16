@@ -63,6 +63,19 @@ export function useAuth() {
         throw new Error('Email and password are required')
       }
 
+      // First check if the email exists
+      const { data: { users }, error: usersError } = await supabase.auth.admin.listUsers({
+        filter: {
+          email: email
+        }
+      })
+
+      if (usersError) throw usersError
+
+      if (!users || users.length === 0) {
+        throw new Error('Email address is not registered')
+      }
+
       // Attempt sign in
       console.log('[useAuth] Calling Supabase auth.signInWithPassword...')
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -78,7 +91,12 @@ export function useAuth() {
         timestamp: new Date().toISOString()
       })
 
-      if (error) throw error
+      if (error) {
+        if (error.message.includes('Invalid login credentials')) {
+          throw new Error('Password is incorrect')
+        }
+        throw error
+      }
 
       if (data?.user) {
         console.log('[useAuth] Successfully signed in user:', {
@@ -106,7 +124,38 @@ export function useAuth() {
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message || "Failed to sign in"
+        description: error.message
+      })
+      throw error
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const signUp = async (email: string, password: string) => {
+    try {
+      setLoading(true)
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/verify-email`
+        }
+      })
+
+      if (error) throw error
+
+      toast({
+        title: "Success",
+        description: "Please check your email to verify your account"
+      })
+
+      return data.user
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message
       })
       throw error
     } finally {
@@ -117,6 +166,7 @@ export function useAuth() {
   return {
     user,
     loading,
-    signIn
+    signIn,
+    signUp
   }
 }
