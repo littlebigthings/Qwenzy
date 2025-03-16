@@ -33,11 +33,15 @@ export default function Login() {
       if (!email || !password) {
         throw new Error("Email and password are required");
       }
-      const result = await signIn(email, password);
-      console.log("Login response:", result);
+      const { data: signInData, error: signInError } = await signIn(email, password);
+      console.log("Login attempt:", { signInData, signInError });
       
-      if (result?.error) {
-        throw result.error;
+      if (signInError) {
+        throw new Error(signInError.message);
+      }
+      
+      if (!signInData?.session) {
+        throw new Error("No session returned after login");
       }
       
       console.log("Login successful, redirecting...");
@@ -45,7 +49,7 @@ export default function Login() {
         title: "Success",
         description: "Login successful!",
       });
-      setLocation("/");
+      window.location.href = "/";
       
     } catch (error: any) {
       console.error("Login error details:", {
