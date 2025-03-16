@@ -29,14 +29,22 @@ export default function Login() {
     if (loading) return;
 
     try {
-      console.log("Login form submitted for:", email);
+      console.log("Login attempt starting for:", email);
+      if (!email || !password) {
+        throw new Error("Email and password are required");
+      }
       await signIn(email, password);
+      console.log("Login successful");
     } catch (error: any) {
-      console.error("Login error:", error);
+      console.error("Login error details:", {
+        message: error.message,
+        code: error.code,
+        status: error.status
+      });
       toast({
         variant: "destructive",
         title: "Login failed",
-        description: error.message || "Failed to sign in. Please try again.",
+        description: error.message || "Failed to sign in. Please check your credentials and try again.",
       });
     }
   };
