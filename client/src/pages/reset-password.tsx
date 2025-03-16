@@ -3,7 +3,6 @@ import { useLocation } from 'wouter'
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { useToast } from "@/hooks/use-toast"
 import { supabase } from "@/lib/supabase"
 import logo from "../assets/logo.png"
 import { BackgroundPattern } from "@/components/background-pattern"
@@ -12,14 +11,16 @@ export default function ResetPassword() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [isSuccess, setIsSuccess] = useState(false)
   const [, setLocation] = useLocation()
-  const { toast } = useToast()
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault()
 
     try {
       setLoading(true)
+      setError('')
 
       if (password !== confirmPassword) {
         throw new Error('Passwords do not match')
@@ -31,24 +32,48 @@ export default function ResetPassword() {
 
       if (error) throw error
 
-      toast({
-        title: "Success",
-        description: "Your password has been updated successfully"
-      })
-
-      // Redirect to login
-      setLocation('/login')
+      setIsSuccess(true)
 
     } catch (error: any) {
       console.error('Reset password error:', error)
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message || "Failed to reset password"
-      })
+      setError(error.message || "Failed to reset password")
     } finally {
       setLoading(false)
     }
+  }
+
+  if (isSuccess) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-[#f8fafc]">
+        <BackgroundPattern />
+
+        <div className="relative z-10 w-full max-w-md text-center mb-8">
+          <img 
+            src={logo} 
+            alt="Qwenzy" 
+            className="h-8 mx-auto mb-8"
+          />
+        </div>
+
+        <Card className="relative z-10 w-full max-w-md p-8">
+          <div className="text-center">
+            <h2 className="text-xl font-semibold text-gray-900">Password Updated Successfully</h2>
+            <p className="text-gray-600 mt-2">
+              Your password has been changed successfully. You can now log in using your new password.
+            </p>
+          </div>
+
+          <div className="mt-6">
+            <Button
+              onClick={() => setLocation('/login')}
+              className="w-full h-12 bg-[#407c87] hover:bg-[#386d77] text-white font-medium rounded-md"
+            >
+              Log in
+            </Button>
+          </div>
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -72,6 +97,12 @@ export default function ResetPassword() {
         </div>
 
         <form onSubmit={handleResetPassword} className="space-y-6">
+          {error && (
+            <div className="p-4 rounded-md bg-red-50 text-red-500 text-sm">
+              {error}
+            </div>
+          )}
+
           <Input
             type="password"
             placeholder="New Password"

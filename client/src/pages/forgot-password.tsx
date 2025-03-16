@@ -1,24 +1,24 @@
-import { AuthForm } from "@/components/auth-form"
+import { useState } from "react"
 import { Link } from "wouter"
 import { Card } from "@/components/ui/card"
-import logo from "../assets/logo.png"
-import { BackgroundPattern } from "@/components/background-pattern"
-import { useToast } from "@/hooks/use-toast"
-import { supabase } from "@/lib/supabase"
-import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { supabase } from "@/lib/supabase"
+import logo from "../assets/logo.png"
+import { BackgroundPattern } from "@/components/background-pattern"
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("")
   const [loading, setLoading] = useState(false)
-  const { toast } = useToast()
+  const [error, setError] = useState("")
+  const [isEmailSent, setIsEmailSent] = useState(false)
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     try {
       setLoading(true)
+      setError("")
       console.log('[ForgotPassword] Sending reset password email to:', email)
 
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -27,21 +27,45 @@ export default function ForgotPassword() {
 
       if (error) throw error
 
-      toast({
-        title: "Email sent",
-        description: "Check your email for the password reset link",
-      })
+      setIsEmailSent(true)
 
     } catch (error: any) {
       console.error('[ForgotPassword] Error:', error)
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message || "Failed to send reset email"
-      })
+      setError(error.message || "Failed to send reset email")
     } finally {
       setLoading(false)
     }
+  }
+
+  if (isEmailSent) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-[#f8fafc]">
+        <BackgroundPattern />
+
+        <div className="relative z-10 w-full max-w-md text-center mb-8">
+          <img 
+            src={logo} 
+            alt="Qwenzy" 
+            className="h-8 mx-auto mb-8"
+          />
+        </div>
+
+        <Card className="relative z-10 w-full max-w-md p-8">
+          <div className="text-center">
+            <h2 className="text-xl font-semibold text-gray-900">Email sent</h2>
+            <p className="text-gray-600 mt-2">
+              Check your email for the password reset link
+            </p>
+          </div>
+
+          <div className="mt-6 text-center">
+            <Link href="/login" className="text-[#407c87] hover:text-[#386d77] font-medium">
+              Back to log in
+            </Link>
+          </div>
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -65,6 +89,12 @@ export default function ForgotPassword() {
         </div>
 
         <form onSubmit={handleResetPassword} className="space-y-6">
+          {error && (
+            <div className="p-4 rounded-md bg-red-50 text-red-500 text-sm">
+              {error}
+            </div>
+          )}
+
           <Input
             type="email"
             placeholder="Enter your email"
