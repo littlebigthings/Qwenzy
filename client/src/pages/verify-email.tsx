@@ -16,7 +16,7 @@ export default function VerifyEmail() {
       <BackgroundPattern />
 
       {/* Content */}
-      <div className="relative z-10 w-full max-w-md">
+      <div className="relative z-10 w-full max-w-md text-center mb-8">
         <img 
           src={logo} 
           alt="Qwenzy" 
