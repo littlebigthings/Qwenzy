@@ -11,23 +11,35 @@ export function useAuth() {
   const [, setLocation] = useLocation()
 
   useEffect(() => {
+    console.log('Initializing auth hook...')
+
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('Initial auth check:', session?.user?.email)
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      console.log('Initial session check:', {
+        hasSession: !!session,
+        userEmail: session?.user?.email,
+        error: error?.message
+      })
+
       setUser(session?.user ?? null)
       setLoading(false)
     })
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth state changed:', event, session?.user?.email)
+      console.log('Auth state changed:', {
+        event,
+        userEmail: session?.user?.email,
+        timestamp: new Date().toISOString()
+      })
+
       setUser(session?.user ?? null)
 
       if (event === 'SIGNED_IN') {
-        console.log('User signed in:', session?.user?.email)
+        console.log('Sign in successful, redirecting to home')
         setLocation('/')
       } else if (event === 'SIGNED_OUT') {
-        console.log('User signed out')
+        console.log('Sign out detected, redirecting to login')
         setLocation('/login')
       }
     })
@@ -37,29 +49,47 @@ export function useAuth() {
 
   const signIn = async (email: string, password: string) => {
     try {
+      console.log('Starting sign in process for:', email)
       setLoading(true)
-      console.log('Attempting sign in:', email)
 
+      // Check if we have the required data
+      if (!email || !password) {
+        throw new Error('Email and password are required')
+      }
+
+      // Attempt to sign in
+      console.log('Calling Supabase auth.signInWithPassword...')
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
       })
 
-      if (error) {
-        console.error('Sign in error:', error)
-        throw error
-      }
+      console.log('Sign in response:', {
+        success: !error,
+        hasUser: !!data?.user,
+        error: error?.message,
+        sessionStatus: data?.session ? 'Present' : 'Missing'
+      })
+
+      if (error) throw error
 
       if (data?.user) {
-        console.log('Sign in successful:', data.user.email)
+        console.log('Sign in successful for:', data.user.email)
         toast({
           title: "Success",
           description: "Successfully signed in!"
         })
+      } else {
+        throw new Error('No user data received after successful sign in')
       }
 
     } catch (error: any) {
-      console.error('Sign in error:', error)
+      console.error('Sign in error:', {
+        message: error.message,
+        code: error.code,
+        status: error.status
+      })
+
       toast({
         variant: "destructive",
         title: "Error",
@@ -73,8 +103,8 @@ export function useAuth() {
 
   const signUp = async (email: string, password: string) => {
     try {
+      console.log('Starting sign up process for:', email)
       setLoading(true)
-      console.log('Attempting sign up:', email)
 
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -84,10 +114,14 @@ export function useAuth() {
         }
       })
 
-      if (error) {
-        console.error('Sign up error:', error)
-        throw error
-      }
+      console.log('Sign up response:', {
+        success: !error,
+        hasUser: !!data?.user,
+        error: error?.message,
+        identitiesLength: data?.user?.identities?.length
+      })
+
+      if (error) throw error
 
       if (data?.user) {
         if (data.user.identities?.length === 0) {
@@ -103,7 +137,12 @@ export function useAuth() {
       }
 
     } catch (error: any) {
-      console.error('Sign up error:', error)
+      console.error('Sign up error:', {
+        message: error.message,
+        code: error.code,
+        status: error.status
+      })
+
       toast({
         variant: "destructive",
         title: "Error",
