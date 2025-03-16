@@ -30,7 +30,7 @@ export default function VerifyEmail() {
           <p className="text-base text-gray-600 mt-4">
             Account activation link sent to your email address:
             <br />
-            <span className="font-medium">{email}</span>
+            <span className="font-medium text-gray-900 mt-2 block">{email}</span>
             <br />
             Please follow the link inside to continue.
           </p>
