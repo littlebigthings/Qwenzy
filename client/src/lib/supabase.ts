@@ -11,26 +11,26 @@ console.log('Initializing Supabase client with URL:', supabaseUrl)
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    persistSession: true,
     storageKey: 'qwenzy-auth-token',
     autoRefreshToken: true,
-    detectSessionInUrl: true,
-    flowType: 'pkce',
-    debug: true
+    persistSession: true,
+    detectSessionInUrl: false
   }
 })
 
-// Log initial auth state (Replaced with onAuthStateChange)
-supabase.auth.onAuthStateChange((event, session) => {
-  console.log('Auth state changed:', event, session ? 'User logged in' : 'No session')
-  if (session?.user) {
-    console.log('Logged in user:', session.user.email)
-  }
-})
+// Test Supabase connection and log initial auth state
+const initializeSupabase = async () => {
+  try {
+    // Check initial session
+    const { data: { session } } = await supabase.auth.getSession()
+    console.log('Initial auth state:', session ? 'Logged in' : 'No session')
 
-// Test Supabase connection
-supabase.from('profiles').select('count').then(() => {
-  console.log('Successfully connected to Supabase')
-}).catch(error => {
-  console.error('Supabase connection error:', error)
-})
+    if (session?.user) {
+      console.log('User is authenticated:', session.user.email)
+    }
+  } catch (error) {
+    console.error('Supabase initialization error:', error)
+  }
+}
+
+initializeSupabase()

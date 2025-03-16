@@ -34,7 +34,7 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 relative bg-[#f8fafc]">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-[#f8fafc]">
       <BackgroundPattern />
 
       {/* Content */}
@@ -56,8 +56,8 @@ export default function Login() {
 
         <AuthForm mode="login" onSubmit={handleLogin} />
 
-        <div className="mt-6 text-sm text-center space-x-1">
-          <span className="text-gray-600">New on our platform?</span>
+        <div className="mt-6 text-sm text-center">
+          <span className="text-gray-600">New on our platform?</span>{" "}
           <Link href="/register" className="text-[#407c87] hover:text-[#386d77] font-medium">
             Create an account
           </Link>
