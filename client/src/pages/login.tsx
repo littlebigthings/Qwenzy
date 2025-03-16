@@ -29,6 +29,7 @@ export default function Login() {
         </div>
 
         <AuthForm mode="login" onSubmit={async ({ email, password }) => {
+          console.log('Attempting to sign in...')
           await signIn(email, password)
         }} />
 

@@ -58,9 +58,11 @@ export function AuthForm({ mode, onSubmit }: AuthFormProps) {
   })
 
   const handleSubmit = async (data: z.infer<typeof formSchema>) => {
-    setLoading(true)
     try {
+      setLoading(true)
       await onSubmit(data)
+    } catch (error) {
+      console.error('Form submission error:', error)
     } finally {
       setLoading(false)
     }
@@ -75,10 +77,10 @@ export function AuthForm({ mode, onSubmit }: AuthFormProps) {
           render={({ field }) => (
             <FormItem>
               <FormControl>
-                <Input 
-                  placeholder="Email" 
+                <Input
+                  placeholder="Email"
                   {...field}
-                  className="h-12 px-4 rounded-md border-gray-200 focus:border-[#407c87] focus:ring-[#407c87]" 
+                  className="h-12 px-4 rounded-md border-gray-200 focus:border-[#407c87] focus:ring-[#407c87]"
                 />
               </FormControl>
               <FormMessage className="mt-2 text-sm text-[#dc6571] bg-[#fef2f2] p-2 rounded" />
@@ -92,11 +94,11 @@ export function AuthForm({ mode, onSubmit }: AuthFormProps) {
           render={({ field }) => (
             <FormItem>
               <FormControl>
-                <Input 
-                  type="password" 
-                  placeholder="Enter password" 
+                <Input
+                  type="password"
+                  placeholder="Enter password"
                   {...field}
-                  className="h-12 px-4 rounded-md border-gray-200 focus:border-[#407c87] focus:ring-[#407c87]" 
+                  className="h-12 px-4 rounded-md border-gray-200 focus:border-[#407c87] focus:ring-[#407c87]"
                 />
               </FormControl>
               <FormMessage className="mt-2 text-sm text-[#dc6571] bg-[#fef2f2] p-2 rounded" />
@@ -112,11 +114,11 @@ export function AuthForm({ mode, onSubmit }: AuthFormProps) {
               render={({ field }) => (
                 <FormItem>
                   <FormControl>
-                    <Input 
-                      type="password" 
-                      placeholder="Confirm Password" 
+                    <Input
+                      type="password"
+                      placeholder="Confirm Password"
                       {...field}
-                      className="h-12 px-4 rounded-md border-gray-200 focus:border-[#407c87] focus:ring-[#407c87]" 
+                      className="h-12 px-4 rounded-md border-gray-200 focus:border-[#407c87] focus:ring-[#407c87]"
                     />
                   </FormControl>
                   <FormMessage className="mt-2 text-sm text-[#dc6571] bg-[#fef2f2] p-2 rounded" />
@@ -179,8 +181,8 @@ export function AuthForm({ mode, onSubmit }: AuthFormProps) {
           </>
         )}
 
-        <Button 
-          type="submit" 
+        <Button
+          type="submit"
           className="w-full h-12 bg-[#407c87] hover:bg-[#386d77] text-white font-medium rounded-md"
           disabled={loading}
         >
