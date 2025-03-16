@@ -4,13 +4,12 @@ import { Link, useLocation } from "wouter"
 import { Card } from "@/components/ui/card"
 import logo from "../assets/logo.png"
 import { BackgroundPattern } from "@/components/background-pattern"
-import { useEffect } from "react"
-import { useToast } from "@/hooks/use-toast"
+import { useEffect, useState } from "react"
 
 export default function Login() {
   const { signIn, user, loading } = useAuth()
   const [, setLocation] = useLocation()
-  const { toast } = useToast()
+  const [error, setError] = useState<string>("")
 
   useEffect(() => {
     console.log("[LoginPage] Page mounted, auth state:", {
@@ -26,16 +25,16 @@ export default function Login() {
   }, [user, setLocation])
 
   const handleLogin = async ({ email, password }: { email: string; password: string }) => {
-    console.log("clicked", email, password)
     if (loading) {
       console.log("[LoginPage] Login attempted while loading, ignoring")
       return
     }
 
     try {
+      setError("")
       console.log("[LoginPage] Login attempt started:", {
         email,
-        timestamp: new Date().toISOString(),
+        timestamp: new Date().toISOString()
       })
 
       if (!email || !password) {
@@ -45,24 +44,21 @@ export default function Login() {
       console.log("[LoginPage] Calling signIn function")
       await signIn(email, password)
 
-      console.log("[LoginPage] Login successful, redirecting...")
-      toast({
-        title: "Success",
-        description: "Login successful!",
-      })
     } catch (error: any) {
       console.error("[LoginPage] Login error:", {
         message: error.message,
         code: error.code,
         status: error.status,
-        timestamp: new Date().toISOString(),
+        timestamp: new Date().toISOString()
       })
 
-      toast({
-        variant: "destructive",
-        title: "Login failed",
-        description: error.message || "Failed to sign in. Please try again.",
-      })
+      if (error.message.includes('not registered')) {
+        setError("User not allowed")
+      } else if (error.message.includes('incorrect')) {
+        setError("Login failed")
+      } else {
+        setError(error.message)
+      }
     }
   }
 
@@ -86,7 +82,7 @@ export default function Login() {
           </p>
         </div>
 
-        <AuthForm mode="login" onSubmit={handleLogin} />
+        <AuthForm mode="login" onSubmit={handleLogin} error={error} />
 
         <div className="mt-6 text-sm text-center">
           <span className="text-gray-600">New on our platform?</span>{" "}

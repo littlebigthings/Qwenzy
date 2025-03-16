@@ -13,7 +13,6 @@ import { Input } from "@/components/ui/input"
 import { useState } from "react"
 import { Loader2 } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
-import { useToast } from "@/hooks/use-toast"
 import { Link } from "wouter"
 
 const formSchema = z.object({
@@ -25,11 +24,11 @@ const formSchema = z.object({
 type AuthFormProps = {
   mode: "login" | "register" | "reset"
   onSubmit: (data: { email: string; password: string }) => Promise<void>
+  error?: string
 }
 
-export function AuthForm({ mode, onSubmit }: AuthFormProps) {
+export function AuthForm({ mode, onSubmit, error }: AuthFormProps) {
   const [loading, setLoading] = useState(false)
-  const { toast } = useToast()
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -55,11 +54,7 @@ export function AuthForm({ mode, onSubmit }: AuthFormProps) {
       })
     } catch (error: any) {
       console.error('[AuthForm] Form submission error:', error)
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message || "An unexpected error occurred"
-      })
+      // Let the parent component handle the error display
     } finally {
       setLoading(false)
     }
@@ -71,6 +66,12 @@ export function AuthForm({ mode, onSubmit }: AuthFormProps) {
         onSubmit={form.handleSubmit(onFormSubmit)}
         className="space-y-6"
       >
+        {error && (
+          <div className="p-4 rounded-md bg-red-50 text-red-500 text-sm">
+            {error}
+          </div>
+        )}
+
         <FormField
           control={form.control}
           name="email"
@@ -106,7 +107,7 @@ export function AuthForm({ mode, onSubmit }: AuthFormProps) {
               </FormControl>
               <FormMessage className="text-sm text-red-500" />
               {mode === "login" && (
-                <div className="flex justify-end">
+                <div className="flex justify-end mt-1">
                   <Link 
                     href="/forgot-password"
                     className="text-sm text-[#407c87] hover:text-[#386d77]"

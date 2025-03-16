@@ -1,13 +1,11 @@
 import { useEffect, useState } from 'react'
 import { User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
-import { useToast } from '@/hooks/use-toast'
 import { useLocation } from 'wouter'
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
-  const { toast } = useToast()
   const [, setLocation] = useLocation()
 
   useEffect(() => {
@@ -63,7 +61,7 @@ export function useAuth() {
         throw new Error('Email and password are required')
       }
 
-      // First check if the email exists
+      // First check if email exists
       const { data: { users }, error: usersError } = await supabase.auth.admin.listUsers({
         filter: {
           email: email
@@ -98,18 +96,7 @@ export function useAuth() {
         throw error
       }
 
-      if (data?.user) {
-        console.log('[useAuth] Successfully signed in user:', {
-          email: data.user.email,
-          id: data.user.id,
-          timestamp: new Date().toISOString()
-        })
-
-        toast({
-          title: "Success",
-          description: "Successfully signed in!"
-        })
-      } else {
+      if (!data?.user) {
         throw new Error('No user data received after successful sign in')
       }
 
@@ -119,12 +106,6 @@ export function useAuth() {
         code: error.code,
         status: error.status,
         timestamp: new Date().toISOString()
-      })
-
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message
       })
       throw error
     } finally {
@@ -145,18 +126,12 @@ export function useAuth() {
 
       if (error) throw error
 
-      toast({
-        title: "Success",
-        description: "Please check your email to verify your account"
-      })
+      if (data?.user?.identities?.length === 0) {
+        throw new Error('Email already registered. Please sign in instead.')
+      }
 
       return data.user
     } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message
-      })
       throw error
     } finally {
       setLoading(false)
