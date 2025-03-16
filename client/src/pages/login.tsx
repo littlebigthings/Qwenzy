@@ -11,9 +11,15 @@ export default function Login() {
 
   useEffect(() => {
     if (user) {
+      console.log('User already logged in, redirecting to home')
       setLocation('/')
     }
   }, [user, setLocation])
+
+  const handleLogin = async ({ email, password }: { email: string; password: string }) => {
+    console.log('Login form submitted for:', email)
+    await signIn(email, password)
+  }
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 relative bg-[#f8fafc]">
@@ -36,10 +42,7 @@ export default function Login() {
           </p>
         </div>
 
-        <AuthForm mode="login" onSubmit={async ({ email, password }) => {
-          console.log('Login form submitted')
-          await signIn(email, password)
-        }} />
+        <AuthForm mode="login" onSubmit={handleLogin} />
 
         <div className="mt-6 text-sm text-center space-x-1">
           <span className="text-gray-600">New on our platform?</span>
