@@ -4,10 +4,12 @@ import { Link, useLocation } from "wouter"
 import { Card } from "@/components/ui/card"
 import logo from "../assets/logo.png"
 import { BackgroundPattern } from "@/components/background-pattern"
+import { useVerificationStore } from "@/lib/verification-store"
 
 export default function Register() {
   const { signUp } = useAuth()
   const [, setLocation] = useLocation()
+  const setVerificationEmail = useVerificationStore(state => state.setEmail)
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-[#f8fafc] relative">
@@ -32,7 +34,8 @@ export default function Register() {
 
         <AuthForm mode="register" onSubmit={async ({ email, password }) => {
           await signUp(email, password)
-          setLocation(`/verify-email?email=${encodeURIComponent(email)}`)
+          setVerificationEmail(email)
+          setLocation('/verify-email')
         }} />
 
         <div className="mt-6 text-sm text-center">
