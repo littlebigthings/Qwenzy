@@ -7,7 +7,15 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables')
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    storageKey: 'supabase.auth.token',
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    storage: window.localStorage
+  }
+})
 
 // Initialize and test connection
 const testConnection = async () => {
@@ -15,6 +23,9 @@ const testConnection = async () => {
     const { data: { session }, error } = await supabase.auth.getSession()
     console.log('Supabase Connection Test:', error ? 'Failed' : 'Success')
     console.log('Current Session:', session ? 'Active' : 'None')
+    if (session?.user) {
+      console.log('Authenticated user:', session.user.email)
+    }
   } catch (err) {
     console.error('Supabase initialization error:', err)
   }
