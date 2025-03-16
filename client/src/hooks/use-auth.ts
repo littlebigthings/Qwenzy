@@ -13,7 +13,7 @@ export function useAuth() {
   useEffect(() => {
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('Initial session check:', session?.user?.email)
+      console.log('Initial auth check:', session?.user?.email)
       setUser(session?.user ?? null)
       setLoading(false)
     })
@@ -23,7 +23,11 @@ export function useAuth() {
       console.log('Auth state changed:', event, session?.user?.email)
       setUser(session?.user ?? null)
 
-      if (!session?.user && !['/login', '/register', '/reset-password'].includes(window.location.pathname)) {
+      if (event === 'SIGNED_IN') {
+        console.log('User signed in:', session?.user?.email)
+        setLocation('/')
+      } else if (event === 'SIGNED_OUT') {
+        console.log('User signed out')
         setLocation('/login')
       }
     })
@@ -46,20 +50,20 @@ export function useAuth() {
         throw error
       }
 
-      if (data.user) {
+      if (data?.user) {
         console.log('Sign in successful:', data.user.email)
         toast({
-          title: "Welcome back!",
-          description: "You have successfully signed in."
+          title: "Success",
+          description: "Successfully signed in!"
         })
-        setLocation('/')
       }
+
     } catch (error: any) {
       console.error('Sign in error:', error)
       toast({
         variant: "destructive",
-        title: "Login failed",
-        description: error.message || "Invalid email or password"
+        title: "Error",
+        description: error.message || "Failed to sign in"
       })
       throw error
     } finally {

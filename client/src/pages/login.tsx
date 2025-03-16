@@ -8,7 +8,7 @@ import { useEffect } from "react"
 import { useToast } from "@/hooks/use-toast"
 
 export default function Login() {
-  const { signIn, user } = useAuth()
+  const { signIn, user, loading } = useAuth()
   const [, setLocation] = useLocation()
   const { toast } = useToast()
 
@@ -20,6 +20,8 @@ export default function Login() {
   }, [user, setLocation])
 
   const handleLogin = async ({ email, password }: { email: string; password: string }) => {
+    if (loading) return
+
     try {
       console.log('Login form submitted for:', email)
       await signIn(email, password)
@@ -37,7 +39,6 @@ export default function Login() {
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-[#f8fafc]">
       <BackgroundPattern />
 
-      {/* Content */}
       <div className="relative z-10 w-full max-w-md text-center mb-8">
         <img 
           src={logo} 
@@ -48,13 +49,13 @@ export default function Login() {
 
       <Card className="relative z-10 w-full max-w-md p-8">
         <div className="text-center mb-8">
-          <h2 className="text-2xl font-semibold text-gray-900">Welcome to Qwenzy!</h2>
+          <h2 className="text-2xl font-semibold text-gray-900">Welcome back!</h2>
           <p className="text-base text-gray-600 mt-2">
-            Please sign in to your account and start the adventure
+            Please sign in to your account
           </p>
         </div>
 
-        <AuthForm mode="login" onSubmit={handleLogin} />
+        <AuthForm mode="login" onSubmit={handleLogin} loading={loading}/>
 
         <div className="mt-6 text-sm text-center">
           <span className="text-gray-600">New on our platform?</span>{" "}
