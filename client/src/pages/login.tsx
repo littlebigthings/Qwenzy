@@ -13,49 +13,55 @@ export default function Login() {
   const { toast } = useToast();
 
   useEffect(() => {
-    console.log('Login page mounted. Current auth state:', {
+    console.log('[LoginPage] Page mounted, auth state:', {
       hasUser: !!user,
-      isLoading: loading
+      isLoading: loading,
+      timestamp: new Date().toISOString()
     });
 
     if (user) {
-      console.log("User already logged in, redirecting to home");
-      setLocation("/");
+      console.log('[LoginPage] User already logged in, redirecting to home');
+      setLocation('/');
     }
   }, [user, setLocation]);
 
   const handleLogin = async ({ email, password }: { email: string; password: string }) => {
     if (loading) {
-      console.log('Login attempted while loading, ignoring');
+      console.log('[LoginPage] Login attempted while loading, ignoring');
       return;
     }
 
     try {
-      console.log("Login attempt starting for:", email);
+      console.log('[LoginPage] Login attempt started:', {
+        email,
+        timestamp: new Date().toISOString()
+      });
+
       if (!email || !password) {
-        throw new Error("Email and password are required");
+        throw new Error('Email and password are required');
       }
 
+      console.log('[LoginPage] Calling signIn function');
       await signIn(email, password);
 
-      console.log("Login successful, redirecting...");
+      console.log('[LoginPage] Login successful, redirecting...');
       toast({
         title: "Success",
-        description: "Login successful!",
+        description: "Login successful!"
       });
-      window.location.href = "/";
 
     } catch (error: any) {
-      console.error("Login error details:", {
+      console.error('[LoginPage] Login error:', {
         message: error.message,
         code: error.code,
-        status: error.status
+        status: error.status,
+        timestamp: new Date().toISOString()
       });
 
       toast({
         variant: "destructive",
         title: "Login failed",
-        description: error.message || "Failed to sign in. Please check your credentials and try again.",
+        description: error.message || "Failed to sign in. Please try again."
       });
     }
   };

@@ -62,10 +62,23 @@ export function AuthForm({ mode, onSubmit }: AuthFormProps) {
   const handleSubmit = async (data: z.infer<typeof formSchema>) => {
     try {
       setLoading(true)
-      console.log('Form submission started with:', { email: data.email, mode })
+      console.log('[AuthForm] Form submission started:', { 
+        email: data.email, 
+        mode,
+        timestamp: new Date().toISOString(),
+        hasPassword: !!data.password
+      })
+
       await onSubmit(data)
+
+      console.log('[AuthForm] Form submission completed')
     } catch (error: any) {
-      console.error('Form submission error:', error)
+      console.error('[AuthForm] Form submission error:', {
+        message: error.message,
+        code: error.code,
+        status: error.status
+      })
+
       toast({
         variant: "destructive",
         title: "Error",
@@ -196,7 +209,7 @@ export function AuthForm({ mode, onSubmit }: AuthFormProps) {
           disabled={loading}
         >
           {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {mode === "login" ? "Sign in" : "Sign up"}
+          {mode === "login" ? "Sign in" : mode === "register" ? "Sign up" : "Reset password"}
         </Button>
       </form>
     </Form>

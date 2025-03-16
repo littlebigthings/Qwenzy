@@ -11,14 +11,15 @@ export function useAuth() {
   const [, setLocation] = useLocation()
 
   useEffect(() => {
-    console.log('Initializing auth hook...')
+    console.log('[useAuth] Hook initializing...')
 
     // Get initial session
     supabase.auth.getSession().then(({ data: { session }, error }) => {
-      console.log('Initial session check:', {
+      console.log('[useAuth] Initial session check:', {
         hasSession: !!session,
         userEmail: session?.user?.email,
-        error: error?.message
+        error: error?.message,
+        timestamp: new Date().toISOString()
       })
 
       setUser(session?.user ?? null)
@@ -27,7 +28,7 @@ export function useAuth() {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth state changed:', {
+      console.log('[useAuth] Auth state changed:', {
         event,
         userEmail: session?.user?.email,
         timestamp: new Date().toISOString()
@@ -36,10 +37,10 @@ export function useAuth() {
       setUser(session?.user ?? null)
 
       if (event === 'SIGNED_IN') {
-        console.log('Sign in successful, redirecting to home')
+        console.log('[useAuth] Sign in successful, redirecting to home')
         setLocation('/')
       } else if (event === 'SIGNED_OUT') {
-        console.log('Sign out detected, redirecting to login')
+        console.log('[useAuth] Sign out detected, redirecting to login')
         setLocation('/login')
       }
     })
@@ -49,32 +50,43 @@ export function useAuth() {
 
   const signIn = async (email: string, password: string) => {
     try {
-      console.log('Starting sign in process for:', email)
+      console.log('[useAuth] Starting sign in process:', {
+        email,
+        hasPassword: !!password,
+        timestamp: new Date().toISOString()
+      })
+
       setLoading(true)
 
-      // Check if we have the required data
+      // Check credentials
       if (!email || !password) {
         throw new Error('Email and password are required')
       }
 
-      // Attempt to sign in
-      console.log('Calling Supabase auth.signInWithPassword...')
+      // Attempt sign in
+      console.log('[useAuth] Calling Supabase auth.signInWithPassword...')
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
       })
 
-      console.log('Sign in response:', {
+      console.log('[useAuth] Sign in response:', {
         success: !error,
         hasUser: !!data?.user,
+        hasSession: !!data?.session,
         error: error?.message,
-        sessionStatus: data?.session ? 'Present' : 'Missing'
+        timestamp: new Date().toISOString()
       })
 
       if (error) throw error
 
       if (data?.user) {
-        console.log('Sign in successful for:', data.user.email)
+        console.log('[useAuth] Successfully signed in user:', {
+          email: data.user.email,
+          id: data.user.id,
+          timestamp: new Date().toISOString()
+        })
+
         toast({
           title: "Success",
           description: "Successfully signed in!"
@@ -84,10 +96,11 @@ export function useAuth() {
       }
 
     } catch (error: any) {
-      console.error('Sign in error:', {
+      console.error('[useAuth] Sign in error:', {
         message: error.message,
         code: error.code,
-        status: error.status
+        status: error.status,
+        timestamp: new Date().toISOString()
       })
 
       toast({
@@ -101,63 +114,9 @@ export function useAuth() {
     }
   }
 
-  const signUp = async (email: string, password: string) => {
-    try {
-      console.log('Starting sign up process for:', email)
-      setLoading(true)
-
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/verify-email`
-        }
-      })
-
-      console.log('Sign up response:', {
-        success: !error,
-        hasUser: !!data?.user,
-        error: error?.message,
-        identitiesLength: data?.user?.identities?.length
-      })
-
-      if (error) throw error
-
-      if (data?.user) {
-        if (data.user.identities?.length === 0) {
-          throw new Error('Email already registered. Please sign in instead.')
-        }
-
-        console.log('Sign up successful:', data.user.email)
-        toast({
-          title: "Success",
-          description: "Please check your email to verify your account."
-        })
-        return data.user
-      }
-
-    } catch (error: any) {
-      console.error('Sign up error:', {
-        message: error.message,
-        code: error.code,
-        status: error.status
-      })
-
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message || "Failed to sign up"
-      })
-      throw error
-    } finally {
-      setLoading(false)
-    }
-  }
-
   return {
     user,
     loading,
-    signIn,
-    signUp
+    signIn
   }
 }
