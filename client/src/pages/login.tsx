@@ -1,79 +1,79 @@
-import { useAuth } from "@/hooks/use-auth";
-import { AuthForm } from "@/components/auth-form";
-import { Link, useLocation } from "wouter";
-import { Card } from "@/components/ui/card";
-import logo from "../assets/logo.png";
-import { BackgroundPattern } from "@/components/background-pattern";
-import { useEffect } from "react";
-import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth"
+import { AuthForm } from "@/components/auth-form"
+import { Link, useLocation } from "wouter"
+import { Card } from "@/components/ui/card"
+import logo from "../assets/logo.png"
+import { BackgroundPattern } from "@/components/background-pattern"
+import { useEffect } from "react"
+import { useToast } from "@/hooks/use-toast"
 
 export default function Login() {
-  const { signIn, user, loading } = useAuth();
-  const [, setLocation] = useLocation();
-  const { toast } = useToast();
+  const { signIn, user, loading } = useAuth()
+  const [, setLocation] = useLocation()
+  const { toast } = useToast()
 
   useEffect(() => {
-    console.log('[LoginPage] Page mounted, auth state:', {
+    console.log("[LoginPage] Page mounted, auth state:", {
       hasUser: !!user,
       isLoading: loading,
-      timestamp: new Date().toISOString()
-    });
+      timestamp: new Date().toISOString(),
+    })
 
     if (user) {
-      console.log('[LoginPage] User already logged in, redirecting to home');
-      setLocation('/');
+      console.log("[LoginPage] User already logged in, redirecting to home")
+      setLocation("/")
     }
-  }, [user, setLocation]);
+  }, [user, setLocation])
 
   const handleLogin = async ({ email, password }: { email: string; password: string }) => {
+    console.log("clicked", email, password)
     if (loading) {
-      console.log('[LoginPage] Login attempted while loading, ignoring');
-      return;
+      console.log("[LoginPage] Login attempted while loading, ignoring")
+      return
     }
 
     try {
-      console.log('[LoginPage] Login attempt started:', {
+      console.log("[LoginPage] Login attempt started:", {
         email,
-        timestamp: new Date().toISOString()
-      });
+        timestamp: new Date().toISOString(),
+      })
 
       if (!email || !password) {
-        throw new Error('Email and password are required');
+        throw new Error("Email and password are required")
       }
 
-      console.log('[LoginPage] Calling signIn function');
-      await signIn(email, password);
+      console.log("[LoginPage] Calling signIn function")
+      await signIn(email, password)
 
-      console.log('[LoginPage] Login successful, redirecting...');
+      console.log("[LoginPage] Login successful, redirecting...")
       toast({
         title: "Success",
-        description: "Login successful!"
-      });
-
+        description: "Login successful!",
+      })
     } catch (error: any) {
-      console.error('[LoginPage] Login error:', {
+      console.error("[LoginPage] Login error:", {
         message: error.message,
         code: error.code,
         status: error.status,
-        timestamp: new Date().toISOString()
-      });
+        timestamp: new Date().toISOString(),
+      })
 
       toast({
         variant: "destructive",
         title: "Login failed",
-        description: error.message || "Failed to sign in. Please try again."
-      });
+        description: error.message || "Failed to sign in. Please try again.",
+      })
     }
-  };
+  }
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-[#f8fafc]">
       <BackgroundPattern />
 
       <div className="relative z-10 w-full max-w-md text-center mb-8">
-        <img
-          src={logo}
-          alt="Qwenzy"
+        <img 
+          src={logo} 
+          alt="Qwenzy" 
           className="h-8 mx-auto mb-8"
         />
       </div>
@@ -96,5 +96,5 @@ export default function Login() {
         </div>
       </Card>
     </div>
-  );
+  )
 }

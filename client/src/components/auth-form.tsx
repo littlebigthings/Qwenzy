@@ -21,27 +21,11 @@ const formSchema = z.object({
   rememberMe: z.boolean().default(false),
   confirmPassword: z.string().optional(),
   acceptTerms: z.boolean().optional(),
-}).refine((data) => {
-  if (data.confirmPassword !== undefined) {
-    return data.password === data.confirmPassword
-  }
-  return true
-}, {
-  message: "Passwords do not match",
-  path: ["confirmPassword"],
-}).refine((data) => {
-  if (data.acceptTerms !== undefined) {
-    return data.acceptTerms === true
-  }
-  return true
-}, {
-  message: "You must accept the terms",
-  path: ["acceptTerms"],
-});
+})
 
 type AuthFormProps = {
   mode: "login" | "register" | "reset"
-  onSubmit: (data: z.infer<typeof formSchema>) => Promise<void>
+  onSubmit: (data: { email: string; password: string }) => Promise<void>
 }
 
 export function AuthForm({ mode, onSubmit }: AuthFormProps) {
@@ -59,26 +43,21 @@ export function AuthForm({ mode, onSubmit }: AuthFormProps) {
     }
   })
 
-  const handleSubmit = async (data: z.infer<typeof formSchema>) => {
+  const onFormSubmit = async (values: z.infer<typeof formSchema>) => {
+    console.log('[AuthForm] Form submission triggered with:', {
+      email: values.email,
+      hasPassword: !!values.password,
+      timestamp: new Date().toISOString()
+    })
+
     try {
       setLoading(true)
-      console.log('[AuthForm] Form submission started:', { 
-        email: data.email, 
-        mode,
-        timestamp: new Date().toISOString(),
-        hasPassword: !!data.password
+      await onSubmit({
+        email: values.email,
+        password: values.password,
       })
-
-      await onSubmit(data)
-
-      console.log('[AuthForm] Form submission completed')
     } catch (error: any) {
-      console.error('[AuthForm] Form submission error:', {
-        message: error.message,
-        code: error.code,
-        status: error.status
-      })
-
+      console.error('[AuthForm] Form submission error:', error)
       toast({
         variant: "destructive",
         title: "Error",
@@ -91,7 +70,10 @@ export function AuthForm({ mode, onSubmit }: AuthFormProps) {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+      <form 
+        onSubmit={form.handleSubmit(onFormSubmit)}
+        className="space-y-6"
+      >
         <FormField
           control={form.control}
           name="email"
@@ -106,7 +88,7 @@ export function AuthForm({ mode, onSubmit }: AuthFormProps) {
                   className="h-12 px-4 rounded-md border-gray-200 focus:border-[#407c87] focus:ring-[#407c87]"
                 />
               </FormControl>
-              <FormMessage className="mt-2 text-sm text-[#dc6571] bg-[#fef2f2] p-2 rounded" />
+              <FormMessage />
             </FormItem>
           )}
         />
@@ -119,13 +101,13 @@ export function AuthForm({ mode, onSubmit }: AuthFormProps) {
               <FormControl>
                 <Input
                   type="password"
-                  placeholder="Enter password"
-                  autoComplete="current-password"
+                  placeholder="Password"
+                  autoComplete={mode === "login" ? "current-password" : "new-password"}
                   {...field}
                   className="h-12 px-4 rounded-md border-gray-200 focus:border-[#407c87] focus:ring-[#407c87]"
                 />
               </FormControl>
-              <FormMessage className="mt-2 text-sm text-[#dc6571] bg-[#fef2f2] p-2 rounded" />
+              <FormMessage />
             </FormItem>
           )}
         />
@@ -145,7 +127,7 @@ export function AuthForm({ mode, onSubmit }: AuthFormProps) {
                       className="h-12 px-4 rounded-md border-gray-200 focus:border-[#407c87] focus:ring-[#407c87]"
                     />
                   </FormControl>
-                  <FormMessage className="mt-2 text-sm text-[#dc6571] bg-[#fef2f2] p-2 rounded" />
+                  <FormMessage />
                 </FormItem>
               )}
             />
