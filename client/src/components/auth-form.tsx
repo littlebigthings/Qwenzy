@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input"
 import { useState } from "react"
 import { Loader2 } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
+import { useToast } from "@/hooks/use-toast"
 
 const formSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -45,6 +46,7 @@ type AuthFormProps = {
 
 export function AuthForm({ mode, onSubmit }: AuthFormProps) {
   const [loading, setLoading] = useState(false)
+  const { toast } = useToast()
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -60,9 +62,15 @@ export function AuthForm({ mode, onSubmit }: AuthFormProps) {
   const handleSubmit = async (data: z.infer<typeof formSchema>) => {
     try {
       setLoading(true)
+      console.log('Form submission started with:', { email: data.email, mode })
       await onSubmit(data)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Form submission error:', error)
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "An unexpected error occurred"
+      })
     } finally {
       setLoading(false)
     }
@@ -79,6 +87,8 @@ export function AuthForm({ mode, onSubmit }: AuthFormProps) {
               <FormControl>
                 <Input
                   placeholder="Email"
+                  type="email"
+                  autoComplete="email"
                   {...field}
                   className="h-12 px-4 rounded-md border-gray-200 focus:border-[#407c87] focus:ring-[#407c87]"
                 />
@@ -97,6 +107,7 @@ export function AuthForm({ mode, onSubmit }: AuthFormProps) {
                 <Input
                   type="password"
                   placeholder="Enter password"
+                  autoComplete="current-password"
                   {...field}
                   className="h-12 px-4 rounded-md border-gray-200 focus:border-[#407c87] focus:ring-[#407c87]"
                 />
@@ -157,28 +168,26 @@ export function AuthForm({ mode, onSubmit }: AuthFormProps) {
         )}
 
         {mode === "login" && (
-          <>
-            <FormField
-              control={form.control}
-              name="rememberMe"
-              render={({ field }) => (
-                <div className="flex items-center">
-                  <Checkbox
-                    id="remember"
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                    className="border-gray-300 rounded"
-                  />
-                  <label
-                    htmlFor="remember"
-                    className="ml-2 text-sm text-gray-600"
-                  >
-                    Remember Me
-                  </label>
-                </div>
-              )}
-            />
-          </>
+          <FormField
+            control={form.control}
+            name="rememberMe"
+            render={({ field }) => (
+              <div className="flex items-center">
+                <Checkbox
+                  id="remember"
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                  className="border-gray-300 rounded"
+                />
+                <label
+                  htmlFor="remember"
+                  className="ml-2 text-sm text-gray-600"
+                >
+                  Remember Me
+                </label>
+              </div>
+            )}
+          />
         )}
 
         <Button

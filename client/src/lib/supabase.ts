@@ -14,11 +14,23 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     storageKey: 'qwenzy-auth-token',
     autoRefreshToken: true,
-    detectSessionInUrl: true
+    detectSessionInUrl: true,
+    flowType: 'pkce',
+    debug: true
   }
 })
 
-// Log initial auth state
-supabase.auth.getSession().then(({ data: { session } }) => {
-  console.log('Initial Supabase session:', session?.user?.email || 'No session')
+// Log initial auth state (Replaced with onAuthStateChange)
+supabase.auth.onAuthStateChange((event, session) => {
+  console.log('Auth state changed:', event, session ? 'User logged in' : 'No session')
+  if (session?.user) {
+    console.log('Logged in user:', session.user.email)
+  }
+})
+
+// Test Supabase connection
+supabase.from('profiles').select('count').then(() => {
+  console.log('Successfully connected to Supabase')
+}).catch(error => {
+  console.error('Supabase connection error:', error)
 })

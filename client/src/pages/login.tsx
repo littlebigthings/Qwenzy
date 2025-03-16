@@ -1,13 +1,16 @@
 import { useAuth } from "@/hooks/use-auth"
 import { AuthForm } from "@/components/auth-form"
 import { Link, useLocation } from "wouter"
+import { Card } from "@/components/ui/card"
 import logo from "../assets/logo.png"
 import { BackgroundPattern } from "@/components/background-pattern"
 import { useEffect } from "react"
+import { useToast } from "@/hooks/use-toast"
 
 export default function Login() {
   const { signIn, user } = useAuth()
   const [, setLocation] = useLocation()
+  const { toast } = useToast()
 
   useEffect(() => {
     if (user) {
@@ -17,8 +20,17 @@ export default function Login() {
   }, [user, setLocation])
 
   const handleLogin = async ({ email, password }: { email: string; password: string }) => {
-    console.log('Login form submitted for:', email)
-    await signIn(email, password)
+    try {
+      console.log('Login form submitted for:', email)
+      await signIn(email, password)
+    } catch (error: any) {
+      console.error('Login error:', error)
+      toast({
+        variant: "destructive",
+        title: "Login failed",
+        description: error.message || "Failed to sign in. Please try again."
+      })
+    }
   }
 
   return (
@@ -34,7 +46,7 @@ export default function Login() {
         />
       </div>
 
-      <div className="relative z-10 w-full max-w-md bg-white rounded-lg shadow-md p-8">
+      <Card className="relative z-10 w-full max-w-md p-8">
         <div className="text-center mb-8">
           <h2 className="text-2xl font-semibold text-gray-900">Welcome to Qwenzy!</h2>
           <p className="text-base text-gray-600 mt-2">
@@ -50,7 +62,7 @@ export default function Login() {
             Create an account
           </Link>
         </div>
-      </div>
+      </Card>
     </div>
   )
 }
