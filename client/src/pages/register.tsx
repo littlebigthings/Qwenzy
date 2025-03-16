@@ -32,7 +32,7 @@ export default function Register() {
 
         <AuthForm mode="register" onSubmit={async ({ email, password }) => {
           await signUp(email, password)
-          setLocation('/verify-email')
+          setLocation(`/verify-email?email=${encodeURIComponent(email)}`)
         }} />
 
         <div className="mt-6 text-sm text-center">

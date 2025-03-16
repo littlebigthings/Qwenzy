@@ -1,11 +1,11 @@
-import { Link } from "wouter"
+import { Link, useLocation } from "wouter"
 import logo from "../assets/logo.png"
 import { Button } from "@/components/ui/button"
 import { BackgroundPattern } from "@/components/background-pattern"
 
 export default function VerifyEmail() {
-  // In a real app, this would come from the signup process
-  const email = "joe.doe@example.com"
+  const [location] = useLocation()
+  const email = new URLSearchParams(location.split('?')[1]).get('email') || ''
 
   const handleResendLink = async () => {
     // TODO: Implement resend verification logic
