@@ -1,11 +1,19 @@
 import { useAuth } from "@/hooks/use-auth"
 import { AuthForm } from "@/components/auth-form"
-import { Link } from "wouter"
+import { Link, useLocation } from "wouter"
 import logo from "../assets/logo.png"
 import { BackgroundPattern } from "@/components/background-pattern"
+import { useEffect } from "react"
 
 export default function Login() {
-  const { signIn } = useAuth()
+  const { signIn, user } = useAuth()
+  const [, setLocation] = useLocation()
+
+  useEffect(() => {
+    if (user) {
+      setLocation('/')
+    }
+  }, [user, setLocation])
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 relative bg-[#f8fafc]">
@@ -29,7 +37,7 @@ export default function Login() {
         </div>
 
         <AuthForm mode="login" onSubmit={async ({ email, password }) => {
-          console.log('Attempting to sign in...')
+          console.log('Login form submitted')
           await signIn(email, password)
         }} />
 

@@ -23,6 +23,7 @@ export function useAuth() {
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log('Auth state changed:', _event, session?.user?.email)
       setUser(session?.user ?? null)
 
       if (session?.user) {
@@ -76,6 +77,8 @@ export function useAuth() {
       setHasOrganization(hasValidOrg)
       setHasProfile(hasValidProfile)
 
+      setLoading(false)
+
       // Only redirect if we're on a path that requires these checks
       const currentPath = window.location.pathname
       if (!hasValidProfile || !hasValidOrg) {
@@ -92,7 +95,6 @@ export function useAuth() {
         title: "Error",
         description: "Failed to check user status"
       })
-    } finally {
       setLoading(false)
     }
   }
@@ -100,9 +102,14 @@ export function useAuth() {
   const signIn = async (email: string, password: string) => {
     try {
       setLoading(true)
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      console.log('Signing in with:', email)
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      })
 
       if (error) {
+        console.error('Sign in error:', error)
         let errorMessage = "Invalid email or password"
         if (error.message.includes("Invalid login credentials")) {
           errorMessage = "Invalid email or password. Please try again."
@@ -137,6 +144,7 @@ export function useAuth() {
   const signUp = async (email: string, password: string) => {
     try {
       setLoading(true)
+      console.log('Signing up with:', email)
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -162,6 +170,7 @@ export function useAuth() {
         description: "Please check your email for the verification link."
       })
     } catch (error: any) {
+      console.error('Sign up error:', error)
       toast({
         variant: "destructive",
         title: "Error signing up",
@@ -188,6 +197,7 @@ export function useAuth() {
       })
       setLocation('/login')
     } catch (error: any) {
+      console.error('Sign out error:', error)
       toast({
         variant: "destructive",
         title: "Error signing out",
