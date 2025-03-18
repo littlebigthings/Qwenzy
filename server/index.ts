@@ -1,14 +1,11 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import path from "path";
-import fs from "fs";
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Request logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -27,9 +24,11 @@ app.use((req, res, next) => {
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
+
       if (logLine.length > 80) {
         logLine = logLine.slice(0, 79) + "…";
       }
+
       log(logLine);
     }
   });
@@ -38,55 +37,33 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  try {
-    // Initialize routes and create server
-    const server = await registerRoutes(app);
+  const server = await registerRoutes(app);
 
-    // Error handling middleware
-    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-      console.error('Error:', err);
-      const status = err.status || err.statusCode || 500;
-      const message = err.message || "Internal Server Error";
-      res.status(status).json({ message });
-    });
+  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+    const status = err.status || err.statusCode || 500;
+    const message = err.message || "Internal Server Error";
 
-    if (process.env.NODE_ENV === "development") {
-      await setupVite(app, server);
-    } else {
-      // In production, serve static files from the client build directory
-      const clientDir = path.resolve(process.cwd(), "dist", "client");
-      console.log('Client directory:', clientDir);
+    res.status(status).json({ message });
+    throw err;
+  });
 
-      // Ensure client directory exists
-      if (!fs.existsSync(clientDir)) {
-        console.error('Client directory does not exist:', clientDir);
-        throw new Error('Client build directory not found');
-      }
-
-      // Serve static files
-      app.use(express.static(clientDir));
-
-      // Handle client-side routing - serve index.html for all non-API routes
-      app.get("*", (req, res, next) => {
-        if (req.path.startsWith("/api")) return next();
-
-        const indexHtml = path.join(clientDir, "index.html");
-        console.log('Serving index.html for path:', req.path);
-        res.sendFile(indexHtml, (err) => {
-          if (err) {
-            console.error('Error sending index.html:', err);
-            next(err);
-          }
-        });
-      });
-    }
-
-    const port = process.env.PORT || 3000;
-    server.listen(port, "0.0.0.0", () => {
-      log(`Server running on port ${port}`);
-    });
-  } catch (err) {
-    console.error('Server startup error:', err);
-    process.exit(1);
+  // importantly only setup vite in development and after
+  // setting up all the other routes so the catch-all route
+  // doesn't interfere with the other routes
+  if (app.get("env") === "development") {
+    await setupVite(app, server);
+  } else {
+    serveStatic(app);
   }
+
+  // ALWAYS serve the app on port 3000
+  // this serves both the API and the client
+  const port = 3000;
+  server.listen({
+    port,
+    host: "0.0.0.0",
+    reusePort: true,
+  }, () => {
+    log(`serving on port ${port}`);
+  });
 })();
