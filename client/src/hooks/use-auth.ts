@@ -63,29 +63,16 @@ export function useAuth() {
 
       setLoading(true);
 
-      // Check credentials
       if (!email || !password) {
         throw new Error("Email and password are required");
       }
 
-      // Attempt sign in
-      console.log("[useAuth] Calling Supabase auth.signInWithPassword...");
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      console.log("[useAuth] Sign in response:", {
-        success: !error,
-        hasUser: !!data?.user,
-        hasSession: !!data?.session,
-        error: error?.message,
-        timestamp: new Date().toISOString(),
-      });
-
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       if (!data?.user) {
         throw new Error("No user data received after successful sign in");
@@ -108,10 +95,6 @@ export function useAuth() {
   const signUp = async (email: string, password: string) => {
     try {
       setLoading(true);
-      console.log(
-        "[useAuth] Starting sign up with redirect URL:",
-        getRedirectUrl(),
-      );
 
       const { data, error } = await supabase.auth.signUp({
         email,
