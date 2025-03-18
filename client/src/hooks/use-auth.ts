@@ -8,18 +8,6 @@ export function useAuth() {
   const [loading, setLoading] = useState(true);
   const [, setLocation] = useLocation();
 
-  // Get the deployment URL using Replit domain
-  const getRedirectUrl = () => {
-    if (typeof window === "undefined") return "";
-
-    // Check if we're on Replit deployment
-    if (window.location.hostname.endsWith(".replit.app")) {
-      return window.location.origin;
-    } else {
-      return "http://localhost:3000";
-    }
-  };
-
   useEffect(() => {
     console.log("[useAuth] Hook initializing...");
 
@@ -34,6 +22,11 @@ export function useAuth() {
 
       setUser(session?.user ?? null);
       setLoading(false);
+
+      // If user is authenticated, redirect to organization setup
+      if (session?.user) {
+        setLocation("/organization-setup");
+      }
     });
 
     // Listen for auth changes
@@ -139,6 +132,18 @@ export function useAuth() {
       throw error;
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Get the deployment URL using Replit domain
+  const getRedirectUrl = () => {
+    if (typeof window === "undefined") return "";
+
+    // Check if we're on Replit deployment
+    if (window.location.hostname.endsWith(".replit.app")) {
+      return window.location.origin;
+    } else {
+      return "http://localhost:3000";
     }
   };
 
