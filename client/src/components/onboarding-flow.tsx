@@ -2,14 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -113,21 +106,26 @@ export function OnboardingFlow() {
   };
 
   const uploadToSupabase = async (file: File) => {
-    const fileExt = file.name.split(".").pop();
-    const fileName = `${Math.random()}.${fileExt}`;
-    const filePath = `${fileName}`;
+    try {
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `${fileName}`;
 
-    const { data, error } = await supabase.storage
-      .from("organization-logos")
-      .upload(filePath, file);
+      const { data, error } = await supabase.storage
+        .from("organization-logos")
+        .upload(filePath, file);
 
-    if (error) throw error;
+      if (error) throw error;
 
-    const { data: { publicUrl } } = supabase.storage
-      .from("organization-logos")
-      .getPublicUrl(filePath);
+      const { data: { publicUrl } } = supabase.storage
+        .from("organization-logos")
+        .getPublicUrl(filePath);
 
-    return publicUrl;
+      return publicUrl;
+    } catch (error: any) {
+      console.error("Upload to Supabase error:", error);
+      throw new Error("Failed to upload logo to storage");
+    }
   };
 
   const createOrganization = async (data: z.infer<typeof organizationSchema>) => {
@@ -142,18 +140,28 @@ export function OnboardingFlow() {
         logoUrl = await uploadToSupabase(logoFile);
       }
 
+      // Check if domain exists
+      const userDomain = user.email?.split('@')[1];
+      const { data: existingOrg } = await supabase
+        .from("organizations")
+        .select("id")
+        .eq("domain", userDomain)
+        .single();
+
+      // Create organization with domain only if it doesn't exist
       const { data: newOrg, error } = await supabase
         .from("organizations")
         .insert({
           name: data.name,
-          domain: user.email?.split("@")[1],
           logo_url: logoUrl,
+          domain: existingOrg ? null : userDomain, // Only set domain if it doesn't exist
         })
         .select()
         .single();
 
       if (error) throw error;
 
+      // Create admin profile
       const { error: profileError } = await supabase
         .from("profiles")
         .insert({
@@ -215,7 +223,6 @@ export function OnboardingFlow() {
                   onClick={() => isClickable && setCurrentStep(step.id)}
                   disabled={!isClickable}
                 >
-                  {/* Icon container */}
                   <div className="w-8 h-8 flex-shrink-0">
                     {isCompleted ? (
                       <img
@@ -239,7 +246,6 @@ export function OnboardingFlow() {
                     >
                       {step.label}
                     </h3>
-                    {/* Description removed here */}
                   </div>
                 </button>
               );
