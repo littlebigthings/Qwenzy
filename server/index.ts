@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import path from "path";
+import fs from "fs";
 
 const app = express();
 app.use(express.json());
@@ -57,15 +58,9 @@ app.use((req, res, next) => {
       console.log('Client directory:', clientDir);
 
       // Ensure client directory exists
-      try {
-        const fs = require('fs');
-        if (!fs.existsSync(clientDir)) {
-          console.error('Client directory does not exist:', clientDir);
-          throw new Error('Client build directory not found');
-        }
-      } catch (err) {
-        console.error('Error checking client directory:', err);
-        throw err;
+      if (!fs.existsSync(clientDir)) {
+        console.error('Client directory does not exist:', clientDir);
+        throw new Error('Client build directory not found');
       }
 
       // Serve static files

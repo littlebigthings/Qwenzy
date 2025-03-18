@@ -5,6 +5,10 @@
   "compilerOptions": {
     "outDir": "../dist/client",
     "jsx": "react-jsx",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
     "types": ["vite/client"]
   }
 }
