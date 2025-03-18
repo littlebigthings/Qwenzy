@@ -7,41 +7,41 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { Loader2, Upload, Building2, UserCircle, CheckCircle, X, Users, Plus, Trash } from "lucide-react"
+import { Loader2, Upload, Building2, UserCircle, CheckCircle, X, Users, Plus, ChevronRight } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import { useLocation } from "wouter"
 import { useAuth } from "@/hooks/use-auth"
-import { Switch } from "@/components/ui/switch"
-import { Label } from "@/components/ui/label";
 
+type Organization = {
+  id: number;
+  name: string;
+  domain: string;
+  logo_url?: string;
+  member_count: number;
+}
 
-const steps = [
-  {
-    id: "org-setup",
-    title: "Organization Setup",
-    icon: Building2,
-    description: "Set up your organization"
-  },
-  {
-    id: "profile",
-    title: "Profile Setup",
-    icon: UserCircle,
-    description: "Complete your profile"
-  },
-  {
-    id: "team",
-    title: "Team Invites",
-    icon: Users,
-    description: "Invite your team"
-  },
-  {
-    id: "complete",
-    title: "Complete",
-    icon: CheckCircle,
-    description: "All set!"
-  }
-]
+const OrganizationCard = ({ org, onSelect }: { org: Organization, onSelect: () => void }) => (
+  <button
+    onClick={onSelect}
+    className="w-full flex items-center justify-between p-4 hover:bg-gray-50 rounded-lg border border-gray-200 mb-2"
+  >
+    <div className="flex items-center gap-3">
+      {org.logo_url ? (
+        <img src={org.logo_url} alt={org.name} className="w-8 h-8 rounded-full" />
+      ) : (
+        <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+          <Building2 className="w-4 h-4 text-gray-500" />
+        </div>
+      )}
+      <div className="text-left">
+        <h3 className="font-medium text-gray-900">{org.name}</h3>
+        <p className="text-sm text-gray-500">{org.member_count} members</p>
+      </div>
+    </div>
+    <ChevronRight className="w-5 h-5 text-gray-400" />
+  </button>
+);
 
 const organizationSchema = z.object({
   name: z.string().min(2, "Organization name must be at least 2 characters"),
@@ -63,8 +63,9 @@ export function OnboardingFlow() {
   const [currentStep, setCurrentStep] = useState("org-setup")
   const [uploading, setUploading] = useState(false)
   const [organizationLogoUrl, setOrganizationLogoUrl] = useState<string | null>(null)
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [organizationId, setOrganizationId] = useState<number | null>(null)
+  const [existingOrganizations, setExistingOrganizations] = useState<Organization[]>([])
+  const [isAdmin, setIsAdmin] = useState(false)
   const { toast } = useToast()
   const [, setLocation] = useLocation()
   const { user } = useAuth()
@@ -96,12 +97,94 @@ export function OnboardingFlow() {
     },
   })
 
-  // Auto-check for organization on component mount
+  // Check for existing organizations on component mount
   useEffect(() => {
     if (user?.email) {
-      checkOrganization();
+      checkOrganizations();
     }
   }, [user?.email]);
+
+  const checkOrganizations = async () => {
+    if (!user?.email) return;
+
+    try {
+      // Check for organizations with matching domain
+      const domain = user.email.split('@')[1]
+      const { data: orgs, error: orgsError } = await supabase
+        .from('organizations')
+        .select('*')
+        .eq('domain', domain)
+
+      if (orgsError) throw orgsError
+
+      // Also check for organizations where user is already a member
+      const { data: memberOrgs, error: memberError } = await supabase
+        .from('profiles')
+        .select('organization_id, organizations(*)')
+        .eq('email', user.email)
+
+      if (memberError) throw memberError
+
+      // Combine and deduplicate organizations
+      const allOrgs = [...(orgs || []), ...(memberOrgs?.map(m => m.organizations) || [])]
+      const uniqueOrgs = Array.from(new Set(allOrgs.map(org => org.id)))
+        .map(id => allOrgs.find(org => org.id === id))
+        .filter(Boolean) as Organization[]
+
+      setExistingOrganizations(uniqueOrgs)
+
+      // If no organizations exist, user creating first org becomes admin
+      setIsAdmin(uniqueOrgs.length === 0)
+
+    } catch (error: any) {
+      console.error('Error checking organizations:', error)
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Error checking organizations"
+      })
+    }
+  }
+
+  const createOrganization = async (data: z.infer<typeof organizationSchema>) => {
+    try {
+      if (!user?.id) throw new Error("Missing user information")
+
+      const { data: newOrg, error } = await supabase.from('organizations').insert({
+        name: data.name,
+        domain: data.domain,
+        logo_url: organizationLogoUrl,
+      }).select().single()
+
+      if (error) throw error
+
+      // Set organization ID
+      setOrganizationId(newOrg.id)
+
+      // Create admin profile for first user
+      const { error: profileError } = await supabase.from('profiles').insert({
+        user_id: user.id,
+        email: user.email,
+        organization_id: newOrg.id,
+        role: isAdmin ? 'admin' : 'member',
+      })
+
+      if (profileError) throw profileError
+
+      toast({
+        title: "Success",
+        description: "Organization created successfully",
+      })
+      setCurrentStep('profile')
+    } catch (error: any) {
+      console.error('Organization creation error:', error)
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Error creating organization",
+      })
+    }
+  }
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>, type: 'avatar' | 'logo') => {
     try {
@@ -132,7 +215,7 @@ export function OnboardingFlow() {
         .getPublicUrl(filePath)
 
       if (type === 'avatar') {
-        setAvatarUrl(publicUrl)
+        //setAvatarUrl(publicUrl)
       } else {
         setOrganizationLogoUrl(publicUrl)
       }
@@ -150,66 +233,6 @@ export function OnboardingFlow() {
       })
     } finally {
       setUploading(false)
-    }
-  }
-
-  const checkOrganization = async () => {
-    if (!user?.email) return
-
-    const domain = user.email.split('@')[1]
-    const { data: org, error } = await supabase
-      .from('organizations')
-      .select('*')
-      .eq('domain', domain)
-      .single()
-
-    if (error && error.code !== 'PGRST116') {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Error checking organization",
-      })
-      return
-    }
-
-    if (org) {
-      setOrganizationId(org.id)
-      // If organization exists, move to profile setup
-      setCurrentStep('profile')
-      toast({
-        title: "Organization found",
-        description: `Found organization: ${org.name}`,
-      })
-    } else {
-      // If no organization exists, stay on org-setup step
-      // Pre-fill the domain in the form
-      orgForm.setValue('domain', domain)
-    }
-  }
-
-  const createOrganization = async (data: z.infer<typeof organizationSchema>) => {
-    try {
-      const { data: newOrg, error } = await supabase.from('organizations').insert({
-        name: data.name,
-        domain: data.domain,
-        logo_url: organizationLogoUrl,
-      }).select().single()
-
-      if (error) throw error
-
-      setOrganizationId(newOrg.id)
-      toast({
-        title: "Success",
-        description: "Organization created successfully",
-      })
-      setCurrentStep('profile')
-    } catch (error: any) {
-      console.error('Organization creation error:', error)
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message || "Error creating organization",
-      })
     }
   }
 
@@ -240,7 +263,7 @@ export function OnboardingFlow() {
         last_name: data.lastName,
         job_title: data.jobTitle,
         email: user.email,
-        avatar_url: avatarUrl,
+        //avatar_url: avatarUrl,
         organization_id: orgId,
       }).select().single()
 
@@ -302,294 +325,341 @@ export function OnboardingFlow() {
     setOrganizationLogoUrl(null)
   }
 
+  const steps = [
+    {
+      id: "org-setup",
+      title: "Organization Setup",
+      icon: Building2,
+      description: "Set up your organization"
+    },
+    {
+      id: "profile",
+      title: "Profile Setup",
+      icon: UserCircle,
+      description: "Complete your profile"
+    },
+    {
+      id: "team",
+      title: "Team Invites",
+      icon: Users,
+      description: "Invite your team"
+    },
+    {
+      id: "complete",
+      title: "Complete",
+      icon: CheckCircle,
+      description: "All set!"
+    }
+  ]
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50">
       <Card className="w-full max-w-4xl">
         <CardHeader>
           <CardTitle>Welcome to Qwenzy</CardTitle>
-          <CardDescription>Let's get you set up</CardDescription>
+          <CardDescription>Get started with your organization</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-8">
-            {/* Progress Indicator */}
-            <div className="w-64 space-y-4">
-              {steps.map((step) => {
-                const Icon = step.icon
-                return (
-                  <div
-                    key={step.id}
-                    className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
-                      currentStep === step.id
-                        ? "bg-primary text-primary-foreground"
-                        : "text-gray-500"
-                    }`}
+          {existingOrganizations.length > 0 ? (
+            <div className="space-y-6">
+              {/* Create New Organization (Admin Only) */}
+              {isAdmin && (
+                <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <h3 className="font-medium text-gray-900 mb-2">Create an organization</h3>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Set up a new organization for your team
+                  </p>
+                  <Button
+                    onClick={() => setCurrentStep('org-setup')}
+                    className="w-full bg-[#407c87] hover:bg-[#386d77]"
                   >
-                    <Icon className="h-5 w-5" />
-                    <div>
-                      <p className="font-medium">{step.title}</p>
-                      <p className="text-sm opacity-80">{step.description}</p>
-                    </div>
-                  </div>
-                )
-              })}
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create an organization
+                  </Button>
+                </div>
+              )}
+
+              {/* Existing Organizations */}
+              <div>
+                <h3 className="font-medium text-gray-900 mb-2">Open an organization</h3>
+                <p className="text-sm text-gray-500 mb-4">
+                  Select an organization you're already a part of
+                </p>
+                <div className="space-y-2">
+                  {existingOrganizations.map((org) => (
+                    <OrganizationCard
+                      key={org.id}
+                      org={org}
+                      onSelect={() => {
+                        setOrganizationId(org.id)
+                        setCurrentStep('profile')
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
             </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Create First Organization */}
+              <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <h3 className="font-medium text-gray-900 mb-2">Create your organization</h3>
+                <p className="text-sm text-gray-500 mb-4">
+                  Set up your organization to start collaborating with your team
+                </p>
+                <Form {...orgForm}>
+                  <form onSubmit={orgForm.handleSubmit(createOrganization)} className="space-y-4">
+                    <FormField
+                      control={orgForm.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Organization Name</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Acme Inc." {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-            {/* Content Area */}
-            <div className="flex-1">
-              <Tabs value={currentStep} className="w-full">
-                <TabsContent value="org-setup">
-                  <Form {...orgForm}>
-                    <form onSubmit={orgForm.handleSubmit(createOrganization)} className="space-y-4">
-                      <FormField
-                        control={orgForm.control}
-                        name="name"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Organization Name</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Acme Inc." {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                    <FormField
+                      control={orgForm.control}
+                      name="domain"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Domain</FormLabel>
+                          <FormControl>
+                            <Input {...field} disabled />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                      <FormField
-                        control={orgForm.control}
-                        name="domain"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Domain</FormLabel>
-                            <FormControl>
-                              <Input {...field} disabled />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <div className="space-y-4">
-                        {organizationLogoUrl ? (
-                          <div className="relative w-32 h-32 mx-auto">
-                            <img
-                              src={organizationLogoUrl}
-                              alt="Organization logo"
-                              className="w-full h-full object-contain rounded-lg border border-gray-200"
-                            />
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
-                              onClick={resetLogo}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        ) : (
-                          <>
-                            <Input
-                              type="file"
-                              accept="image/*"
-                              onChange={(e) => handleImageUpload(e, 'logo')}
-                              disabled={uploading}
-                              className="hidden"
-                              id="logo-upload"
-                            />
-                            <Button
-                              type="button"
-                              variant="outline"
-                              onClick={() => document.getElementById('logo-upload')?.click()}
-                              disabled={uploading}
-                              className="w-full"
-                            >
-                              {uploading ? (
-                                <>
-                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                  Uploading...
-                                </>
-                              ) : (
-                                'Upload Organization Logo'
-                              )}
-                            </Button>
-                          </>
-                        )}
-                      </div>
-
-                      <Button type="submit" className="w-full">Create Organization</Button>
-                    </form>
-                  </Form>
-                </TabsContent>
-
-                <TabsContent value="profile">
-                  <Form {...profileForm}>
-                    <form onSubmit={profileForm.handleSubmit(completeProfile)} className="space-y-4">
-                      <div className="flex items-center justify-center mb-6">
-                        <div className="relative h-24 w-24 rounded-full overflow-hidden bg-gray-100">
-                          {avatarUrl ? (
-                            <img src={avatarUrl} alt="Profile" className="h-full w-full object-cover" />
-                          ) : (
-                            <div className="h-full w-full flex items-center justify-center bg-gray-100">
-                              <Upload className="h-8 w-8 text-gray-400" />
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <Input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => handleImageUpload(e, 'avatar')}
-                        disabled={uploading}
-                        className="hidden"
-                        id="avatar-upload"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => document.getElementById('avatar-upload')?.click()}
-                        disabled={uploading}
-                        className="w-full"
-                      >
-                        {uploading ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Uploading...
-                          </>
-                        ) : (
-                          'Upload Profile Picture'
-                        )}
-                      </Button>
-
-                      <FormField
-                        control={profileForm.control}
-                        name="firstName"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>First Name</FormLabel>
-                            <FormControl>
-                              <Input placeholder="John" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={profileForm.control}
-                        name="lastName"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Last Name</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Doe" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={profileForm.control}
-                        name="jobTitle"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Job Title</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Software Engineer" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <Button type="submit" className="w-full">
-                        Complete Profile
-                      </Button>
-                    </form>
-                  </Form>
-                </TabsContent>
-
-                <TabsContent value="team">
-                  <Form {...teamInviteForm}>
-                    <form onSubmit={teamInviteForm.handleSubmit(handleTeamInvites)} className="space-y-6">
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-2">
-                          <Input
-                            placeholder="Enter email address"
-                            value={currentEmail}
-                            onChange={(e) => setCurrentEmail(e.target.value)}
-                            type="email"
+                    <div className="space-y-4">
+                      {organizationLogoUrl ? (
+                        <div className="relative w-32 h-32 mx-auto">
+                          <img
+                            src={organizationLogoUrl}
+                            alt="Organization logo"
+                            className="w-full h-full object-contain rounded-lg border border-gray-200"
                           />
                           <Button
                             type="button"
-                            onClick={() => {
-                              if (currentEmail && !emails.includes(currentEmail)) {
-                                setEmails([...emails, currentEmail])
-                                setCurrentEmail('')
-                              }
-                            }}
                             variant="outline"
+                            size="icon"
+                            className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
+                            onClick={resetLogo}
                           >
-                            <Plus className="h-4 w-4" />
+                            <X className="h-4 w-4" />
                           </Button>
                         </div>
-
-                        {emails.length > 0 && (
-                          <div className="space-y-2">
-                            {emails.map((email, index) => (
-                              <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
-                                <span>{email}</span>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setEmails(emails.filter((_, i) => i !== index))}
-                                >
-                                  <Trash className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        <div className="flex items-center space-x-2">
-                          <Switch
-                            id="auto-join"
-                            checked={teamInviteForm.watch('allowDomainJoin')}
-                            onCheckedChange={(checked) =>
-                              teamInviteForm.setValue('allowDomainJoin', checked)
-                            }
+                      ) : (
+                        <>
+                          <Input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => handleImageUpload(e, 'logo')}
+                            disabled={uploading}
+                            className="hidden"
+                            id="logo-upload"
                           />
-                          <Label htmlFor="auto-join">
-                            Allow anyone with matching email domain to join automatically
-                          </Label>
-                        </div>
-                      </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => document.getElementById('logo-upload')?.click()}
+                            disabled={uploading}
+                            className="w-full"
+                          >
+                            {uploading ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Uploading...
+                              </>
+                            ) : (
+                              'Upload Organization Logo'
+                            )}
+                          </Button>
+                        </>
+                      )}
+                    </div>
 
-                      <Button
-                        type="submit"
-                        className="w-full"
-                        disabled={emails.length === 0}
-                      >
-                        Send Invites & Complete Setup
-                      </Button>
-                    </form>
-                  </Form>
-                </TabsContent>
-
-                <TabsContent value="complete">
-                  <div className="text-center space-y-4">
-                    <CheckCircle className="h-16 w-16 text-green-500 mx-auto" />
-                    <h3 className="text-2xl font-bold">All Set!</h3>
-                    <p className="text-gray-600">
-                      Your profile and organization setup is complete. You'll be redirected to your dashboard shortly.
-                    </p>
-                  </div>
-                </TabsContent>
-              </Tabs>
+                    <Button type="submit" className="w-full bg-[#407c87] hover:bg-[#386d77]">Create Organization</Button>
+                  </form>
+                </Form>
+              </div>
             </div>
-          </div>
+          )}
+
+          <Tabs value={currentStep} className="w-full">
+            <TabsContent value="profile">
+              <Form {...profileForm}>
+                <form onSubmit={profileForm.handleSubmit(completeProfile)} className="space-y-4">
+                  <div className="flex items-center justify-center mb-6">
+                    <div className="relative h-24 w-24 rounded-full overflow-hidden bg-gray-100">
+                      {/* {avatarUrl ? (
+                        <img src={avatarUrl} alt="Profile" className="h-full w-full object-cover" />
+                      ) : ( */}
+                        <div className="h-full w-full flex items-center justify-center bg-gray-100">
+                          <Upload className="h-8 w-8 text-gray-400" />
+                        </div>
+                      {/* )} */}
+                    </div>
+                  </div>
+
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleImageUpload(e, 'avatar')}
+                    disabled={uploading}
+                    className="hidden"
+                    id="avatar-upload"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => document.getElementById('avatar-upload')?.click()}
+                    disabled={uploading}
+                    className="w-full"
+                  >
+                    {uploading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      'Upload Profile Picture'
+                    )}
+                  </Button>
+
+                  <FormField
+                    control={profileForm.control}
+                    name="firstName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>First Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="John" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={profileForm.control}
+                    name="lastName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Last Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Doe" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={profileForm.control}
+                    name="jobTitle"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Job Title</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Software Engineer" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <Button type="submit" className="w-full">
+                    Complete Profile
+                  </Button>
+                </form>
+              </Form>
+            </TabsContent>
+
+            <TabsContent value="team">
+              <Form {...teamInviteForm}>
+                <form onSubmit={teamInviteForm.handleSubmit(handleTeamInvites)} className="space-y-6">
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Input
+                        placeholder="Enter email address"
+                        value={currentEmail}
+                        onChange={(e) => setCurrentEmail(e.target.value)}
+                        type="email"
+                      />
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          if (currentEmail && !emails.includes(currentEmail)) {
+                            setEmails([...emails, currentEmail])
+                            setCurrentEmail('')
+                          }
+                        }}
+                        variant="outline"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    {emails.length > 0 && (
+                      <div className="space-y-2">
+                        {emails.map((email, index) => (
+                          <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                            <span>{email}</span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setEmails(emails.filter((_, i) => i !== index))}
+                            >
+                              <Trash className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id="auto-join"
+                        checked={teamInviteForm.watch('allowDomainJoin')}
+                        onCheckedChange={(checked) =>
+                          teamInviteForm.setValue('allowDomainJoin', checked)
+                        }
+                      />
+                      <Label htmlFor="auto-join">
+                        Allow anyone with matching email domain to join automatically
+                      </Label>
+                    </div>
+                  </div>
+
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={emails.length === 0}
+                  >
+                    Send Invites & Complete Setup
+                  </Button>
+                </form>
+              </Form>
+            </TabsContent>
+
+            <TabsContent value="complete">
+              <div className="text-center space-y-4">
+                <CheckCircle className="h-16 w-16 text-green-500 mx-auto" />
+                <h3 className="text-2xl font-bold">All Set!</h3>
+                <p className="text-gray-600">
+                  Your profile and organization setup is complete. You'll be redirected to your dashboard shortly.
+                </p>
+              </div>
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
     </div>
