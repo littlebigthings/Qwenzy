@@ -6,7 +6,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { Loader2, Building2, User, Users, Briefcase } from "lucide-react"
+import { Loader2, Building2, User, Users, Briefcase, Upload } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import { useLocation } from "wouter"
@@ -177,12 +177,16 @@ export function OnboardingFlow() {
                   <div>
                     <FormLabel>Organization Logo</FormLabel>
                     <div className="mt-2">
-                      <div className="h-24 w-24 rounded border-2 border-dashed border-gray-200 flex items-center justify-center relative">
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <Button variant="outline" size="sm" className="h-10">
-                            Upload a photo
-                          </Button>
-                        </div>
+                      <div className="h-24 w-24 rounded-lg border-2 border-dashed border-gray-200 flex items-center justify-center">
+                        <Upload className="h-8 w-8 text-gray-400" />
+                      </div>
+                      <div className="mt-2 flex items-center gap-2">
+                        <Button variant="outline" size="sm">
+                          Upload a photo
+                        </Button>
+                        <Button variant="outline" size="sm">
+                          Reset
+                        </Button>
                       </div>
                       <p className="text-sm text-gray-500 mt-2">
                         Allowed JPG, GIF or PNG. Max size of 800K
