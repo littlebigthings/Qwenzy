@@ -59,6 +59,8 @@ export function OnboardingFlow() {
   const [currentStep, setCurrentStep] = useState("organization");
   const [completedSteps, setCompletedSteps] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const { user } = useAuth();
@@ -70,31 +72,100 @@ export function OnboardingFlow() {
     },
   });
 
-  const createOrganization = async (
-    data: z.infer<typeof organizationSchema>,
-  ) => {
+  const handleLogoUpload = async (file: File) => {
+    try {
+      if (!file) return null;
+
+      // Check file size (800KB max)
+      if (file.size > 800 * 1024) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "File size must be less than 800KB",
+        });
+        return null;
+      }
+
+      // Check file type
+      if (!["image/jpeg", "image/png", "image/gif"].includes(file.type)) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "File must be JPG, PNG or GIF",
+        });
+        return null;
+      }
+
+      // Create file preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setLogoPreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+
+      setLogoFile(file);
+      return file;
+    } catch (error: any) {
+      console.error("Logo upload error:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Error uploading logo",
+      });
+      return null;
+    }
+  };
+
+  const uploadToSupabase = async (file: File) => {
+    const fileExt = file.name.split(".").pop();
+    const fileName = `${Math.random()}.${fileExt}`;
+    const filePath = `${fileName}`;
+
+    const { data, error } = await supabase.storage
+      .from("organization-logos")
+      .upload(filePath, file);
+
+    if (error) throw error;
+
+    const { data: { publicUrl } } = supabase.storage
+      .from("organization-logos")
+      .getPublicUrl(filePath);
+
+    return publicUrl;
+  };
+
+  const createOrganization = async (data: z.infer<typeof organizationSchema>) => {
     try {
       if (!user?.id) throw new Error("Missing user information");
 
       setLoading(true);
+
+      // Upload logo if exists
+      let logoUrl = null;
+      if (logoFile) {
+        logoUrl = await uploadToSupabase(logoFile);
+      }
 
       const { data: newOrg, error } = await supabase
         .from("organizations")
         .insert({
           name: data.name,
           domain: user.email?.split("@")[1],
+          logo_url: logoUrl,
         })
         .select()
         .single();
 
       if (error) throw error;
 
-      const { error: profileError } = await supabase.from("profiles").insert({
-        user_id: user.id,
-        email: user.email,
-        organization_id: newOrg.id,
-        role: "admin",
-      });
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .insert({
+          user_id: user.id,
+          email: user.email,
+          organization_id: newOrg.id,
+          role: "admin",
+        });
 
       if (profileError) throw profileError;
 
@@ -105,6 +176,7 @@ export function OnboardingFlow() {
 
       setCompletedSteps([...completedSteps, "organization"]);
       setCurrentStep("profile");
+
     } catch (error: any) {
       console.error("Organization creation error:", error);
       toast({
@@ -165,7 +237,9 @@ export function OnboardingFlow() {
                   </div>
                   <div>
                     <h3
-                      className={`text-base font-medium ${isCurrent ? "text-[#407c87]" : "text-gray-700"}`}
+                      className={`text-base font-medium ${
+                        isCurrent ? "text-[#407c87]" : "text-gray-700"
+                      }`}
                     >
                       {step.label}
                     </h3>
@@ -215,15 +289,46 @@ export function OnboardingFlow() {
                     <FormLabel>Organization Logo</FormLabel>
                     <div className="mt-2">
                       <div className="h-24 w-24 rounded-lg border-2 border-dashed border-gray-200 flex items-center justify-center">
-                        <Upload className="h-8 w-8 text-gray-400" />
+                        {logoPreview ? (
+                          <img
+                            src={logoPreview}
+                            alt="Logo preview"
+                            className="w-full h-full object-cover rounded-lg"
+                          />
+                        ) : (
+                          <Upload className="h-8 w-8 text-gray-400" />
+                        )}
                       </div>
                       <div className="mt-2 flex items-center gap-2">
-                        <Button variant="outline" size="sm">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const input = document.createElement("input");
+                            input.type = "file";
+                            input.accept = "image/jpeg,image/png,image/gif";
+                            input.onchange = (e) => {
+                              const file = (e.target as HTMLInputElement)
+                                .files?.[0];
+                              if (file) handleLogoUpload(file);
+                            };
+                            input.click();
+                          }}
+                        >
                           Upload a photo
                         </Button>
-                        <Button variant="outline" size="sm">
-                          Reset
-                        </Button>
+                        {logoPreview && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setLogoFile(null);
+                              setLogoPreview(null);
+                            }}
+                          >
+                            Reset
+                          </Button>
+                        )}
                       </div>
                       <p className="text-sm text-gray-500 mt-2">
                         Allowed JPG, GIF or PNG. Max size of 800K
