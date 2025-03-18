@@ -41,13 +41,13 @@ const steps = [
 
 const organizationSchema = z.object({
   name: z.string().min(2, {
-    message: "Organization name must be at least 2 characters"
+    message: "Organization name must be at least 2 characters",
   })
   .max(50, {
-    message: "Organization name must be less than 50 characters"
+    message: "Organization name must be less than 50 characters",
   })
   .regex(/^[a-zA-Z0-9\s.-]+$/, {
-    message: "Organization name can only contain letters, numbers, spaces, dots and hyphens"
+    message: "Organization name can only contain letters, numbers, spaces, dots and hyphens",
   }),
   logo: z.any().optional(),
 });
@@ -122,16 +122,17 @@ export function OnboardingFlow() {
       const filePath = `${fileName}`;
 
       // Upload to the "organization" bucket
-      const { data, error } = await supabase.storage
+      const { data, error: uploadError } = await supabase.storage
         .from("organization")
         .upload(filePath, file, {
           cacheControl: "3600",
-          upsert: false
+          upsert: false,
+          contentType: file.type
         });
 
-      if (error) {
-        console.error("Supabase storage error:", error);
-        throw error;
+      if (uploadError) {
+        console.error("Supabase storage error:", uploadError);
+        throw new Error(uploadError.message);
       }
 
       // Get the public URL
@@ -142,12 +143,7 @@ export function OnboardingFlow() {
       return publicUrl;
     } catch (error: any) {
       console.error("Upload to Supabase error:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message || "Failed to upload logo"
-      });
-      return null;
+      throw new Error("Failed to upload logo to storage: " + error.message);
     }
   };
 
@@ -160,7 +156,16 @@ export function OnboardingFlow() {
       // Upload logo if exists
       let logoUrl = null;
       if (logoFile) {
-        logoUrl = await uploadToSupabase(logoFile);
+        try {
+          logoUrl = await uploadToSupabase(logoFile);
+        } catch (uploadError: any) {
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: uploadError.message
+          });
+          return;
+        }
       }
 
       // Create organization
