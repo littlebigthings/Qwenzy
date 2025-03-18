@@ -11,7 +11,7 @@ const getDeploymentUrl = () => {
   if (window.location.hostname.endsWith(".replit.app")) {
     return window.location.origin;
   } else {
-    return "http://localhost:5000";
+    return "http://localhost:3000";
   }
 };
 
