@@ -337,9 +337,11 @@ export function OnboardingFlow() {
                           }}
                         />
                         <Button
+                          type="button"
                           variant="outline"
                           size="sm"
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.preventDefault();
                             document.getElementById("logo-upload")?.click();
                           }}
                         >
@@ -347,9 +349,11 @@ export function OnboardingFlow() {
                         </Button>
                         {logoPreview && (
                           <Button
+                            type="button"
                             variant="outline"
                             size="sm"
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.preventDefault();
                               setLogoFile(null);
                               setLogoPreview(null);
                             }}
