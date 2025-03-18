@@ -119,11 +119,11 @@ export function OnboardingFlow() {
 
       const fileExt = file.name.split(".").pop();
       const fileName = `${Math.random()}.${fileExt}`;
-      const filePath = `${fileName}`;
+      const filePath = `logos/${fileName}`; // Add logos/ folder prefix
 
-      // Upload to the "organisations" bucket
+      // Upload to the "organizations" bucket (note the spelling)
       const { data, error: uploadError } = await supabase.storage
-        .from("organisations")
+        .from("organizations") // Fix bucket name spelling
         .upload(filePath, file, {
           cacheControl: "3600",
           upsert: false,
