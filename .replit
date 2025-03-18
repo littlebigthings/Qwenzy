@@ -1,3 +1,4 @@
+
 modules = ["nodejs-20", "bash", "web", "postgresql-16"]
 run = "npm run dev"
 hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
@@ -9,7 +10,7 @@ channel = "stable-22_11"
 XDG_CONFIG_HOME = "/home/runner/.config"
 PATH = "/home/runner/$REPL_SLUG/.config/npm/node_global/bin:/home/runner/$REPL_SLUG/node_modules/.bin"
 npm_config_prefix = "/home/runner/$REPL_SLUG/.config/npm/node_global"
-localPort = 3000
+localPort = "3000"
 
 [gitHubImport]
 requiredFiles = [".replit", "replit.nix", ".config"]
