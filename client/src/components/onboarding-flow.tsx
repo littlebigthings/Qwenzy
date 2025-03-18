@@ -6,7 +6,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { Loader2, Building2, Plus, ChevronRight } from "lucide-react"
+import { Loader2, Building2, Plus } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import { useLocation } from "wouter"
@@ -21,9 +21,9 @@ type Organization = {
 };
 
 const OrganizationCard = ({ org, onSelect }: { org: Organization; onSelect: () => void }) => (
-  <button
+  <div 
     onClick={onSelect}
-    className="w-full flex items-center justify-between p-4 hover:bg-gray-50 rounded-lg border border-gray-200 mb-2"
+    className="flex items-center justify-between p-4 hover:bg-gray-50 rounded-lg border border-gray-200 mb-2 cursor-pointer"
   >
     <div className="flex items-center gap-3">
       {org.logo_url ? (
@@ -38,8 +38,8 @@ const OrganizationCard = ({ org, onSelect }: { org: Organization; onSelect: () =
         <p className="text-sm text-gray-500">{org.member_count} members</p>
       </div>
     </div>
-    <ChevronRight className="w-5 h-5 text-gray-400" />
-  </button>
+    <Plus className="w-5 h-5 text-gray-400" />
+  </div>
 );
 
 const organizationSchema = z.object({
@@ -75,9 +75,6 @@ export function OnboardingFlow() {
     try {
       setLoading(true);
 
-      // Get detected domain from email
-      const detectedDomain = user.email.split("@")[1];
-
       // Check if user is already a member of any organization
       const { data: memberOrgs, error: memberError } = await supabase
         .from("profiles")
@@ -102,6 +99,9 @@ export function OnboardingFlow() {
         .eq("accepted", false);
 
       if (inviteError) throw inviteError;
+
+      // Get detected domain from email
+      const detectedDomain = user.email.split("@")[1];
 
       // Check organizations with matching domain
       const { data: domainOrgs, error: domainError } = await supabase
@@ -154,19 +154,23 @@ export function OnboardingFlow() {
     try {
       if (!user?.id) throw new Error("Missing user information");
 
-      const { data: newOrg, error } = await supabase.from("organizations").insert({
-        name: data.name,
-        domain: data.domain,
-      }).select().single();
+      const { data: newOrg, error } = await supabase
+        .from("organizations")
+        .insert({
+          name: data.name,
+          domain: data.domain,
+        })
+        .select()
+        .single();
 
       if (error) throw error;
 
-      // Create admin profile
+      // Create admin profile for first user
       const { error: profileError } = await supabase.from("profiles").insert({
         user_id: user.id,
         email: user.email,
         organization_id: newOrg.id,
-        role: "admin", // Always set as admin for first user
+        role: "admin", // First user is always admin
       });
 
       if (profileError) throw profileError;
@@ -176,7 +180,6 @@ export function OnboardingFlow() {
         description: "Organization created successfully",
       });
 
-      // Redirect to home after creating organization
       setLocation("/");
 
     } catch (error: any) {
@@ -199,24 +202,27 @@ export function OnboardingFlow() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-[#f8fafc]">
-      <Card className="w-full max-w-xl">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Welcome to Qwenzy</CardTitle>
+      <Card className="w-full max-w-xl mx-auto">
+        <CardHeader className="text-center pb-4">
+          <CardTitle className="text-2xl font-semibold">Welcome to Qwenzy</CardTitle>
           <CardDescription>Get started with your organization</CardDescription>
         </CardHeader>
+
         <CardContent className="space-y-6">
           {/* Domain Detection Banner */}
-          <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+          <div className="bg-gray-50 p-4 rounded-lg">
             <p className="text-sm text-gray-600">
               We detected your organization domain as
-              <span className="font-medium text-gray-900"> {user?.email?.split("@")[1]}</span>
+              <span className="font-medium text-gray-900 ml-1">
+                {user?.email?.split("@")[1]}
+              </span>
             </p>
           </div>
 
           {/* Create Organization Section - Show at top for admins */}
           {isAdmin && (
-            <div>
-              <h3 className="font-medium text-gray-900 mb-4">Create an organization</h3>
+            <div className="space-y-4">
+              <h3 className="font-medium text-gray-900">Create an organization</h3>
               <Form {...orgForm}>
                 <form onSubmit={orgForm.handleSubmit(createOrganization)} className="space-y-4">
                   <FormField
@@ -241,36 +247,37 @@ export function OnboardingFlow() {
             </div>
           )}
 
+          {/* Divider when both sections are shown */}
+          {existingOrganizations.length > 0 && <div className="text-center text-gray-500">or</div>}
+
           {/* Existing Organizations Section */}
           {existingOrganizations.length > 0 && (
-            <div>
-              <div className="flex items-center justify-between mb-4">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
                 <h3 className="font-medium text-gray-900">Open an organization</h3>
-                <p className="text-sm text-gray-500">
-                  Not seeing your organization?{" "}
-                  <button className="text-[#407c87] hover:text-[#386d77] font-medium">
-                    Try using a different email address
-                  </button>
-                </p>
               </div>
               <div className="space-y-2">
                 {existingOrganizations.map((org) => (
                   <OrganizationCard
                     key={org.id}
                     org={org}
-                    onSelect={() => {
-                      setLocation("/");
-                    }}
+                    onSelect={() => setLocation("/")}
                   />
                 ))}
               </div>
+              <p className="text-sm text-gray-500 text-center">
+                Not seeing your organization?{" "}
+                <button className="text-[#407c87] hover:text-[#386d77] font-medium">
+                  Try using a different email address
+                </button>
+              </p>
             </div>
           )}
 
-          {/* Show Create Organization Section at bottom for non-admins */}
+          {/* Show Create Organization at bottom for non-admins */}
           {!isAdmin && existingOrganizations.length === 0 && (
-            <div>
-              <h3 className="font-medium text-gray-900 mb-4">Create an organization</h3>
+            <div className="space-y-4">
+              <h3 className="font-medium text-gray-900">Create an organization</h3>
               <Form {...orgForm}>
                 <form onSubmit={orgForm.handleSubmit(createOrganization)} className="space-y-4">
                   <FormField
