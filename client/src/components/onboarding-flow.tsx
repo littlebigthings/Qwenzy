@@ -6,44 +6,11 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { Loader2, Building2, Plus, ChevronRight } from "lucide-react"
+import { Building2, Plus } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import { useLocation } from "wouter"
 import { useAuth } from "@/hooks/use-auth"
-import { Switch } from "@/components/ui/switch"
-import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent } from "@/components/ui/tabs"
-
-type Organization = {
-  id: number;
-  name: string;
-  domain: string;
-  logo_url?: string;
-  member_count: number;
-}
-
-const OrganizationCard = ({ org, onSelect }: { org: Organization, onSelect: () => void }) => (
-  <button
-    onClick={onSelect}
-    className="w-full flex items-center justify-between p-4 hover:bg-gray-50 rounded-lg border border-gray-200 mb-2"
-  >
-    <div className="flex items-center gap-3">
-      {org.logo_url ? (
-        <img src={org.logo_url} alt={org.name} className="w-8 h-8 rounded-full" />
-      ) : (
-        <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
-          <Building2 className="w-4 h-4 text-gray-500" />
-        </div>
-      )}
-      <div className="text-left">
-        <h3 className="font-medium text-gray-900">{org.name}</h3>
-        <p className="text-sm text-gray-500">{org.member_count} members</p>
-      </div>
-    </div>
-    <ChevronRight className="w-5 h-5 text-gray-400" />
-  </button>
-);
 
 const organizationSchema = z.object({
   name: z.string().min(2, "Organization name must be at least 2 characters"),
@@ -77,25 +44,7 @@ export function OnboardingFlow() {
 
     try {
       setLoading(true)
-
-      // Get detected domain from email
       const detectedDomain = user.email.split('@')[1]
-
-      // Check if user is already a member of any organization
-      const { data: memberOrgs, error: memberError } = await supabase
-        .from('profiles')
-        .select(`
-          organizations (
-            id,
-            name,
-            domain,
-            logo_url,
-            profiles (count)
-          )
-        `)
-        .eq('email', user.email)
-
-      if (memberError) throw memberError
 
       // Check for pending invitations
       const { data: invitations, error: inviteError } = await supabase
@@ -120,25 +69,8 @@ export function OnboardingFlow() {
 
       if (domainError) throw domainError
 
-      // Combine and format organizations
-      const formattedOrgs = [
-        ...(memberOrgs?.map(m => ({
-          ...m.organizations,
-          member_count: m.organizations.profiles[0].count
-        })) || []),
-        ...(domainOrgs?.map(org => ({
-          ...org,
-          member_count: org.profiles[0].count
-        })) || [])
-      ]
-
-      // Remove duplicates
-      const uniqueOrgs = Array.from(new Set(formattedOrgs.map(org => org.id)))
-        .map(id => formattedOrgs.find(org => org.id === id))
-        .filter(Boolean) as Organization[]
-
-      setExistingOrganizations(uniqueOrgs)
-      setIsAdmin(uniqueOrgs.length === 0 && invitations.length === 0)
+      setExistingOrganizations(domainOrgs || [])
+      setIsAdmin(invitations.length === 0) // First user becomes admin if no invitations exist
 
     } catch (error: any) {
       console.error('Error checking user status:', error)
@@ -194,20 +126,23 @@ export function OnboardingFlow() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <div className="animate-pulse">
+          <div className="h-8 w-32 bg-gray-200 rounded mb-4"></div>
+          <div className="h-4 w-48 bg-gray-200 rounded"></div>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-[#f8fafc]">
-      <Card className="w-full max-w-xl">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Welcome to Qwenzy</CardTitle>
-          <CardDescription>Get started with your organization</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Domain Detection Banner */}
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-[#f8fafc]">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-center text-[#407c87]">Qwenzy</h1>
+      </div>
+
+      <Card className="w-full max-w-md">
+        <CardContent className="pt-6 space-y-6">
+          {/* Domain Detection */}
           <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
             <p className="text-sm text-gray-600">
               We detected your organization domain as
@@ -215,61 +150,68 @@ export function OnboardingFlow() {
             </p>
           </div>
 
-          {/* Create Organization Section */}
-          {(isAdmin || existingOrganizations.length === 0) && (
-            <div>
-              <h3 className="font-medium text-gray-900 mb-4">Create an organization</h3>
-              <Form {...orgForm}>
-                <form onSubmit={orgForm.handleSubmit(createOrganization)} className="space-y-4">
-                  <FormField
-                    control={orgForm.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Organization name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Acme Inc." {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+          {/* Create Organization Button */}
+          <Button 
+            onClick={() => orgForm.handleSubmit(createOrganization)()} 
+            className="w-full bg-[#407c87] hover:bg-[#386d77] text-white"
+          >
+            Create an organization
+          </Button>
 
-                  <Button type="submit" className="w-full bg-[#407c87] hover:bg-[#386d77]">
-                    Create organization
-                  </Button>
-                </form>
-              </Form>
+          {/* Divider */}
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-200"></div>
             </div>
-          )}
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white text-gray-500">or</span>
+            </div>
+          </div>
 
-          {/* Existing Organizations */}
-          {existingOrganizations.length > 0 && (
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-medium text-gray-900">Open an organization</h3>
-                <p className="text-sm text-gray-500">
-                  Not seeing your organization?{" "}
-                  <button className="text-[#407c87] hover:text-[#386d77] font-medium">
-                    Try using a different email address
-                  </button>
-                </p>
-              </div>
-              <div className="space-y-2">
-                {existingOrganizations.map((org) => (
-                  <OrganizationCard
-                    key={org.id}
-                    org={org}
-                    onSelect={() => {
-                      setLocation('/profile-setup')
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Team Section */}
+          <div className="space-y-4">
+            <p className="text-center text-sm text-gray-600">
+              Is your team already on Qwenzy?
+            </p>
+            <p className="text-center text-xs text-gray-500">
+              We couldn't find any existing workspaces for the email address {user?.email}.
+            </p>
+            <button className="text-[#407c87] hover:text-[#386d77] text-sm font-medium text-center w-full">
+              Try using a different email address
+            </button>
+          </div>
         </CardContent>
       </Card>
     </div>
   )
 }
+
+type Organization = {
+  id: number;
+  name: string;
+  domain: string;
+  logo_url?: string;
+  member_count: number;
+};
+
+const OrganizationCard = ({ org, onSelect }: { org: Organization, onSelect: () => void }) => (
+  <button
+    onClick={onSelect}
+    className="w-full flex items-center justify-between p-4 hover:bg-gray-50 rounded-lg border border-gray-200 mb-2"
+  >
+    <div className="flex items-center gap-3">
+      {org.logo_url ? (
+        <img src={org.logo_url} alt={org.name} className="w-8 h-8 rounded-full" />
+      ) : (
+        <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+          <Building2 className="w-4 h-4 text-gray-500" />
+        </div>
+      )}
+      <div className="text-left">
+        <h3 className="font-medium text-gray-900">{org.name}</h3>
+        <p className="text-sm text-gray-500">{org.member_count} members</p>
+      </div>
+    </div>
+    {/* ChevronRight className="w-5 h-5 text-gray-400" */}
+  </button>
+);
