@@ -1,3 +1,4 @@
+
 import { ReactNode } from "react"
 import { useAuthContext } from "@/providers/auth-provider"
 import { Redirect, useLocation } from "wouter"
@@ -8,7 +9,7 @@ type ProtectedProps = {
 }
 
 export function Protected({ children }: ProtectedProps) {
-  const { user, loading, hasProfile, hasOrganization } = useAuthContext()
+  const { user, loading, hasOrganization } = useAuthContext()
   const [location] = useLocation()
 
   // Always show login page if no user
@@ -28,12 +29,12 @@ export function Protected({ children }: ProtectedProps) {
     )
   }
 
-  // Handle profile/organization setup routing
-  if (!hasProfile || !hasOrganization) {
-    if (location !== '/profile-setup') {
-      return <Redirect to="/profile-setup" />
+  // Handle organization setup routing
+  if (!hasOrganization) {
+    if (location !== '/organization-setup') {
+      return <Redirect to="/organization-setup" />
     }
-  } else if (location === '/profile-setup') {
+  } else if (location === '/organization-setup') {
     return <Redirect to="/" />
   }
 
