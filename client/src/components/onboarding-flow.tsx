@@ -70,7 +70,7 @@ export function OnboardingFlow() {
   }, [user?.email]);
 
   const checkUserStatus = async () => {
-    if (!user?.email) return;
+    if (!user?.email || loading) return;
 
     try {
       setLoading(true);
