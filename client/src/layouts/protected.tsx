@@ -1,5 +1,5 @@
 import { ReactNode } from "react"
-import { useAuth } from "@/hooks/use-auth"
+import { useAuthContext } from "@/providers/auth-provider"
 import { Redirect, useLocation } from "wouter"
 import { Loader2 } from "lucide-react"
 
@@ -8,7 +8,7 @@ type ProtectedProps = {
 }
 
 export function Protected({ children }: ProtectedProps) {
-  const { user, loading } = useAuth()
+  const { user, loading } = useAuthContext()
   const [location] = useLocation()
 
   // Always show login page if no user

@@ -6,7 +6,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { Building2, UserCircle, Share, Briefcase, DownloadCloud, ChevronRight } from "lucide-react"
+import { Building2, UserCircle, Share, Briefcase, DownloadCloud } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import { useLocation } from "wouter"
@@ -295,14 +295,6 @@ export function OnboardingFlow() {
                       <div className="pt-4">
                         <Button type="submit" className="w-full">
                           Continue
-                        </Button>
-                        <Button
-                          type="button" 
-                          variant="link"
-                          className="w-full mt-2 text-gray-500"
-                          onClick={() => setShowOrgSetup(false)}
-                        >
-                          Back to log in
                         </Button>
                       </div>
                     </form>
