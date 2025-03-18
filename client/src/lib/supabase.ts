@@ -3,12 +3,22 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
+// Get deployment URL using Replit domain
+const getDeploymentUrl = () => {
+  if (typeof window === 'undefined') return 'localhost'
+
+  // Check if we're on Replit deployment
+  if (window.location.hostname.endsWith('.repl.co')) {
+    return window.location.origin
+  }
+
+  return 'http://localhost:5000'
+}
+
 console.log('Supabase Configuration:', {
   url: supabaseUrl ? 'Present' : 'Missing',
   anonKey: supabaseAnonKey ? 'Present' : 'Missing',
-  deploymentUrl: import.meta.env.PROD ? 
-    `https://${import.meta.env.VITE_REPL_SLUG}.${import.meta.env.VITE_REPL_OWNER}.repl.co` : 
-    'localhost'
+  deploymentUrl: getDeploymentUrl()
 })
 
 if (!supabaseUrl || !supabaseAnonKey) {

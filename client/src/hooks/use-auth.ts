@@ -8,13 +8,16 @@ export function useAuth() {
   const [loading, setLoading] = useState(true)
   const [, setLocation] = useLocation()
 
-  // Get the deployment URL
+  // Get the deployment URL using Replit domain
   const getRedirectUrl = () => {
-    const isProduction = import.meta.env.PROD
-    if (isProduction) {
-      return `https://${import.meta.env.VITE_REPL_SLUG}.${import.meta.env.VITE_REPL_OWNER}.repl.co`
+    if (typeof window === 'undefined') return ''
+
+    // Check if we're on Replit deployment
+    if (window.location.hostname.endsWith('.repl.co')) {
+      return window.location.origin
     }
-    return window.location.origin
+
+    return 'http://localhost:5000'
   }
 
   useEffect(() => {
@@ -125,6 +128,8 @@ export function useAuth() {
   const signUp = async (email: string, password: string) => {
     try {
       setLoading(true)
+      console.log('[useAuth] Starting sign up with redirect URL:', getRedirectUrl())
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
