@@ -38,6 +38,7 @@ app.use((req, res, next) => {
 
 (async () => {
   try {
+    // Initialize routes and create server
     const server = await registerRoutes(app);
 
     // Error handling middleware
@@ -54,6 +55,18 @@ app.use((req, res, next) => {
       // In production, serve static files from the client build directory
       const clientDir = path.resolve(process.cwd(), "dist", "client");
       console.log('Client directory:', clientDir);
+
+      // Ensure client directory exists
+      try {
+        const fs = require('fs');
+        if (!fs.existsSync(clientDir)) {
+          console.error('Client directory does not exist:', clientDir);
+          throw new Error('Client build directory not found');
+        }
+      } catch (err) {
+        console.error('Error checking client directory:', err);
+        throw err;
+      }
 
       // Serve static files
       app.use(express.static(clientDir));
