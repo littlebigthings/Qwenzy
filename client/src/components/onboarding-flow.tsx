@@ -91,15 +91,6 @@ export function OnboardingFlow() {
 
       if (memberError) throw memberError;
 
-      // Check for pending invitations
-      const { data: invitations, error: inviteError } = await supabase
-        .from("invitations")
-        .select("*")
-        .eq("email", user.email)
-        .eq("accepted", false);
-
-      if (inviteError) throw inviteError;
-
       // Get detected domain from email
       const detectedDomain = user.email.split("@")[1];
 
@@ -135,8 +126,8 @@ export function OnboardingFlow() {
         .filter(Boolean) as Organization[];
 
       setExistingOrganizations(uniqueOrgs);
-      // Set admin status if it's a new user (no orgs exist and no pending invites)
-      setIsAdmin(uniqueOrgs.length === 0 && invitations.length === 0);
+      // Set admin status if it's a new user (no orgs exist)
+      setIsAdmin(uniqueOrgs.length === 0);
 
     } catch (error: any) {
       console.error("Error checking user status:", error);
