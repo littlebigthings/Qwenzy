@@ -34,7 +34,6 @@ export function useAuth() {
 
       if (session?.user) {
         setUser(session.user);
-        setLocation("/organization-setup");
       } else {
         setUser(null);
       }
@@ -143,8 +142,6 @@ export function useAuth() {
         throw new Error("Email already registered. Please sign in instead.");
       }
 
-      // After successful signup, redirect to organization setup
-      setLocation("/organization-setup");
       return data.user;
     } catch (error: any) {
       throw error;
