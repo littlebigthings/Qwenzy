@@ -289,7 +289,6 @@ export function OnboardingFlow() {
                   onSubmit={orgForm.handleSubmit(createOrganization)}
                   className="space-y-6"
                 >
-                  {/* Organization name field with better validation */}
                   <FormField
                     control={orgForm.control}
                     name="name"
@@ -325,19 +324,21 @@ export function OnboardingFlow() {
                         )}
                       </div>
                       <div className="mt-2 flex items-center gap-2">
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/gif"
+                          className="hidden"
+                          id="logo-upload"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleLogoUpload(file);
+                          }}
+                        />
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => {
-                            const input = document.createElement("input");
-                            input.type = "file";
-                            input.accept = "image/jpeg,image/png,image/gif";
-                            input.onchange = (e) => {
-                              const file = (e.target as HTMLInputElement)
-                                .files?.[0];
-                              if (file) handleLogoUpload(file);
-                            };
-                            input.click();
+                            document.getElementById("logo-upload")?.click();
                           }}
                         >
                           Upload a photo
