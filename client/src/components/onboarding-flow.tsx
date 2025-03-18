@@ -6,7 +6,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { Loader2, Building2, User, Users, Briefcase, Upload } from "lucide-react"
+import { Loader2, Upload } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import { useLocation } from "wouter"
@@ -16,25 +16,25 @@ const steps = [
   {
     id: 'organization',
     label: 'Organization',
-    icon: Building2,
+    icon: '/icons/org.svg',
     description: 'Details help any collaborators that join'
   },
   {
     id: 'profile',
     label: 'Profile',
-    icon: User,
+    icon: '/icons/profile.svg',
     description: 'Tell us about yourself'
   },
   {
     id: 'invite',
     label: 'Invite',
-    icon: Users,
+    icon: '/icons/invite.svg',
     description: 'Add your teammates'
   },
   {
     id: 'workspace',
     label: 'Workspace',
-    icon: Briefcase,
+    icon: '/icons/workspace.svg',
     description: 'Setup your workspace'
   }
 ]
@@ -120,7 +120,7 @@ export function OnboardingFlow() {
       <Card className="w-full max-w-5xl grid grid-cols-[280px,1fr] overflow-hidden">
         {/* Left sidebar with steps */}
         <div className="bg-gray-50 p-6 border-r">
-          <div className="space-y-6">
+          <div className="space-y-2">
             {steps.map((step, index) => {
               const isCompleted = completedSteps.includes(step.id)
               const isCurrent = currentStep === step.id
@@ -129,19 +129,26 @@ export function OnboardingFlow() {
               return (
                 <button
                   key={step.id}
-                  className={`w-full text-left flex items-start gap-4 p-4 rounded-lg transition-colors
+                  className={`w-full flex items-center gap-4 p-4 rounded-lg transition-colors
                     ${isCurrent ? 'bg-white shadow-sm' : 'hover:bg-white/50'}
                     ${!isClickable ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
                   `}
                   onClick={() => isClickable && setCurrentStep(step.id)}
                   disabled={!isClickable}
                 >
-                  <step.icon className={`w-6 h-6 ${isCurrent ? 'text-[#407c87]' : 'text-gray-400'}`} />
+                  {/* Icon container */}
+                  <div className="w-8 h-8 flex-shrink-0">
+                    {isCompleted ? (
+                      <img src="/icons/complete.svg" alt="Complete" className="w-full h-full" />
+                    ) : (
+                      <img src={step.icon} alt={step.label} className="w-full h-full" />
+                    )}
+                  </div>
                   <div>
-                    <h3 className={`font-medium ${isCurrent ? 'text-[#407c87]' : 'text-gray-700'}`}>
+                    <h3 className={`text-base font-medium ${isCurrent ? 'text-[#407c87]' : 'text-gray-700'}`}>
                       {step.label}
                     </h3>
-                    <p className="text-sm text-gray-500">{step.description}</p>
+                    <p className="text-sm text-gray-500 mt-0.5">{step.description}</p>
                   </div>
                 </button>
               )
