@@ -159,12 +159,12 @@ export function OnboardingFlow() {
         try {
           logoUrl = await uploadToSupabase(logoFile);
         } catch (error) {
-          // If logo upload fails, we can still create the organization without a logo
           console.error("Logo upload failed:", error);
+          // Continue without logo if upload fails
         }
       }
 
-      // Create organization
+      // Create organization first
       const { data: newOrg, error: orgError } = await supabase
         .from("organizations")
         .insert({
@@ -174,9 +174,12 @@ export function OnboardingFlow() {
         .select()
         .single();
 
-      if (orgError) throw orgError;
+      if (orgError) {
+        console.error("Organization creation error:", orgError);
+        throw new Error("Failed to create organization");
+      }
 
-      // Create organization membership for the user
+      // Create organization membership
       const { error: membershipError } = await supabase
         .from("organization_members")
         .insert({
@@ -185,7 +188,10 @@ export function OnboardingFlow() {
           is_owner: true,
         });
 
-      if (membershipError) throw membershipError;
+      if (membershipError) {
+        console.error("Membership creation error:", membershipError);
+        throw new Error("Failed to set up organization membership");
+      }
 
       toast({
         title: "Success",
