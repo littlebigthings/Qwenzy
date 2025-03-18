@@ -6,7 +6,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { Loader2, Building2, Plus } from "lucide-react"
+import { Loader2, Building2, Plus, ChevronRight } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import { useLocation } from "wouter"
@@ -33,12 +33,12 @@ const OrganizationCard = ({ org, onSelect }: { org: Organization; onSelect: () =
           <Building2 className="w-4 h-4 text-gray-500" />
         </div>
       )}
-      <div className="text-left">
+      <div>
         <h3 className="font-medium text-gray-900">{org.name}</h3>
         <p className="text-sm text-gray-500">{org.member_count} members</p>
       </div>
     </div>
-    <Plus className="w-5 h-5 text-gray-400" />
+    <ChevronRight className="w-5 h-5 text-gray-400" />
   </div>
 );
 
@@ -70,12 +70,11 @@ export function OnboardingFlow() {
   }, [user?.email]);
 
   const checkUserStatus = async () => {
-    if (!user?.email || loading) return;
+    if (!user?.email) return;
 
     try {
       setLoading(true);
 
-      // Check if user is already a member of any organization
       const { data: memberOrgs, error: memberError } = await supabase
         .from("profiles")
         .select(`
@@ -91,10 +90,8 @@ export function OnboardingFlow() {
 
       if (memberError) throw memberError;
 
-      // Get detected domain from email
       const detectedDomain = user.email.split("@")[1];
 
-      // Check organizations with matching domain
       const { data: domainOrgs, error: domainError } = await supabase
         .from("organizations")
         .select(`
@@ -108,25 +105,24 @@ export function OnboardingFlow() {
 
       if (domainError) throw domainError;
 
-      // Combine and format organizations
+      // Format organizations
       const formattedOrgs = [
-        ...(memberOrgs?.map((m) => ({
+        ...(memberOrgs?.map(m => ({
           ...m.organizations,
-          member_count: m.organizations.profiles[0].count,
+          member_count: m.organizations.profiles[0].count
         })) || []),
-        ...(domainOrgs?.map((org) => ({
+        ...(domainOrgs?.map(org => ({
           ...org,
-          member_count: org.profiles[0].count,
-        })) || []),
+          member_count: org.profiles[0].count
+        })) || [])
       ];
 
       // Remove duplicates
-      const uniqueOrgs = Array.from(new Set(formattedOrgs.map((org) => org.id)))
-        .map((id) => formattedOrgs.find((org) => org.id === id))
+      const uniqueOrgs = Array.from(new Set(formattedOrgs.map(org => org.id)))
+        .map(id => formattedOrgs.find(org => org.id === id))
         .filter(Boolean) as Organization[];
 
       setExistingOrganizations(uniqueOrgs);
-      // Set admin status if it's a new user (no orgs exist)
       setIsAdmin(uniqueOrgs.length === 0);
 
     } catch (error: any) {
@@ -134,7 +130,7 @@ export function OnboardingFlow() {
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message || "Error checking user status",
+        description: error.message || "Error checking user status"
       });
     } finally {
       setLoading(false);
@@ -157,12 +153,14 @@ export function OnboardingFlow() {
       if (error) throw error;
 
       // Create admin profile for first user
-      const { error: profileError } = await supabase.from("profiles").insert({
-        user_id: user.id,
-        email: user.email,
-        organization_id: newOrg.id,
-        role: "admin", // First user is always admin
-      });
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .insert({
+          user_id: user.id,
+          email: user.email,
+          organization_id: newOrg.id,
+          role: "admin",
+        });
 
       if (profileError) throw profileError;
 
@@ -193,8 +191,8 @@ export function OnboardingFlow() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-[#f8fafc]">
-      <Card className="w-full max-w-xl mx-auto">
-        <CardHeader className="text-center pb-4">
+      <Card className="w-full max-w-xl">
+        <CardHeader className="text-center pb-6">
           <CardTitle className="text-2xl font-semibold">Welcome to Qwenzy</CardTitle>
           <CardDescription>Get started with your organization</CardDescription>
         </CardHeader>
@@ -210,10 +208,19 @@ export function OnboardingFlow() {
             </p>
           </div>
 
-          {/* Create Organization Section - Show at top for admins */}
+          {/* Create Organization Button - For Admins */}
+          {isAdmin && (
+            <Button 
+              onClick={() => orgForm.handleSubmit(createOrganization)()}
+              className="w-full bg-[#407c87] hover:bg-[#386d77] h-12"
+            >
+              Create an organization
+            </Button>
+          )}
+
+          {/* Organization Form - Only show when creating */}
           {isAdmin && (
             <div className="space-y-4">
-              <h3 className="font-medium text-gray-900">Create an organization</h3>
               <Form {...orgForm}>
                 <form onSubmit={orgForm.handleSubmit(createOrganization)} className="space-y-4">
                   <FormField
@@ -229,68 +236,34 @@ export function OnboardingFlow() {
                       </FormItem>
                     )}
                   />
-
-                  <Button type="submit" className="w-full bg-[#407c87] hover:bg-[#386d77]">
-                    Create organization
-                  </Button>
                 </form>
               </Form>
             </div>
           )}
 
-          {/* Divider when both sections are shown */}
-          {existingOrganizations.length > 0 && <div className="text-center text-gray-500">or</div>}
-
-          {/* Existing Organizations Section */}
+          {/* Existing Organizations */}
           {existingOrganizations.length > 0 && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
+            <>
+              {isAdmin && <div className="text-center text-gray-500 my-6">or</div>}
+              <div className="space-y-4">
                 <h3 className="font-medium text-gray-900">Open an organization</h3>
+                <div className="space-y-2">
+                  {existingOrganizations.map((org) => (
+                    <OrganizationCard
+                      key={org.id}
+                      org={org}
+                      onSelect={() => setLocation("/")}
+                    />
+                  ))}
+                </div>
+                <p className="text-sm text-gray-500 text-center">
+                  Not seeing your organization?{" "}
+                  <button className="text-[#407c87] hover:text-[#386d77] font-medium">
+                    Try using a different email address
+                  </button>
+                </p>
               </div>
-              <div className="space-y-2">
-                {existingOrganizations.map((org) => (
-                  <OrganizationCard
-                    key={org.id}
-                    org={org}
-                    onSelect={() => setLocation("/")}
-                  />
-                ))}
-              </div>
-              <p className="text-sm text-gray-500 text-center">
-                Not seeing your organization?{" "}
-                <button className="text-[#407c87] hover:text-[#386d77] font-medium">
-                  Try using a different email address
-                </button>
-              </p>
-            </div>
-          )}
-
-          {/* Show Create Organization at bottom for non-admins */}
-          {!isAdmin && existingOrganizations.length === 0 && (
-            <div className="space-y-4">
-              <h3 className="font-medium text-gray-900">Create an organization</h3>
-              <Form {...orgForm}>
-                <form onSubmit={orgForm.handleSubmit(createOrganization)} className="space-y-4">
-                  <FormField
-                    control={orgForm.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Organization name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Acme Inc." {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <Button type="submit" className="w-full bg-[#407c87] hover:bg-[#386d77]">
-                    Create organization
-                  </Button>
-                </form>
-              </Form>
-            </div>
+            </>
           )}
         </CardContent>
       </Card>
