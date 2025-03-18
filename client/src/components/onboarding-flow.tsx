@@ -92,7 +92,6 @@ export function OnboardingFlow() {
         description: "Organization created successfully",
       })
 
-      // Mark step as completed and move to next
       setCompletedSteps([...completedSteps, 'organization'])
       setCurrentStep('profile')
 
@@ -110,7 +109,7 @@ export function OnboardingFlow() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-[url('/bg.png')] bg-cover">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     )
@@ -177,13 +176,15 @@ export function OnboardingFlow() {
 
                   <div>
                     <FormLabel>Organization Logo</FormLabel>
-                    <div className="mt-2 flex items-center gap-3">
-                      <div className="h-24 w-24 rounded border-2 border-dashed border-gray-200 flex items-center justify-center">
-                        <Button variant="outline" className="h-10">
-                          Upload a photo
-                        </Button>
+                    <div className="mt-2">
+                      <div className="h-24 w-24 rounded border-2 border-dashed border-gray-200 flex items-center justify-center relative">
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <Button variant="outline" size="sm" className="h-10">
+                            Upload a photo
+                          </Button>
+                        </div>
                       </div>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-gray-500 mt-2">
                         Allowed JPG, GIF or PNG. Max size of 800K
                       </p>
                     </div>
