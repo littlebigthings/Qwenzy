@@ -111,14 +111,15 @@ export function OnboardingFlow() {
       const fileName = `${Math.random()}.${fileExt}`;
       const filePath = `${fileName}`;
 
+      // Use the "organization" bucket instead of "organization-logos"
       const { data, error } = await supabase.storage
-        .from("organization-logos")
+        .from("organization")
         .upload(filePath, file);
 
       if (error) throw error;
 
       const { data: { publicUrl } } = supabase.storage
-        .from("organization-logos")
+        .from("organization")
         .getPublicUrl(filePath);
 
       return publicUrl;
@@ -140,38 +141,28 @@ export function OnboardingFlow() {
         logoUrl = await uploadToSupabase(logoFile);
       }
 
-      // Check if domain exists
-      const userDomain = user.email?.split('@')[1];
-      const { data: existingOrg } = await supabase
-        .from("organizations")
-        .select("id")
-        .eq("domain", userDomain)
-        .single();
-
-      // Create organization with domain only if it doesn't exist
-      const { data: newOrg, error } = await supabase
+      // Create organization
+      const { data: newOrg, error: orgError } = await supabase
         .from("organizations")
         .insert({
           name: data.name,
           logo_url: logoUrl,
-          domain: existingOrg ? null : userDomain, // Only set domain if it doesn't exist
         })
         .select()
         .single();
 
-      if (error) throw error;
+      if (orgError) throw orgError;
 
-      // Create admin profile
-      const { error: profileError } = await supabase
-        .from("profiles")
+      // Create organization membership for the user
+      const { error: membershipError } = await supabase
+        .from("organization_members")
         .insert({
           user_id: user.id,
-          email: user.email,
           organization_id: newOrg.id,
-          role: "admin",
+          is_owner: true,
         });
 
-      if (profileError) throw profileError;
+      if (membershipError) throw membershipError;
 
       toast({
         title: "Success",
