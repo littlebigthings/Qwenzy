@@ -121,9 +121,9 @@ export function OnboardingFlow() {
       const fileName = `${Math.random()}.${fileExt}`;
       const filePath = `${fileName}`;
 
-      // Upload to the "organization" bucket
+      // Upload to the "organizations" bucket (note the plural form)
       const { data, error: uploadError } = await supabase.storage
-        .from("organization")
+        .from("organizations")
         .upload(filePath, file, {
           cacheControl: "3600",
           upsert: false,
@@ -137,7 +137,7 @@ export function OnboardingFlow() {
 
       // Get the public URL
       const { data: { publicUrl } } = supabase.storage
-        .from("organization")
+        .from("organizations")
         .getPublicUrl(filePath);
 
       return publicUrl;
