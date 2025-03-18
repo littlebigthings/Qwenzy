@@ -8,6 +8,15 @@ export function useAuth() {
   const [loading, setLoading] = useState(true)
   const [, setLocation] = useLocation()
 
+  // Get the deployment URL
+  const getRedirectUrl = () => {
+    const isProduction = import.meta.env.PROD
+    if (isProduction) {
+      return `https://${import.meta.env.VITE_REPL_SLUG}.${import.meta.env.VITE_REPL_OWNER}.repl.co`
+    }
+    return window.location.origin
+  }
+
   useEffect(() => {
     console.log('[useAuth] Hook initializing...')
 
@@ -120,7 +129,7 @@ export function useAuth() {
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/verify-email`
+          emailRedirectTo: `${getRedirectUrl()}/verify-email`
         }
       })
 

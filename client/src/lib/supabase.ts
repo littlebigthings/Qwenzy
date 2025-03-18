@@ -5,7 +5,10 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 console.log('Supabase Configuration:', {
   url: supabaseUrl ? 'Present' : 'Missing',
-  anonKey: supabaseAnonKey ? 'Present' : 'Missing'
+  anonKey: supabaseAnonKey ? 'Present' : 'Missing',
+  deploymentUrl: import.meta.env.PROD ? 
+    `https://${import.meta.env.VITE_REPL_SLUG}.${import.meta.env.VITE_REPL_OWNER}.repl.co` : 
+    'localhost'
 })
 
 if (!supabaseUrl || !supabaseAnonKey) {
