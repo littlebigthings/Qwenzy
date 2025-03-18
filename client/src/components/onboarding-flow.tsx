@@ -7,11 +7,13 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { Loader2, Upload, Building2, UserCircle, CheckCircle, X, Users, Plus, ChevronRight } from "lucide-react"
+import { Loader2, Upload, Building2, UserCircle, CheckCircle, X, Users, Plus, ChevronRight, Trash } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import { useLocation } from "wouter"
 import { useAuth } from "@/hooks/use-auth"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
 
 type Organization = {
   id: number;
@@ -60,7 +62,7 @@ const teamInviteSchema = z.object({
 })
 
 export function OnboardingFlow() {
-  const [currentStep, setCurrentStep] = useState("org-setup")
+  const [currentStep, setCurrentStep] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [organizationLogoUrl, setOrganizationLogoUrl] = useState<string | null>(null)
   const [organizationId, setOrganizationId] = useState<number | null>(null)
@@ -71,7 +73,7 @@ export function OnboardingFlow() {
   const { user } = useAuth()
   const [emails, setEmails] = useState<string[]>([])
   const [currentEmail, setCurrentEmail] = useState('')
-
+  const [loading, setLoading] = useState(true)
 
   const orgForm = useForm<z.infer<typeof organizationSchema>>({
     resolver: zodResolver(organizationSchema),
@@ -97,27 +99,18 @@ export function OnboardingFlow() {
     },
   })
 
-  // Check for existing organizations on component mount
   useEffect(() => {
     if (user?.email) {
-      checkOrganizations();
+      checkUserStatus()
     }
-  }, [user?.email]);
+  }, [user?.email])
 
-  const checkOrganizations = async () => {
-    if (!user?.email) return;
+  const checkUserStatus = async () => {
+    if (!user?.email) return
 
     try {
-      // Check for organizations with matching domain
-      const domain = user.email.split('@')[1]
-      const { data: orgs, error: orgsError } = await supabase
-        .from('organizations')
-        .select('*')
-        .eq('domain', domain)
+      setLoading(true)
 
-      if (orgsError) throw orgsError
-
-      // Also check for organizations where user is already a member
       const { data: memberOrgs, error: memberError } = await supabase
         .from('profiles')
         .select('organization_id, organizations(*)')
@@ -125,24 +118,53 @@ export function OnboardingFlow() {
 
       if (memberError) throw memberError
 
-      // Combine and deduplicate organizations
-      const allOrgs = [...(orgs || []), ...(memberOrgs?.map(m => m.organizations) || [])]
+      const { data: invitations, error: inviteError } = await supabase
+        .from('invitations')
+        .select('*')
+        .eq('email', user.email)
+        .eq('accepted', false)
+
+      if (inviteError) throw inviteError
+
+      const domain = user.email.split('@')[1]
+      const { data: domainOrgs, error: domainError } = await supabase
+        .from('organizations')
+        .select('*')
+        .eq('domain', domain)
+
+      if (domainError) throw domainError
+
+      const allOrgs = [
+        ...(memberOrgs?.map(m => m.organizations) || []),
+        ...(domainOrgs || [])
+      ]
+
       const uniqueOrgs = Array.from(new Set(allOrgs.map(org => org.id)))
         .map(id => allOrgs.find(org => org.id === id))
         .filter(Boolean) as Organization[]
 
       setExistingOrganizations(uniqueOrgs)
 
-      // If no organizations exist, user creating first org becomes admin
-      setIsAdmin(uniqueOrgs.length === 0)
+      const isNewAdmin = uniqueOrgs.length === 0 && invitations.length === 0
+      setIsAdmin(isNewAdmin)
+
+      if (uniqueOrgs.length === 0 && invitations.length === 0) {
+        setCurrentStep('org-setup')
+      } else if (uniqueOrgs.length > 0) {
+        setCurrentStep('org-select')
+      } else {
+        setCurrentStep('org-select')
+      }
 
     } catch (error: any) {
-      console.error('Error checking organizations:', error)
+      console.error('Error checking user status:', error)
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message || "Error checking organizations"
+        description: error.message || "Error checking user status"
       })
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -158,10 +180,8 @@ export function OnboardingFlow() {
 
       if (error) throw error
 
-      // Set organization ID
       setOrganizationId(newOrg.id)
 
-      // Create admin profile for first user
       const { error: profileError } = await supabase.from('profiles').insert({
         user_id: user.id,
         email: user.email,
@@ -241,7 +261,6 @@ export function OnboardingFlow() {
       if (!user?.id) throw new Error("Missing user information")
       if (!user.email) throw new Error("Missing user email")
 
-      // Get organization ID - either from state or fetch it
       let orgId = organizationId
       if (!orgId) {
         const domain = user.email.split('@')[1]
@@ -263,7 +282,6 @@ export function OnboardingFlow() {
         last_name: data.lastName,
         job_title: data.jobTitle,
         email: user.email,
-        //avatar_url: avatarUrl,
         organization_id: orgId,
       }).select().single()
 
@@ -289,7 +307,6 @@ export function OnboardingFlow() {
       if (!organizationId) throw new Error("Organization not found")
       if (!user?.id) throw new Error("User not found")
 
-      // Insert invites into the invitations table
       const { error } = await supabase.from('invitations').insert(
         emails.map(email => ({
           organization_id: organizationId,
@@ -307,7 +324,6 @@ export function OnboardingFlow() {
       })
       setCurrentStep('complete')
 
-      // Redirect to home after a short delay
       setTimeout(() => {
         setLocation('/')
       }, 2000)
@@ -333,6 +349,12 @@ export function OnboardingFlow() {
       description: "Set up your organization"
     },
     {
+      id: "org-select",
+      title: "Organization Selection",
+      icon: Building2,
+      description: "Select your organization"
+    },
+    {
       id: "profile",
       title: "Profile Setup",
       icon: UserCircle,
@@ -352,6 +374,14 @@ export function OnboardingFlow() {
     }
   ]
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50">
       <Card className="w-full max-w-4xl">
@@ -360,48 +390,8 @@ export function OnboardingFlow() {
           <CardDescription>Get started with your organization</CardDescription>
         </CardHeader>
         <CardContent>
-          {existingOrganizations.length > 0 ? (
+          {currentStep === 'org-setup' ? (
             <div className="space-y-6">
-              {/* Create New Organization (Admin Only) */}
-              {isAdmin && (
-                <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                  <h3 className="font-medium text-gray-900 mb-2">Create an organization</h3>
-                  <p className="text-sm text-gray-500 mb-4">
-                    Set up a new organization for your team
-                  </p>
-                  <Button
-                    onClick={() => setCurrentStep('org-setup')}
-                    className="w-full bg-[#407c87] hover:bg-[#386d77]"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create an organization
-                  </Button>
-                </div>
-              )}
-
-              {/* Existing Organizations */}
-              <div>
-                <h3 className="font-medium text-gray-900 mb-2">Open an organization</h3>
-                <p className="text-sm text-gray-500 mb-4">
-                  Select an organization you're already a part of
-                </p>
-                <div className="space-y-2">
-                  {existingOrganizations.map((org) => (
-                    <OrganizationCard
-                      key={org.id}
-                      org={org}
-                      onSelect={() => {
-                        setOrganizationId(org.id)
-                        setCurrentStep('profile')
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {/* Create First Organization */}
               <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
                 <h3 className="font-medium text-gray-900 mb-2">Create your organization</h3>
                 <p className="text-sm text-gray-500 mb-4">
@@ -490,7 +480,44 @@ export function OnboardingFlow() {
                 </Form>
               </div>
             </div>
-          )}
+          ) : currentStep === 'org-select' && existingOrganizations.length > 0 ? (
+            <div className="space-y-6">
+              {isAdmin && (
+                <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <h3 className="font-medium text-gray-900 mb-2">Create an organization</h3>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Set up a new organization for your team
+                  </p>
+                  <Button
+                    onClick={() => setCurrentStep('org-setup')}
+                    className="w-full bg-[#407c87] hover:bg-[#386d77]"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create an organization
+                  </Button>
+                </div>
+              )}
+
+              <div>
+                <h3 className="font-medium text-gray-900 mb-2">Open an organization</h3>
+                <p className="text-sm text-gray-500 mb-4">
+                  Select an organization you're already a part of
+                </p>
+                <div className="space-y-2">
+                  {existingOrganizations.map((org) => (
+                    <OrganizationCard
+                      key={org.id}
+                      org={org}
+                      onSelect={() => {
+                        setOrganizationId(org.id)
+                        setCurrentStep('profile')
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : null}
 
           <Tabs value={currentStep} className="w-full">
             <TabsContent value="profile">
@@ -498,13 +525,9 @@ export function OnboardingFlow() {
                 <form onSubmit={profileForm.handleSubmit(completeProfile)} className="space-y-4">
                   <div className="flex items-center justify-center mb-6">
                     <div className="relative h-24 w-24 rounded-full overflow-hidden bg-gray-100">
-                      {/* {avatarUrl ? (
-                        <img src={avatarUrl} alt="Profile" className="h-full w-full object-cover" />
-                      ) : ( */}
-                        <div className="h-full w-full flex items-center justify-center bg-gray-100">
-                          <Upload className="h-8 w-8 text-gray-400" />
-                        </div>
-                      {/* )} */}
+                      <div className="h-full w-full flex items-center justify-center bg-gray-100">
+                        <Upload className="h-8 w-8 text-gray-400" />
+                      </div>
                     </div>
                   </div>
 
