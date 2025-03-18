@@ -8,7 +8,7 @@ type ProtectedProps = {
 }
 
 export function Protected({ children }: ProtectedProps) {
-  const { user, loading, hasProfile, hasOrganization } = useAuthContext()
+  const { user, loading } = useAuthContext()
   const [location] = useLocation()
 
   // Always show login page if no user
@@ -28,13 +28,14 @@ export function Protected({ children }: ProtectedProps) {
     )
   }
 
-  // Handle profile/organization setup routing
-  if (!hasProfile || !hasOrganization) {
-    if (location !== '/profile-setup') {
-      return <Redirect to="/profile-setup" />
-    }
-  } else if (location === '/profile-setup') {
-    return <Redirect to="/" />
+  // The organization setup page is accessible without any checks
+  if (location === '/organization-setup') {
+    return <>{children}</>
+  }
+
+  // All other protected routes require completed organization setup
+  if (location !== '/organization-setup') {
+    return <Redirect to="/organization-setup" />
   }
 
   return <>{children}</>

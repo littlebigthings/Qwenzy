@@ -32,7 +32,12 @@ export function useAuth() {
         timestamp: new Date().toISOString(),
       });
 
-      setUser(session?.user ?? null);
+      if (session?.user) {
+        setUser(session.user);
+        setLocation("/organization-setup");
+      } else {
+        setUser(null);
+      }
       setLoading(false);
     });
 
@@ -46,14 +51,18 @@ export function useAuth() {
         timestamp: new Date().toISOString(),
       });
 
-      setUser(session?.user ?? null);
-
-      if (event === "SIGNED_IN") {
-        console.log("[useAuth] Sign in successful, redirecting to organization setup");
-        setLocation("/organization-setup");
-      } else if (event === "SIGNED_OUT") {
-        console.log("[useAuth] Sign out detected, redirecting to login");
-        setLocation("/login");
+      if (session?.user) {
+        setUser(session.user);
+        if (event === "SIGNED_IN") {
+          console.log("[useAuth] Sign in successful, redirecting to organization setup");
+          setLocation("/organization-setup");
+        }
+      } else {
+        setUser(null);
+        if (event === "SIGNED_OUT") {
+          console.log("[useAuth] Sign out detected, redirecting to login");
+          setLocation("/login");
+        }
       }
     });
 
@@ -134,6 +143,8 @@ export function useAuth() {
         throw new Error("Email already registered. Please sign in instead.");
       }
 
+      // After successful signup, redirect to organization setup
+      setLocation("/organization-setup");
       return data.user;
     } catch (error: any) {
       throw error;
