@@ -40,7 +40,15 @@ const steps = [
 ];
 
 const organizationSchema = z.object({
-  name: z.string().min(2, "Organization name must be at least 2 characters"),
+  name: z.string().min(2, {
+    message: "Organization name must be at least 2 characters"
+  })
+  .max(50, {
+    message: "Organization name must be less than 50 characters"
+  })
+  .regex(/^[a-zA-Z0-9\s.-]+$/, {
+    message: "Organization name can only contain letters, numbers, spaces, dots and hyphens"
+  }),
   logo: z.any().optional(),
 });
 
@@ -107,17 +115,26 @@ export function OnboardingFlow() {
 
   const uploadToSupabase = async (file: File) => {
     try {
+      if (!file) return null;
+
       const fileExt = file.name.split(".").pop();
       const fileName = `${Math.random()}.${fileExt}`;
       const filePath = `${fileName}`;
 
-      // Use the "organization" bucket instead of "organization-logos"
+      // Upload to the "organization" bucket
       const { data, error } = await supabase.storage
         .from("organization")
-        .upload(filePath, file);
+        .upload(filePath, file, {
+          cacheControl: "3600",
+          upsert: false
+        });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase storage error:", error);
+        throw error;
+      }
 
+      // Get the public URL
       const { data: { publicUrl } } = supabase.storage
         .from("organization")
         .getPublicUrl(filePath);
@@ -125,7 +142,12 @@ export function OnboardingFlow() {
       return publicUrl;
     } catch (error: any) {
       console.error("Upload to Supabase error:", error);
-      throw new Error("Failed to upload logo to storage");
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to upload logo"
+      });
+      return null;
     }
   };
 
@@ -262,6 +284,7 @@ export function OnboardingFlow() {
                   onSubmit={orgForm.handleSubmit(createOrganization)}
                   className="space-y-6"
                 >
+                  {/* Organization name field with better validation */}
                   <FormField
                     control={orgForm.control}
                     name="name"
@@ -269,8 +292,14 @@ export function OnboardingFlow() {
                       <FormItem>
                         <FormLabel>Organization name</FormLabel>
                         <FormControl>
-                          <Input placeholder="Multiplier.inc" {...field} />
+                          <Input 
+                            placeholder="e.g. Acme Inc, Tech Solutions" 
+                            {...field} 
+                          />
                         </FormControl>
+                        <p className="text-sm text-muted-foreground">
+                          Use a unique name that represents your organization. Letters, numbers, spaces, dots and hyphens are allowed.
+                        </p>
                         <FormMessage />
                       </FormItem>
                     )}
