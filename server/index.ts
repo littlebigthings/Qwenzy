@@ -1,11 +1,13 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import path from "path";
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Request logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -24,11 +26,9 @@ app.use((req, res, next) => {
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
-
       if (logLine.length > 80) {
         logLine = logLine.slice(0, 79) + "…";
       }
-
       log(logLine);
     }
   });
@@ -37,28 +37,48 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  const server = await registerRoutes(app);
+  try {
+    const server = await registerRoutes(app);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+    // Error handling middleware
+    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+      console.error('Error:', err);
+      const status = err.status || err.statusCode || 500;
+      const message = err.message || "Internal Server Error";
+      res.status(status).json({ message });
+    });
 
-    res.status(status).json({ message });
-    throw err;
-  });
+    if (process.env.NODE_ENV === "development") {
+      await setupVite(app, server);
+    } else {
+      // In production, serve static files from the client build directory
+      const clientDir = path.resolve(process.cwd(), "dist", "client");
+      console.log('Client directory:', clientDir);
 
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
+      // Serve static files
+      app.use(express.static(clientDir));
+
+      // Handle client-side routing - serve index.html for all non-API routes
+      app.get("*", (req, res, next) => {
+        if (req.path.startsWith("/api")) return next();
+
+        const indexHtml = path.join(clientDir, "index.html");
+        console.log('Serving index.html for path:', req.path);
+        res.sendFile(indexHtml, (err) => {
+          if (err) {
+            console.error('Error sending index.html:', err);
+            next(err);
+          }
+        });
+      });
+    }
+
+    const port = process.env.PORT || 3000;
+    server.listen(port, "0.0.0.0", () => {
+      log(`Server running on port ${port}`);
+    });
+  } catch (err) {
+    console.error('Server startup error:', err);
+    process.exit(1);
   }
-
-  const port = 3000;
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    log(`serving on port ${port}`);
-  });
 })();
