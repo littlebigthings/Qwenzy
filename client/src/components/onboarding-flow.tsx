@@ -11,9 +11,6 @@ import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import { useLocation } from "wouter"
 import { useAuth } from "@/hooks/use-auth"
-import { Switch } from "@/components/ui/switch"
-import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent } from "@/components/ui/tabs"
 
 type Organization = {
   id: number;
@@ -50,17 +47,6 @@ const organizationSchema = z.object({
   domain: z.string().min(3, "Domain must be at least 3 characters"),
 });
 
-const profileSchema = z.object({
-  firstName: z.string().min(2, "First name must be at least 2 characters"),
-  lastName: z.string().min(2, "Last name must be at least 2 characters"),
-  jobTitle: z.string().min(2, "Job title must be at least 2 characters"),
-});
-
-const teamInviteSchema = z.object({
-  emails: z.string().min(1, "Please enter at least one email"),
-  allowDomainJoin: z.boolean().default(false),
-});
-
 export function OnboardingFlow() {
   const [loading, setLoading] = useState(true);
   const [existingOrganizations, setExistingOrganizations] = useState<Organization[]>([]);
@@ -68,32 +54,12 @@ export function OnboardingFlow() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const { user } = useAuth();
-  const [emails, setEmails] = useState<string[]>([]);
-  const [currentEmail, setCurrentEmail] = useState('');
-  const [currentStep, setCurrentStep] = useState('profile'); // Added state for step management
-
 
   const orgForm = useForm<z.infer<typeof organizationSchema>>({
     resolver: zodResolver(organizationSchema),
     defaultValues: {
       name: "",
       domain: user?.email?.split("@")[1] || "",
-    },
-  });
-
-  const profileForm = useForm<z.infer<typeof profileSchema>>({
-    resolver: zodResolver(profileSchema),
-    defaultValues: {
-      firstName: "",
-      lastName: "",
-      jobTitle: "",
-    },
-  });
-
-  const teamInviteForm = useForm<z.infer<typeof teamInviteSchema>>({
-    resolver: zodResolver(teamInviteSchema),
-    defaultValues: {
-      allowDomainJoin: false,
     },
   });
 
@@ -169,7 +135,9 @@ export function OnboardingFlow() {
         .filter(Boolean) as Organization[];
 
       setExistingOrganizations(uniqueOrgs);
+      // Set admin status if it's a new user (no orgs exist and no pending invites)
       setIsAdmin(uniqueOrgs.length === 0 && invitations.length === 0);
+
     } catch (error: any) {
       console.error("Error checking user status:", error);
       toast({
@@ -198,7 +166,7 @@ export function OnboardingFlow() {
         user_id: user.id,
         email: user.email,
         organization_id: newOrg.id,
-        role: "admin",
+        role: "admin", // Always set as admin for first user
       });
 
       if (profileError) throw profileError;
@@ -208,94 +176,15 @@ export function OnboardingFlow() {
         description: "Organization created successfully",
       });
 
-      // Update to stay on organization setup until profile is completed
-      setLocation("/organization-setup");
+      // Redirect to home after creating organization
+      setLocation("/");
+
     } catch (error: any) {
       console.error("Organization creation error:", error);
       toast({
         variant: "destructive",
         title: "Error",
         description: error.message || "Error creating organization",
-      });
-    }
-  };
-
-  const completeProfile = async (data: z.infer<typeof profileSchema>) => {
-    try {
-      if (!user?.id) throw new Error("Missing user information");
-      if (!user.email) throw new Error("Missing user email");
-
-      let orgId = null; // Initialize orgId
-
-      if (!orgId) {
-        const { data: org, error: orgError } = await supabase
-          .from("organizations")
-          .select("id")
-          .eq("domain", user.email.split("@")[1])
-          .single();
-
-        if (orgError) throw new Error("Error fetching organization");
-        if (!org?.id) throw new Error("Organization not found");
-        orgId = org.id;
-      }
-
-      const { error } = await supabase.from("profiles").insert({
-        user_id: user.id,
-        first_name: data.firstName,
-        last_name: data.lastName,
-        job_title: data.jobTitle,
-        email: user.email,
-        organization_id: orgId,
-      }).select().single();
-
-      if (error) throw error;
-
-      toast({
-        title: "Success!",
-        description: "Profile completed successfully",
-      });
-      setCurrentStep('team')
-    } catch (error: any) {
-      console.error("Profile completion error:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message || "Error completing profile",
-      });
-    }
-  };
-
-  const handleTeamInvites = async (data: z.infer<typeof teamInviteSchema>) => {
-    try {
-      if (!organizationId) throw new Error("Organization not found");
-      if (!user?.id) throw new Error("User not found");
-
-      const { error } = await supabase.from("invitations").insert(
-        emails.map((email) => ({
-          organization_id: organizationId,
-          email,
-          invited_by: user.id,
-          auto_join: data.allowDomainJoin,
-        }))
-      );
-
-      if (error) throw error;
-
-      toast({
-        title: "Success!",
-        description: "Team invites have been sent successfully.",
-      });
-      setCurrentStep("complete");
-
-      setTimeout(() => {
-        setLocation("/");
-      }, 2000);
-    } catch (error: any) {
-      console.error("Team invite error:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message || "Error sending team invites",
       });
     }
   };
@@ -324,8 +213,8 @@ export function OnboardingFlow() {
             </p>
           </div>
 
-          {/* Create Organization Section */}
-          {(isAdmin || existingOrganizations.length === 0) && (
+          {/* Create Organization Section - Show at top for admins */}
+          {isAdmin && (
             <div>
               <h3 className="font-medium text-gray-900 mb-4">Create an organization</h3>
               <Form {...orgForm}>
@@ -352,7 +241,7 @@ export function OnboardingFlow() {
             </div>
           )}
 
-          {/* Existing Organizations */}
+          {/* Existing Organizations Section */}
           {existingOrganizations.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-4">
@@ -370,150 +259,41 @@ export function OnboardingFlow() {
                     key={org.id}
                     org={org}
                     onSelect={() => {
-                      setLocation("/profile-setup");
+                      setLocation("/");
                     }}
                   />
                 ))}
               </div>
             </div>
           )}
-          <Tabs value={currentStep} className="w-full">
-            <TabsContent value="profile">
-              <Form {...profileForm}>
-                <form onSubmit={profileForm.handleSubmit(completeProfile)} className="space-y-4">
-                  <div className="flex items-center justify-center mb-6">
-                    <div className="relative h-24 w-24 rounded-full overflow-hidden bg-gray-100">
-                      <div className="h-full w-full flex items-center justify-center bg-gray-100">
-                        {/* Upload component missing - needs to be imported and added here */}
-                        {/* Placeholder */}
-                      </div>
-                    </div>
-                  </div>
 
-
+          {/* Show Create Organization Section at bottom for non-admins */}
+          {!isAdmin && existingOrganizations.length === 0 && (
+            <div>
+              <h3 className="font-medium text-gray-900 mb-4">Create an organization</h3>
+              <Form {...orgForm}>
+                <form onSubmit={orgForm.handleSubmit(createOrganization)} className="space-y-4">
                   <FormField
-                    control={profileForm.control}
-                    name="firstName"
+                    control={orgForm.control}
+                    name="name"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>First Name</FormLabel>
+                        <FormLabel>Organization name</FormLabel>
                         <FormControl>
-                          <Input placeholder="John" {...field} />
+                          <Input placeholder="Acme Inc." {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
 
-                  <FormField
-                    control={profileForm.control}
-                    name="lastName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Last Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Doe" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={profileForm.control}
-                    name="jobTitle"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Job Title</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Software Engineer" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <Button type="submit" className="w-full">
-                    Complete Profile
+                  <Button type="submit" className="w-full bg-[#407c87] hover:bg-[#386d77]">
+                    Create organization
                   </Button>
                 </form>
               </Form>
-            </TabsContent>
-
-            <TabsContent value="team">
-              <Form {...teamInviteForm}>
-                <form onSubmit={teamInviteForm.handleSubmit(handleTeamInvites)} className="space-y-6">
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2">
-                      <Input
-                        placeholder="Enter email address"
-                        value={currentEmail}
-                        onChange={(e) => setCurrentEmail(e.target.value)}
-                        type="email"
-                      />
-                      <Button
-                        type="button"
-                        onClick={() => {
-                          if (currentEmail && !emails.includes(currentEmail)) {
-                            setEmails([...emails, currentEmail]);
-                            setCurrentEmail("");
-                          }
-                        }}
-                        variant="outline"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    {emails.length > 0 && (
-                      <div className="space-y-2">
-                        {emails.map((email, index) => (
-                          <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
-                            <span>{email}</span>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setEmails(emails.filter((_, i) => i !== index))}
-                            >
-                              {/* Trash icon missing - needs to be imported and added here */}
-                              {/* Placeholder */}
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    <div className="flex items-center space-x-2">
-                      <Switch
-                        id="auto-join"
-                        checked={teamInviteForm.watch("allowDomainJoin")}
-                        onCheckedChange={(checked) => teamInviteForm.setValue("allowDomainJoin", checked)}
-                      />
-                      <Label htmlFor="auto-join">
-                        Allow anyone with matching email domain to join automatically
-                      </Label>
-                    </div>
-                  </div>
-
-                  <Button type="submit" className="w-full" disabled={emails.length === 0}>
-                    Send Invites & Complete Setup
-                  </Button>
-                </form>
-              </Form>
-            </TabsContent>
-
-            <TabsContent value="complete">
-              <div className="text-center space-y-4">
-                {/* CheckCircle icon missing - needs to be imported and added here */}
-                {/* Placeholder */}
-                <h3 className="text-2xl font-bold">All Set!</h3>
-                <p className="text-gray-600">
-                  Your profile and organization setup is complete. You'll be redirected to your dashboard shortly.
-                </p>
-              </div>
-            </TabsContent>
-          </Tabs>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
