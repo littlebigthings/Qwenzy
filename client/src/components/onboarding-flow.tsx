@@ -6,7 +6,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { Loader2, Building2, Plus, ChevronRight } from "lucide-react"
+import { Loader2, Building2, ChevronRight } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import { useLocation } from "wouter"
@@ -105,7 +105,6 @@ export function OnboardingFlow() {
 
       if (domainError) throw domainError;
 
-      // Format organizations
       const formattedOrgs = [
         ...(memberOrgs?.map(m => ({
           ...m.organizations,
@@ -117,7 +116,6 @@ export function OnboardingFlow() {
         })) || [])
       ];
 
-      // Remove duplicates
       const uniqueOrgs = Array.from(new Set(formattedOrgs.map(org => org.id)))
         .map(id => formattedOrgs.find(org => org.id === id))
         .filter(Boolean) as Organization[];
@@ -152,7 +150,6 @@ export function OnboardingFlow() {
 
       if (error) throw error;
 
-      // Create admin profile for first user
       const { error: profileError } = await supabase
         .from("profiles")
         .insert({
@@ -208,63 +205,36 @@ export function OnboardingFlow() {
             </p>
           </div>
 
-          {/* Create Organization Button - For Admins */}
-          {isAdmin && (
-            <Button 
-              onClick={() => orgForm.handleSubmit(createOrganization)()}
-              className="w-full bg-[#407c87] hover:bg-[#386d77] h-12"
-            >
-              Create an organization
-            </Button>
-          )}
+          {/* Create Organization Button */}
+          <Button 
+            onClick={() => orgForm.handleSubmit(createOrganization)()}
+            className="w-full bg-[#407c87] hover:bg-[#386d77] h-12"
+          >
+            Create an organization
+          </Button>
 
-          {/* Organization Form - Only show when creating */}
-          {isAdmin && (
-            <div className="space-y-4">
-              <Form {...orgForm}>
-                <form onSubmit={orgForm.handleSubmit(createOrganization)} className="space-y-4">
-                  <FormField
-                    control={orgForm.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Organization name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Acme Inc." {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </form>
-              </Form>
+          {/* Separator */}
+          <div className="text-center text-gray-500">or</div>
+
+          {/* Organization List */}
+          <div>
+            <h3 className="font-medium text-gray-900 mb-4">Open an organization</h3>
+            <div className="space-y-2">
+              {existingOrganizations.map((org) => (
+                <OrganizationCard
+                  key={org.id}
+                  org={org}
+                  onSelect={() => setLocation("/")}
+                />
+              ))}
             </div>
-          )}
-
-          {/* Existing Organizations */}
-          {existingOrganizations.length > 0 && (
-            <>
-              {isAdmin && <div className="text-center text-gray-500 my-6">or</div>}
-              <div className="space-y-4">
-                <h3 className="font-medium text-gray-900">Open an organization</h3>
-                <div className="space-y-2">
-                  {existingOrganizations.map((org) => (
-                    <OrganizationCard
-                      key={org.id}
-                      org={org}
-                      onSelect={() => setLocation("/")}
-                    />
-                  ))}
-                </div>
-                <p className="text-sm text-gray-500 text-center">
-                  Not seeing your organization?{" "}
-                  <button className="text-[#407c87] hover:text-[#386d77] font-medium">
-                    Try using a different email address
-                  </button>
-                </p>
-              </div>
-            </>
-          )}
+            <p className="text-sm text-gray-500 text-center mt-4">
+              Not seeing your organization?{" "}
+              <button className="text-[#407c87] hover:text-[#386d77] font-medium">
+                Try using a different email address
+              </button>
+            </p>
+          </div>
         </CardContent>
       </Card>
     </div>
