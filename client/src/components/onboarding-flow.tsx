@@ -25,28 +25,24 @@ const steps = [
     label: "Organization",
     icon: "src/assets/org.svg",
     active: "src/assets/org-active.svg",
-    description: "Details help any collaborators that join",
   },
   {
     id: "profile",
     label: "Profile",
     icon: "src/assets/profile.svg",
     active: "src/assets/profile-active.svg",
-    description: "Tell us about yourself",
   },
   {
     id: "invite",
     label: "Invite",
     icon: "src/assets/invite.svg",
     active: "src/assets/invite-active.svg",
-    description: "Add your teammates",
   },
   {
     id: "workspace",
     label: "Workspace",
     icon: "src/assets/workspace.svg",
     active: "src/assets/workspace-active.svg",
-    description: "Setup your workspace",
   },
 ];
 
@@ -243,9 +239,7 @@ export function OnboardingFlow() {
                     >
                       {step.label}
                     </h3>
-                    <p className="text-sm text-gray-500 mt-0.5">
-                      {step.description}
-                    </p>
+                    {/* Description removed here */}
                   </div>
                 </button>
               );
