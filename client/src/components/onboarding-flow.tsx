@@ -121,9 +121,9 @@ export function OnboardingFlow() {
       const fileName = `${Math.random()}.${fileExt}`;
       const filePath = `${fileName}`;
 
-      // Upload to the "organization" bucket
+      // Upload to the "organisations" bucket
       const { data, error: uploadError } = await supabase.storage
-        .from("organization")
+        .from("organisations")
         .upload(filePath, file, {
           cacheControl: "3600",
           upsert: false,
@@ -132,18 +132,18 @@ export function OnboardingFlow() {
 
       if (uploadError) {
         console.error("Supabase storage error:", uploadError);
-        throw new Error(uploadError.message);
+        throw new Error("Failed to upload logo to storage");
       }
 
       // Get the public URL
       const { data: { publicUrl } } = supabase.storage
-        .from("organization")
+        .from("organisations")
         .getPublicUrl(filePath);
 
       return publicUrl;
     } catch (error: any) {
       console.error("Upload to Supabase error:", error);
-      throw new Error("Failed to upload logo to storage: " + error.message);
+      throw new Error("Failed to upload logo to storage");
     }
   };
 
@@ -158,13 +158,9 @@ export function OnboardingFlow() {
       if (logoFile) {
         try {
           logoUrl = await uploadToSupabase(logoFile);
-        } catch (uploadError: any) {
-          toast({
-            variant: "destructive",
-            title: "Error",
-            description: uploadError.message
-          });
-          return;
+        } catch (error) {
+          // If logo upload fails, we can still create the organization without a logo
+          console.error("Logo upload failed:", error);
         }
       }
 
@@ -204,7 +200,7 @@ export function OnboardingFlow() {
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message || "Error creating organization",
+        description: "Error creating organization",
       });
     } finally {
       setLoading(false);
