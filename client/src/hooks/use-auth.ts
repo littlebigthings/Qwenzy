@@ -49,8 +49,8 @@ export function useAuth() {
       setUser(session?.user ?? null);
 
       if (event === "SIGNED_IN") {
-        console.log("[useAuth] Sign in successful, redirecting to home");
-        setLocation("/");
+        console.log("[useAuth] Sign in successful, redirecting to organization setup");
+        setLocation("/organization-setup");
       } else if (event === "SIGNED_OUT") {
         console.log("[useAuth] Sign out detected, redirecting to login");
         setLocation("/login");

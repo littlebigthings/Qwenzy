@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -7,13 +6,14 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { Loader2, Upload, Building2, UserCircle, CheckCircle, X, Users, Plus, ChevronRight, Trash } from "lucide-react"
+import { Loader2, Building2, Plus, ChevronRight } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import { useLocation } from "wouter"
 import { useAuth } from "@/hooks/use-auth"
-import { Switch } from "@/components/ui/switch"
-import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+
 
 type Organization = {
   id: number;
@@ -48,7 +48,7 @@ const OrganizationCard = ({ org, onSelect }: { org: Organization, onSelect: () =
 const organizationSchema = z.object({
   name: z.string().min(2, "Organization name must be at least 2 characters"),
   domain: z.string().min(3, "Domain must be at least 3 characters"),
-})
+});
 
 const profileSchema = z.object({
   firstName: z.string().min(2, "First name must be at least 2 characters"),
@@ -62,18 +62,14 @@ const teamInviteSchema = z.object({
 })
 
 export function OnboardingFlow() {
-  const [currentStep, setCurrentStep] = useState<string | null>(null)
-  const [uploading, setUploading] = useState(false)
-  const [organizationLogoUrl, setOrganizationLogoUrl] = useState<string | null>(null)
-  const [organizationId, setOrganizationId] = useState<number | null>(null)
+  const [loading, setLoading] = useState(true)
   const [existingOrganizations, setExistingOrganizations] = useState<Organization[]>([])
   const [isAdmin, setIsAdmin] = useState(false)
   const { toast } = useToast()
   const [, setLocation] = useLocation()
   const { user } = useAuth()
-  const [emails, setEmails] = useState<string[]>([])
-  const [currentEmail, setCurrentEmail] = useState('')
-  const [loading, setLoading] = useState(true)
+  const [emails, setEmails] = useState<string[]>([]);
+  const [currentEmail, setCurrentEmail] = useState('');
 
   const orgForm = useForm<z.infer<typeof organizationSchema>>({
     resolver: zodResolver(organizationSchema),
@@ -99,6 +95,7 @@ export function OnboardingFlow() {
     },
   })
 
+
   useEffect(() => {
     if (user?.email) {
       checkUserStatus()
@@ -111,13 +108,26 @@ export function OnboardingFlow() {
     try {
       setLoading(true)
 
+      // Get detected domain from email
+      const detectedDomain = user.email.split('@')[1]
+
+      // Check if user is already a member of any organization
       const { data: memberOrgs, error: memberError } = await supabase
         .from('profiles')
-        .select('organization_id, organizations(*)')
+        .select(`
+          organizations (
+            id,
+            name,
+            domain,
+            logo_url,
+            profiles (count)
+          )
+        `)
         .eq('email', user.email)
 
       if (memberError) throw memberError
 
+      // Check for pending invitations
       const { data: invitations, error: inviteError } = await supabase
         .from('invitations')
         .select('*')
@@ -126,35 +136,39 @@ export function OnboardingFlow() {
 
       if (inviteError) throw inviteError
 
-      const domain = user.email.split('@')[1]
+      // Check organizations with matching domain
       const { data: domainOrgs, error: domainError } = await supabase
         .from('organizations')
-        .select('*')
-        .eq('domain', domain)
+        .select(`
+          id,
+          name,
+          domain,
+          logo_url,
+          profiles (count)
+        `)
+        .eq('domain', detectedDomain)
 
       if (domainError) throw domainError
 
-      const allOrgs = [
-        ...(memberOrgs?.map(m => m.organizations) || []),
-        ...(domainOrgs || [])
+      // Combine and format organizations
+      const formattedOrgs = [
+        ...(memberOrgs?.map(m => ({
+          ...m.organizations,
+          member_count: m.organizations.profiles[0].count
+        })) || []),
+        ...(domainOrgs?.map(org => ({
+          ...org,
+          member_count: org.profiles[0].count
+        })) || [])
       ]
 
-      const uniqueOrgs = Array.from(new Set(allOrgs.map(org => org.id)))
-        .map(id => allOrgs.find(org => org.id === id))
+      // Remove duplicates
+      const uniqueOrgs = Array.from(new Set(formattedOrgs.map(org => org.id)))
+        .map(id => formattedOrgs.find(org => org.id === id))
         .filter(Boolean) as Organization[]
 
       setExistingOrganizations(uniqueOrgs)
-
-      const isNewAdmin = uniqueOrgs.length === 0 && invitations.length === 0
-      setIsAdmin(isNewAdmin)
-
-      if (uniqueOrgs.length === 0 && invitations.length === 0) {
-        setCurrentStep('org-setup')
-      } else if (uniqueOrgs.length > 0) {
-        setCurrentStep('org-select')
-      } else {
-        setCurrentStep('org-select')
-      }
+      setIsAdmin(uniqueOrgs.length === 0 && invitations.length === 0)
 
     } catch (error: any) {
       console.error('Error checking user status:', error)
@@ -175,18 +189,16 @@ export function OnboardingFlow() {
       const { data: newOrg, error } = await supabase.from('organizations').insert({
         name: data.name,
         domain: data.domain,
-        logo_url: organizationLogoUrl,
       }).select().single()
 
       if (error) throw error
 
-      setOrganizationId(newOrg.id)
-
+      // Create admin profile
       const { error: profileError } = await supabase.from('profiles').insert({
         user_id: user.id,
         email: user.email,
         organization_id: newOrg.id,
-        role: isAdmin ? 'admin' : 'member',
+        role: 'admin',
       })
 
       if (profileError) throw profileError
@@ -195,7 +207,10 @@ export function OnboardingFlow() {
         title: "Success",
         description: "Organization created successfully",
       })
-      setCurrentStep('profile')
+
+      // Redirect to profile setup
+      setLocation('/profile-setup')
+
     } catch (error: any) {
       console.error('Organization creation error:', error)
       toast({
@@ -206,74 +221,23 @@ export function OnboardingFlow() {
     }
   }
 
-  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>, type: 'avatar' | 'logo') => {
-    try {
-      setUploading(true)
-      const file = event.target.files?.[0]
-      if (!file) return
-
-      if (file.size > 5 * 1024 * 1024) {
-        throw new Error("File size must be less than 5MB")
-      }
-
-      if (!file.type.startsWith('image/')) {
-        throw new Error("Please upload an image file")
-      }
-
-      const fileExt = file.name.split('.').pop()
-      const folder = type === 'avatar' ? 'avatars' : 'organizations'
-      const filePath = `${user?.id}/${Math.random()}.${fileExt}`
-
-      const { error: uploadError } = await supabase.storage
-        .from(folder)
-        .upload(filePath, file)
-
-      if (uploadError) throw uploadError
-
-      const { data: { publicUrl } } = supabase.storage
-        .from(folder)
-        .getPublicUrl(filePath)
-
-      if (type === 'avatar') {
-        //setAvatarUrl(publicUrl)
-      } else {
-        setOrganizationLogoUrl(publicUrl)
-      }
-
-      toast({
-        title: "Success",
-        description: `${type === 'avatar' ? 'Profile picture' : 'Organization logo'} uploaded successfully`,
-      })
-    } catch (error: any) {
-      console.error('Upload error:', error)
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message || `Error uploading ${type === 'avatar' ? 'profile picture' : 'organization logo'}`,
-      })
-    } finally {
-      setUploading(false)
-    }
-  }
-
   const completeProfile = async (data: z.infer<typeof profileSchema>) => {
     try {
       if (!user?.id) throw new Error("Missing user information")
       if (!user.email) throw new Error("Missing user email")
 
-      let orgId = organizationId
+      let orgId = null; // Initialize orgId
+
       if (!orgId) {
-        const domain = user.email.split('@')[1]
         const { data: org, error: orgError } = await supabase
           .from('organizations')
           .select('id')
-          .eq('domain', domain)
+          .eq('domain', user.email.split('@')[1])
           .single()
 
         if (orgError) throw new Error("Error fetching organization")
         if (!org?.id) throw new Error("Organization not found")
         orgId = org.id
-        setOrganizationId(orgId)
       }
 
       const { error } = await supabase.from('profiles').insert({
@@ -337,43 +301,6 @@ export function OnboardingFlow() {
     }
   }
 
-  const resetLogo = () => {
-    setOrganizationLogoUrl(null)
-  }
-
-  const steps = [
-    {
-      id: "org-setup",
-      title: "Organization Setup",
-      icon: Building2,
-      description: "Set up your organization"
-    },
-    {
-      id: "org-select",
-      title: "Organization Selection",
-      icon: Building2,
-      description: "Select your organization"
-    },
-    {
-      id: "profile",
-      title: "Profile Setup",
-      icon: UserCircle,
-      description: "Complete your profile"
-    },
-    {
-      id: "team",
-      title: "Team Invites",
-      icon: Users,
-      description: "Invite your team"
-    },
-    {
-      id: "complete",
-      title: "Complete",
-      icon: CheckCircle,
-      description: "All set!"
-    }
-  ]
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -383,142 +310,74 @@ export function OnboardingFlow() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50">
-      <Card className="w-full max-w-4xl">
-        <CardHeader>
-          <CardTitle>Welcome to Qwenzy</CardTitle>
+    <div className="min-h-screen flex items-center justify-center p-4 bg-[#f8fafc]">
+      <Card className="w-full max-w-xl">
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl">Welcome to Qwenzy</CardTitle>
           <CardDescription>Get started with your organization</CardDescription>
         </CardHeader>
-        <CardContent>
-          {currentStep === 'org-setup' ? (
-            <div className="space-y-6">
-              <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                <h3 className="font-medium text-gray-900 mb-2">Create your organization</h3>
-                <p className="text-sm text-gray-500 mb-4">
-                  Set up your organization to start collaborating with your team
-                </p>
-                <Form {...orgForm}>
-                  <form onSubmit={orgForm.handleSubmit(createOrganization)} className="space-y-4">
-                    <FormField
-                      control={orgForm.control}
-                      name="name"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Organization Name</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Acme Inc." {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+        <CardContent className="space-y-6">
+          {/* Domain Detection Banner */}
+          <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+            <p className="text-sm text-gray-600">
+              We detected your organization domain as
+              <span className="font-medium text-gray-900"> {user?.email?.split('@')[1]}</span>
+            </p>
+          </div>
 
-                    <FormField
-                      control={orgForm.control}
-                      name="domain"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Domain</FormLabel>
-                          <FormControl>
-                            <Input {...field} disabled />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+          {/* Create Organization Section */}
+          {(isAdmin || existingOrganizations.length === 0) && (
+            <div>
+              <h3 className="font-medium text-gray-900 mb-4">Create an organization</h3>
+              <Form {...orgForm}>
+                <form onSubmit={orgForm.handleSubmit(createOrganization)} className="space-y-4">
+                  <FormField
+                    control={orgForm.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Organization name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Acme Inc." {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                    <div className="space-y-4">
-                      {organizationLogoUrl ? (
-                        <div className="relative w-32 h-32 mx-auto">
-                          <img
-                            src={organizationLogoUrl}
-                            alt="Organization logo"
-                            className="w-full h-full object-contain rounded-lg border border-gray-200"
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
-                            onClick={resetLogo}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <>
-                          <Input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => handleImageUpload(e, 'logo')}
-                            disabled={uploading}
-                            className="hidden"
-                            id="logo-upload"
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => document.getElementById('logo-upload')?.click()}
-                            disabled={uploading}
-                            className="w-full"
-                          >
-                            {uploading ? (
-                              <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Uploading...
-                              </>
-                            ) : (
-                              'Upload Organization Logo'
-                            )}
-                          </Button>
-                        </>
-                      )}
-                    </div>
-
-                    <Button type="submit" className="w-full bg-[#407c87] hover:bg-[#386d77]">Create Organization</Button>
-                  </form>
-                </Form>
-              </div>
-            </div>
-          ) : currentStep === 'org-select' && existingOrganizations.length > 0 ? (
-            <div className="space-y-6">
-              {isAdmin && (
-                <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                  <h3 className="font-medium text-gray-900 mb-2">Create an organization</h3>
-                  <p className="text-sm text-gray-500 mb-4">
-                    Set up a new organization for your team
-                  </p>
-                  <Button
-                    onClick={() => setCurrentStep('org-setup')}
-                    className="w-full bg-[#407c87] hover:bg-[#386d77]"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create an organization
+                  <Button type="submit" className="w-full bg-[#407c87] hover:bg-[#386d77]">
+                    Create organization
                   </Button>
-                </div>
-              )}
+                </form>
+              </Form>
+            </div>
+          )}
 
-              <div>
-                <h3 className="font-medium text-gray-900 mb-2">Open an organization</h3>
-                <p className="text-sm text-gray-500 mb-4">
-                  Select an organization you're already a part of
+          {/* Existing Organizations */}
+          {existingOrganizations.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-medium text-gray-900">Open an organization</h3>
+                <p className="text-sm text-gray-500">
+                  Not seeing your organization?{" "}
+                  <button className="text-[#407c87] hover:text-[#386d77] font-medium">
+                    Try using a different email address
+                  </button>
                 </p>
-                <div className="space-y-2">
-                  {existingOrganizations.map((org) => (
-                    <OrganizationCard
-                      key={org.id}
-                      org={org}
-                      onSelect={() => {
-                        setOrganizationId(org.id)
-                        setCurrentStep('profile')
-                      }}
-                    />
-                  ))}
-                </div>
+              </div>
+              <div className="space-y-2">
+                {existingOrganizations.map((org) => (
+                  <OrganizationCard
+                    key={org.id}
+                    org={org}
+                    onSelect={() => {
+                      setLocation('/profile-setup')
+                    }}
+                  />
+                ))}
               </div>
             </div>
-          ) : null}
-
+          )}
           <Tabs value={currentStep} className="w-full">
             <TabsContent value="profile">
               <Form {...profileForm}>
@@ -531,30 +390,6 @@ export function OnboardingFlow() {
                     </div>
                   </div>
 
-                  <Input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => handleImageUpload(e, 'avatar')}
-                    disabled={uploading}
-                    className="hidden"
-                    id="avatar-upload"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => document.getElementById('avatar-upload')?.click()}
-                    disabled={uploading}
-                    className="w-full"
-                  >
-                    {uploading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Uploading...
-                      </>
-                    ) : (
-                      'Upload Profile Picture'
-                    )}
-                  </Button>
 
                   <FormField
                     control={profileForm.control}
