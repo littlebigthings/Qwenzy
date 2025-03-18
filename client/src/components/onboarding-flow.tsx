@@ -11,9 +11,9 @@ import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import { useLocation } from "wouter"
 import { useAuth } from "@/hooks/use-auth"
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
+import { Tabs, TabsContent } from "@/components/ui/tabs"
 
 type Organization = {
   id: number;
@@ -50,17 +50,6 @@ const organizationSchema = z.object({
   domain: z.string().min(3, "Domain must be at least 3 characters"),
 });
 
-const profileSchema = z.object({
-  firstName: z.string().min(2, "First name must be at least 2 characters"),
-  lastName: z.string().min(2, "Last name must be at least 2 characters"),
-  jobTitle: z.string().min(2, "Job title must be at least 2 characters"),
-})
-
-const teamInviteSchema = z.object({
-  emails: z.string().min(1, "Please enter at least one email"),
-  allowDomainJoin: z.boolean().default(false),
-})
-
 export function OnboardingFlow() {
   const [loading, setLoading] = useState(true)
   const [existingOrganizations, setExistingOrganizations] = useState<Organization[]>([])
@@ -68,8 +57,6 @@ export function OnboardingFlow() {
   const { toast } = useToast()
   const [, setLocation] = useLocation()
   const { user } = useAuth()
-  const [emails, setEmails] = useState<string[]>([]);
-  const [currentEmail, setCurrentEmail] = useState('');
 
   const orgForm = useForm<z.infer<typeof organizationSchema>>({
     resolver: zodResolver(organizationSchema),
@@ -78,23 +65,6 @@ export function OnboardingFlow() {
       domain: user?.email?.split("@")[1] || "",
     },
   })
-
-  const profileForm = useForm<z.infer<typeof profileSchema>>({
-    resolver: zodResolver(profileSchema),
-    defaultValues: {
-      firstName: "",
-      lastName: "",
-      jobTitle: "",
-    },
-  })
-
-  const teamInviteForm = useForm<z.infer<typeof teamInviteSchema>>({
-    resolver: zodResolver(teamInviteSchema),
-    defaultValues: {
-      allowDomainJoin: false,
-    },
-  })
-
 
   useEffect(() => {
     if (user?.email) {
@@ -221,86 +191,6 @@ export function OnboardingFlow() {
     }
   }
 
-  const completeProfile = async (data: z.infer<typeof profileSchema>) => {
-    try {
-      if (!user?.id) throw new Error("Missing user information")
-      if (!user.email) throw new Error("Missing user email")
-
-      let orgId = null; // Initialize orgId
-
-      if (!orgId) {
-        const { data: org, error: orgError } = await supabase
-          .from('organizations')
-          .select('id')
-          .eq('domain', user.email.split('@')[1])
-          .single()
-
-        if (orgError) throw new Error("Error fetching organization")
-        if (!org?.id) throw new Error("Organization not found")
-        orgId = org.id
-      }
-
-      const { error } = await supabase.from('profiles').insert({
-        user_id: user.id,
-        first_name: data.firstName,
-        last_name: data.lastName,
-        job_title: data.jobTitle,
-        email: user.email,
-        organization_id: orgId,
-      }).select().single()
-
-      if (error) throw error
-
-      toast({
-        title: "Success!",
-        description: "Profile completed successfully",
-      })
-      setCurrentStep('team')
-    } catch (error: any) {
-      console.error('Profile completion error:', error)
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message || "Error completing profile",
-      })
-    }
-  }
-
-  const handleTeamInvites = async (data: z.infer<typeof teamInviteSchema>) => {
-    try {
-      if (!organizationId) throw new Error("Organization not found")
-      if (!user?.id) throw new Error("User not found")
-
-      const { error } = await supabase.from('invitations').insert(
-        emails.map(email => ({
-          organization_id: organizationId,
-          email,
-          invited_by: user.id,
-          auto_join: data.allowDomainJoin
-        }))
-      )
-
-      if (error) throw error
-
-      toast({
-        title: "Success!",
-        description: "Team invites have been sent successfully.",
-      })
-      setCurrentStep('complete')
-
-      setTimeout(() => {
-        setLocation('/')
-      }, 2000)
-    } catch (error: any) {
-      console.error('Team invite error:', error)
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message || "Error sending team invites",
-      })
-    }
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -378,146 +268,6 @@ export function OnboardingFlow() {
               </div>
             </div>
           )}
-          <Tabs value={currentStep} className="w-full">
-            <TabsContent value="profile">
-              <Form {...profileForm}>
-                <form onSubmit={profileForm.handleSubmit(completeProfile)} className="space-y-4">
-                  <div className="flex items-center justify-center mb-6">
-                    <div className="relative h-24 w-24 rounded-full overflow-hidden bg-gray-100">
-                      <div className="h-full w-full flex items-center justify-center bg-gray-100">
-                        <Upload className="h-8 w-8 text-gray-400" />
-                      </div>
-                    </div>
-                  </div>
-
-
-                  <FormField
-                    control={profileForm.control}
-                    name="firstName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>First Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="John" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={profileForm.control}
-                    name="lastName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Last Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Doe" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={profileForm.control}
-                    name="jobTitle"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Job Title</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Software Engineer" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <Button type="submit" className="w-full">
-                    Complete Profile
-                  </Button>
-                </form>
-              </Form>
-            </TabsContent>
-
-            <TabsContent value="team">
-              <Form {...teamInviteForm}>
-                <form onSubmit={teamInviteForm.handleSubmit(handleTeamInvites)} className="space-y-6">
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2">
-                      <Input
-                        placeholder="Enter email address"
-                        value={currentEmail}
-                        onChange={(e) => setCurrentEmail(e.target.value)}
-                        type="email"
-                      />
-                      <Button
-                        type="button"
-                        onClick={() => {
-                          if (currentEmail && !emails.includes(currentEmail)) {
-                            setEmails([...emails, currentEmail])
-                            setCurrentEmail('')
-                          }
-                        }}
-                        variant="outline"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    {emails.length > 0 && (
-                      <div className="space-y-2">
-                        {emails.map((email, index) => (
-                          <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
-                            <span>{email}</span>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setEmails(emails.filter((_, i) => i !== index))}
-                            >
-                              <Trash className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    <div className="flex items-center space-x-2">
-                      <Switch
-                        id="auto-join"
-                        checked={teamInviteForm.watch('allowDomainJoin')}
-                        onCheckedChange={(checked) =>
-                          teamInviteForm.setValue('allowDomainJoin', checked)
-                        }
-                      />
-                      <Label htmlFor="auto-join">
-                        Allow anyone with matching email domain to join automatically
-                      </Label>
-                    </div>
-                  </div>
-
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={emails.length === 0}
-                  >
-                    Send Invites & Complete Setup
-                  </Button>
-                </form>
-              </Form>
-            </TabsContent>
-
-            <TabsContent value="complete">
-              <div className="text-center space-y-4">
-                <CheckCircle className="h-16 w-16 text-green-500 mx-auto" />
-                <h3 className="text-2xl font-bold">All Set!</h3>
-                <p className="text-gray-600">
-                  Your profile and organization setup is complete. You'll be redirected to your dashboard shortly.
-                </p>
-              </div>
-            </TabsContent>
-          </Tabs>
         </CardContent>
       </Card>
     </div>
