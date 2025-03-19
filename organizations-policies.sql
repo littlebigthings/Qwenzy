@@ -54,10 +54,10 @@ CREATE POLICY "Enable member management" ON organization_members
   FOR ALL TO public
   USING (
     EXISTS (
-      SELECT 1 FROM organization_members
-      WHERE organization_members.organization_id = organization_members.organization_id
-      AND organization_members.user_id = auth.uid()
-      AND organization_members.is_owner = true
+      SELECT 1 FROM om
+      WHERE om.organization_id = organization_members.organization_id
+      AND om.user_id = auth.uid()
+      AND om.is_owner = true
     )
   );
 
