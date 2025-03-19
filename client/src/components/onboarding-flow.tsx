@@ -107,7 +107,7 @@ export function OnboardingFlow() {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Error uploading logo",
+        description: "Error preparing logo",
       });
       return null;
     }
@@ -121,9 +121,22 @@ export function OnboardingFlow() {
       const fileName = `${Math.random()}.${fileExt}`;
       const filePath = `logos/${fileName}`; // Add logos/ folder prefix
 
-      // Upload to the "organizations" bucket (note the spelling)
+      // First, try to create the bucket if it doesn't exist
+      const { data: bucketData, error: bucketError } = await supabase.storage
+        .createBucket('organisations', {
+          public: false,
+          allowedMimeTypes: ['image/jpeg', 'image/png', 'image/gif'],
+          fileSizeLimit: 1024 * 800 // 800KB
+        });
+
+      if (bucketError && !bucketError.message.includes('already exists')) {
+        console.error("Bucket creation error:", bucketError);
+        throw new Error("Failed to setup storage");
+      }
+
+      // Upload to the "organisations" bucket
       const { data, error: uploadError } = await supabase.storage
-        .from("organizations") // Fix bucket name spelling
+        .from("organisations")
         .upload(filePath, file, {
           cacheControl: "3600",
           upsert: false,
@@ -340,8 +353,7 @@ export function OnboardingFlow() {
                           type="button"
                           variant="outline"
                           size="sm"
-                          onClick={(e) => {
-                            e.preventDefault();
+                          onClick={() => {
                             document.getElementById("logo-upload")?.click();
                           }}
                         >
@@ -352,8 +364,7 @@ export function OnboardingFlow() {
                             type="button"
                             variant="outline"
                             size="sm"
-                            onClick={(e) => {
-                              e.preventDefault();
+                            onClick={() => {
                               setLogoFile(null);
                               setLogoPreview(null);
                             }}
