@@ -122,7 +122,7 @@ export function OnboardingFlow() {
         toast({
           variant: "destructive",
           title: "Error",
-          description: "File size must be less than 800KB",
+          description: "File size must be less than 800K",
         });
         return null;
       }
@@ -139,20 +139,7 @@ export function OnboardingFlow() {
 
       const fileExt = file.name.split(".").pop();
       const fileName = `${Math.random()}.${fileExt}`;
-      const filePath = `logos/${fileName}`; // Add logos/ folder prefix
-
-      // First, try to create the bucket if it doesn't exist
-      const { data: bucketData, error: bucketError } = await supabase.storage
-        .createBucket('organisations', {
-          public: false,
-          allowedMimeTypes: ['image/jpeg', 'image/png', 'image/gif'],
-          fileSizeLimit: 1024 * 800 // 800KB
-        });
-
-      if (bucketError && !bucketError.message.includes('already exists')) {
-        console.error("Bucket creation error:", bucketError);
-        throw new Error("Failed to setup storage bucket");
-      }
+      const filePath = fileName; // Simplified path, no folders
 
       // Upload to the "organisations" bucket
       const { data, error: uploadError } = await supabase.storage
@@ -165,8 +152,8 @@ export function OnboardingFlow() {
 
       if (uploadError) {
         console.error("Supabase storage error:", uploadError);
-        if (uploadError.message.includes("storage policy")) {
-          throw new Error("Permission denied: Storage policies not configured");
+        if (uploadError.message.includes("policy")) {
+          throw new Error("Storage permission denied. Please try again.");
         }
         throw new Error("Failed to upload logo");
       }
