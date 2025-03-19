@@ -131,7 +131,7 @@ export function OnboardingFlow() {
 
       if (bucketError && !bucketError.message.includes('already exists')) {
         console.error("Bucket creation error:", bucketError);
-        throw new Error("Failed to setup storage");
+        throw new Error("Failed to setup storage bucket");
       }
 
       // Upload to the "organisations" bucket
@@ -145,7 +145,10 @@ export function OnboardingFlow() {
 
       if (uploadError) {
         console.error("Supabase storage error:", uploadError);
-        throw new Error("Failed to upload logo to storage");
+        if (uploadError.message.includes("storage policy")) {
+          throw new Error("Permission denied: Storage policies not configured");
+        }
+        throw new Error("Failed to upload logo");
       }
 
       // Get the public URL
@@ -156,7 +159,12 @@ export function OnboardingFlow() {
       return publicUrl;
     } catch (error: any) {
       console.error("Upload to Supabase error:", error);
-      throw new Error("Failed to upload logo to storage");
+      toast({
+        variant: "destructive",
+        title: "Upload Error",
+        description: error.message || "Failed to upload logo to storage"
+      });
+      return null;
     }
   };
 
