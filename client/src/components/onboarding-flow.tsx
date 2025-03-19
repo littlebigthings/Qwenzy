@@ -2,7 +2,14 @@ import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -40,15 +47,18 @@ const steps = [
 ];
 
 const organizationSchema = z.object({
-  name: z.string().min(2, {
-    message: "Organization name must be at least 2 characters",
-  })
-  .max(50, {
-    message: "Organization name must be less than 50 characters",
-  })
-  .regex(/^[a-zA-Z0-9\s.-]+$/, {
-    message: "Organization name can only contain letters, numbers, spaces, dots and hyphens",
-  }),
+  name: z
+    .string()
+    .min(2, {
+      message: "Organization name must be at least 2 characters",
+    })
+    .max(50, {
+      message: "Organization name must be less than 50 characters",
+    })
+    .regex(/^[a-zA-Z0-9\s.-]+$/, {
+      message:
+        "Organization name can only contain letters, numbers, spaces, dots and hyphens",
+    }),
   logo: z.any().optional(),
 });
 
@@ -141,13 +151,13 @@ export function OnboardingFlow() {
       const fileName = `${Math.random()}.${fileExt}`;
       const filePath = fileName; // Simplified path, no folders
 
-      // Upload to the "organisations" bucket
+      // Upload to the "organizations" bucket
       const { data, error: uploadError } = await supabase.storage
-        .from("organisations")
+        .from("organizations")
         .upload(filePath, file, {
           cacheControl: "3600",
           upsert: false,
-          contentType: file.type
+          contentType: file.type,
         });
 
       if (uploadError) {
@@ -159,9 +169,9 @@ export function OnboardingFlow() {
       }
 
       // Get the public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from("organisations")
-        .getPublicUrl(filePath);
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("organizations").getPublicUrl(filePath);
 
       return publicUrl;
     } catch (error: any) {
@@ -169,13 +179,15 @@ export function OnboardingFlow() {
       toast({
         variant: "destructive",
         title: "Upload Error",
-        description: error.message || "Failed to upload logo to storage"
+        description: error.message || "Failed to upload logo to storage",
       });
       return null;
     }
   };
 
-  const createOrganization = async (data: z.infer<typeof organizationSchema>) => {
+  const createOrganization = async (
+    data: z.infer<typeof organizationSchema>,
+  ) => {
     try {
       if (!user?.id) throw new Error("Missing user information");
 
@@ -228,7 +240,6 @@ export function OnboardingFlow() {
 
       setCompletedSteps([...completedSteps, "organization"]);
       setCurrentStep("profile");
-
     } catch (error: any) {
       console.error("Organization creation error:", error);
       toast({
@@ -326,13 +337,15 @@ export function OnboardingFlow() {
                       <FormItem>
                         <FormLabel>Organization name</FormLabel>
                         <FormControl>
-                          <Input 
-                            placeholder="e.g. Acme Inc, Tech Solutions" 
-                            {...field} 
+                          <Input
+                            placeholder="e.g. Acme Inc, Tech Solutions"
+                            {...field}
                           />
                         </FormControl>
                         <p className="text-sm text-muted-foreground">
-                          Use a unique name that represents your organization. Letters, numbers, spaces, dots and hyphens are allowed.
+                          Use a unique name that represents your organization.
+                          Letters, numbers, spaces, dots and hyphens are
+                          allowed.
                         </p>
                         <FormMessage />
                       </FormItem>
