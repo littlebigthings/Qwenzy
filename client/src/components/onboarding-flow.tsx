@@ -117,6 +117,26 @@ export function OnboardingFlow() {
     try {
       if (!file) return null;
 
+      // Check file size (800KB max)
+      if (file.size > 800 * 1024) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "File size must be less than 800KB",
+        });
+        return null;
+      }
+
+      // Check file type
+      if (!["image/jpeg", "image/png", "image/gif"].includes(file.type)) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "File must be JPG, PNG or GIF",
+        });
+        return null;
+      }
+
       const fileExt = file.name.split(".").pop();
       const fileName = `${Math.random()}.${fileExt}`;
       const filePath = `logos/${fileName}`; // Add logos/ folder prefix
