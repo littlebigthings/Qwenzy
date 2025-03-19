@@ -60,3 +60,7 @@ CREATE POLICY "Enable member management" ON organization_members
       AND organization_members.is_owner = true
     )
   );
+
+-- Make sure RLS is enabled on both tables
+ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE organization_members ENABLE ROW LEVEL SECURITY;
