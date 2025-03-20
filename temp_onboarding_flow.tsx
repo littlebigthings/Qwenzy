@@ -1,3 +1,4 @@
+// This will be a full replacement, not using str_replace because it encountered an error previously
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -67,6 +68,17 @@ const organizationSchema = z.object({
         "Organization name can only contain letters, numbers, spaces, dots and hyphens",
     }),
   logo: z.any().optional(),
+const profileSchema = z.object({
+  fullName: z
+    .string()
+    .min(2, {
+      message: "Your name must be at least 2 characters",
+    })
+    .max(100, {
+      message: "Your name must be less than 100 characters",
+    }),
+  avatar: z.any().optional(),
+});
 });
 
 const profileSchema = z.object({
