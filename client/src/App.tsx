@@ -11,6 +11,7 @@ import VerifyEmail from "@/pages/verify-email"
 import ForgotPassword from "@/pages/forgot-password"
 import Home from "@/pages/home"
 import OrganizationSetup from "@/pages/organization-setup"
+import ProfileSetup from "@/pages/profile-setup"
 import { Protected } from "@/layouts/protected"
 
 function Router() {
@@ -27,6 +28,12 @@ function Router() {
       <Route path="/organization-setup">
         <Protected>
           <OrganizationSetup />
+        </Protected>
+      </Route>
+
+      <Route path="/profile-setup">
+        <Protected>
+          <ProfileSetup />
         </Protected>
       </Route>
 
