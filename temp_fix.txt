@@ -1,0 +1,14 @@
+      // Upload avatar if selected
+      let avatarUrl = null;
+      if (avatarFile) {
+        avatarUrl = await uploadToSupabase(avatarFile);
+      }
+
+      // Check if profile already exists
+      const { data: existingProfile, error: checkError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (checkError) throw checkError;

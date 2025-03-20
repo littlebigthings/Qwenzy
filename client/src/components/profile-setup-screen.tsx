@@ -1,11 +1,7 @@
-import { useState } from "react";
-import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import { useLocation } from "wouter";
-import { Upload, Loader2 } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Form,
   FormControl,
@@ -14,119 +10,80 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/use-auth";
+import { useState } from "react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Card, CardContent } from "@/components/ui/card";
 
-// Define the profile schema for form validation
-const profileSchema = z.object({
-  name: z
-    .string()
-    .min(2, {
-      message: "Name must be at least 2 characters",
-    })
-    .max(100, {
-      message: "Name must be less than 100 characters",
-    }),
+const profileFormSchema = z.object({
+  name: z.string().min(2, {
+    message: "Name must be at least 2 characters.",
+  }),
 });
 
 export function ProfileSetupScreen() {
-  const { user } = useAuth();
   const { toast } = useToast();
-  const [, setLocation] = useLocation();
-  const [loading, setLoading] = useState(false);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Initialize the form with default values
-  const form = useForm<z.infer<typeof profileSchema>>({
-    resolver: zodResolver(profileSchema),
+  const form = useForm<z.infer<typeof profileFormSchema>>({
+    resolver: zodResolver(profileFormSchema),
     defaultValues: {
       name: "",
     },
   });
 
-  // Handle avatar upload
   const handleAvatarUpload = async (file: File) => {
-    try {
-      if (!file) return;
-
-      // Check file size (800KB max)
-      if (file.size > 800 * 1024) {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "File size must be less than 800K",
-        });
-        return;
-      }
-
-      // Check file type
-      if (!["image/jpeg", "image/png", "image/gif"].includes(file.type)) {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "File must be JPG, PNG or GIF",
-        });
-        return;
-      }
-
-      // Create file preview
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setAvatarPreview(e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
-
-      setAvatarFile(file);
-    } catch (error: any) {
-      console.error("Avatar upload error:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Error preparing avatar",
-      });
-    }
+    setAvatarFile(file);
+    // Create a preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setAvatarPreview(e.target?.result as string);
+    };
+    reader.readAsDataURL(file);
   };
 
-  // Upload file to Supabase storage
   const uploadToSupabase = async (file: File) => {
-    try {
-      if (!file) return null;
-
-      const fileExt = file.name.split(".").pop();
-      const fileName = `${Math.random()}.${fileExt}`;
-      const filePath = fileName;
-
-      // Upload to avatars bucket
-      const { data, error: uploadError } = await supabase.storage
-        .from("avatars")
-        .upload(filePath, file, {
-          cacheControl: "3600",
-          upsert: false,
-          contentType: file.type,
-        });
-
-      if (uploadError) throw uploadError;
-
-      // Get public URL
-      const { data: publicUrlData } = supabase.storage
-        .from("avatars")
-        .getPublicUrl(filePath);
-
-      return publicUrlData.publicUrl;
-    } catch (error) {
-      console.error("Upload error:", error);
-      throw error;
+    const user = supabase.auth.getUser();
+    const userData = await user;
+    
+    if (!userData.data.user) {
+      throw new Error("User not authenticated");
     }
+    
+    const userId = userData.data.user.id;
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${userId}_${Math.random().toString(36).substring(2)}.${fileExt}`;
+    const filePath = `avatars/${fileName}`;
+    
+    const { error: uploadError, data } = await supabase.storage
+      .from('profiles')
+      .upload(filePath, file);
+    
+    if (uploadError) {
+      console.error("Error uploading file:", uploadError);
+      throw uploadError;
+    }
+    
+    // Get public URL for the uploaded file
+    const { data: { publicUrl } } = supabase.storage
+      .from('profiles')
+      .getPublicUrl(filePath);
+    
+    return publicUrl;
   };
 
-  // Handle form submission
-  const onSubmit = async (data: z.infer<typeof profileSchema>) => {
+  async function onSubmit(data: z.infer<typeof profileFormSchema>) {
     try {
-      if (!user?.id) throw new Error("User not authenticated");
-      
-      setLoading(true);
+      setIsSubmitting(true);
+
+      // Get current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      if (!user) throw new Error("User not authenticated");
 
       // Get user's current organization
       const { data: membership, error: membershipError } = await supabase
@@ -143,15 +100,10 @@ export function ProfileSetupScreen() {
         avatarUrl = await uploadToSupabase(avatarFile);
       }
 
-      // Split the name into first and last name
-      const nameParts = data.name.trim().split(' ');
-      const firstName = nameParts[0] || '';
-      const lastName = nameParts.slice(1).join(' ') || '';
-
-      // Check if profile exists
+      // Check if profile already exists
       const { data: existingProfile, error: checkError } = await supabase
-        .from("profiles")
-        .select("id")
+        .from('profiles')
+        .select('*')
         .eq('user_id', user.id)
         .maybeSingle();
 
@@ -162,8 +114,7 @@ export function ProfileSetupScreen() {
         const { error: updateError } = await supabase
           .from("profiles")
           .update({
-            first_name: firstName,
-            last_name: lastName,
+            name: data.name,
             avatar_url: avatarUrl || undefined,
           })
           .eq('id', existingProfile.id);
@@ -176,8 +127,7 @@ export function ProfileSetupScreen() {
           .insert({
             user_id: user.id,
             organization_id: membership.organization_id,
-            first_name: firstName,
-            last_name: lastName,
+            name: data.name,
             avatar_url: avatarUrl,
             email: user.email || '',
             job_title: '', // Default empty job title
@@ -187,130 +137,90 @@ export function ProfileSetupScreen() {
         if (insertError) throw insertError;
       }
 
-      // Update onboarding progress if needed
-      const { error: progressError } = await supabase
-        .from('onboarding_progress')
-        .upsert({
-          user_id: user.id,
-          current_step: 'invite',
-          completed_steps: ['organization', 'profile']
-        }, {
-          onConflict: 'user_id'
-        });
-
-      if (progressError) throw progressError;
-
       toast({
-        title: "Success",
-        description: "Profile updated successfully!",
+        title: "Profile setup complete",
+        description: "Your profile has been set up successfully.",
       });
-
-      // Redirect to home or next step
-      setLocation("/");
+      
+      // Redirect to dashboard or next step
+      window.location.href = "/dashboard";
     } catch (error: any) {
-      console.error("Profile update error:", error);
+      console.error("Profile setup error:", error);
       toast({
+        title: "Error setting up profile",
+        description: error.message || "An error occurred during profile setup.",
         variant: "destructive",
-        title: "Error",
-        description: error.message || "Error updating profile",
       });
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
-  };
+  }
 
   return (
-    <div className="max-w-md mx-auto bg-white rounded-lg shadow p-8">
-      <div className="space-y-2 mb-6">
-        <h2 className="text-2xl font-semibold text-gray-800">Add your profile information</h2>
-        <p className="text-gray-600">
-          Adding your name and profile photo helps your teammates to recognise and connect with you more easily.
+    <div className="max-w-md mx-auto p-4 space-y-6">
+      <div className="text-center space-y-2">
+        <h1 className="text-2xl font-bold">Set Up Your Profile</h1>
+        <p className="text-muted-foreground">
+          Tell us about yourself to complete your account setup
         </p>
       </div>
 
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <FormField
-            control={form.control}
-            name="name"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Your Name</FormLabel>
-                <FormControl>
-                  <Input placeholder="Name" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <div className="space-y-2">
-            <FormLabel>Your profile photo</FormLabel>
-            <div className="flex items-start gap-4">
-              <div className="h-24 w-24 border border-dashed rounded flex items-center justify-center bg-gray-50">
-                {avatarPreview ? (
-                  <img
-                    src={avatarPreview}
-                    alt="Avatar preview"
-                    className="h-full w-full object-cover rounded"
-                  />
-                ) : (
-                  <Upload className="h-6 w-6 text-gray-400" />
-                )}
-              </div>
-              <div className="space-y-2">
-                <div className="flex gap-2">
-                  <label
-                    htmlFor="avatar-upload"
-                    className="inline-flex items-center justify-center bg-[#407c87] text-white px-4 py-2 rounded cursor-pointer hover:bg-[#386d77] transition-colors"
-                  >
-                    Upload a photo
+      <Card>
+        <CardContent className="pt-6">
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <div className="flex justify-center mb-6">
+                <div className="relative">
+                  <Avatar className="w-24 h-24">
+                    <AvatarImage src={avatarPreview || ""} />
+                    <AvatarFallback className="text-lg">
+                      {form.watch("name")
+                        ? form.watch("name").charAt(0).toUpperCase()
+                        : "?"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="absolute -bottom-2 -right-2">
+                    <label 
+                      htmlFor="avatar-upload" 
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center cursor-pointer"
+                    >
+                      +
+                    </label>
                     <input
                       id="avatar-upload"
                       type="file"
+                      accept="image/*"
                       className="hidden"
-                      accept="image/jpeg,image/png,image/gif"
-                      onChange={(e) =>
-                        handleAvatarUpload(e.target.files?.[0] as File)
-                      }
-                    />
-                  </label>
-                  {avatarPreview && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setAvatarPreview(null);
-                        setAvatarFile(null);
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleAvatarUpload(file);
                       }}
-                    >
-                      Reset
-                    </Button>
-                  )}
+                    />
+                  </div>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  Allowed JPG, GIF or PNG. Max size of 800K
-                </p>
               </div>
-            </div>
-          </div>
 
-          <Button
-            type="submit"
-            className="w-full bg-[#407c87] hover:bg-[#386d77] text-white py-3"
-            disabled={loading}
-          >
-            {loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              "Continue"
-            )}
-          </Button>
-        </form>
-      </Form>
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Full Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter your full name" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <Button type="submit" className="w-full" disabled={isSubmitting}>
+                {isSubmitting ? "Setting up profile..." : "Complete Profile Setup"}
+              </Button>
+            </form>
+          </Form>
+        </CardContent>
+      </Card>
     </div>
   );
 }
