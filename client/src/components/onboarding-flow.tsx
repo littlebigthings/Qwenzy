@@ -165,9 +165,12 @@ export function OnboardingFlow() {
             setAvatarPreview(profile.avatar_url);
           }
           
-          // Update profileForm values - using the new field
+          // Update profileForm values
           profileForm.reset({
-            fullName: profile.name || "",
+            firstName: profile.first_name || "",
+            lastName: profile.last_name || "",
+            email: profile.email || "",
+            jobTitle: profile.job_title || "",
           });
         }
 
@@ -345,6 +348,11 @@ export function OnboardingFlow() {
 
       console.log("Saving profile with data:", { name: data.fullName, avatarUrl });
 
+      // Extract first and last name from full name
+      const nameParts = data.fullName.trim().split(" ");
+      const firstName = nameParts[0] || "";
+      const lastName = nameParts.slice(1).join(" ") || "";
+
       // Check if profile exists
       const { data: existingProfile, error: checkError } = await supabase
         .from("profiles")
@@ -355,11 +363,12 @@ export function OnboardingFlow() {
       if (checkError) throw checkError;
 
       if (existingProfile) {
-        // Update existing profile with the new field
+        // Update existing profile
         const { error: updateError } = await supabase
           .from("profiles")
           .update({
-            name: data.fullName.trim(),
+            first_name: firstName,
+            last_name: lastName,
             avatar_url: avatarUrl,
             // Keep the existing data for other fields
           })
@@ -367,13 +376,14 @@ export function OnboardingFlow() {
 
         if (updateError) throw updateError;
       } else {
-        // Create new profile with the new field
+        // Create new profile
         const { error: insertError } = await supabase
           .from("profiles")
           .insert({
             user_id: user.id,
             organization_id: organization.id,
-            name: data.fullName.trim(),
+            first_name: firstName,
+            last_name: lastName,
             avatar_url: avatarUrl,
             email: user.email,
           });
@@ -550,76 +560,113 @@ export function OnboardingFlow() {
 
       if (uploadError) {
         console.error("Supabase storage error:", uploadError);
-        throw uploadError;
+        if (uploadError.message.includes("policy")) {
+          throw new Error("Storage permission denied. Please try again.");
+        }
+        throw new Error("Failed to upload file");
       }
 
-      // Get public URL
-      const { data: publicUrlData } = supabase.storage
-        .from(bucketName)
-        .getPublicUrl(filePath);
+      // Get the public URL
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from(bucketName).getPublicUrl(filePath);
 
-      console.log("File uploaded, public URL:", publicUrlData.publicUrl);
-      return publicUrlData.publicUrl;
-    } catch (error) {
-      console.error("Upload error:", error);
-      throw error;
+      return publicUrl;
+    } catch (error: any) {
+      console.error("Upload to Supabase error:", error);
+      toast({
+        variant: "destructive",
+        title: "Upload Error",
+        description: error.message || "Failed to upload file to storage",
+      });
+      return null;
     }
   };
 
-  // If loading state, show a loading indicator
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+      <div className="min-h-screen flex items-center justify-center bg-[url('/bg.png')] bg-cover">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
-      {/* Navigation tabs */}
-      <div className="mb-8">
-        <ul className="flex space-x-2 md:space-x-4 justify-between border-b">
-          {steps.map((step) => (
-            <li
-              key={step.id}
-              className={`py-4 px-1 md:px-4 flex-1 text-center cursor-pointer ${
-                currentStep === step.id
-                  ? "border-b-2 border-primary text-primary font-medium"
-                  : completedSteps.includes(step.id)
-                  ? "text-gray-600"
-                  : "text-gray-400"
-              }`}
-              onClick={() => {
-                if (completedSteps.includes(step.id)) {
-                  setCurrentStep(step.id);
-                }
-              }}
-            >
-              <div className="flex flex-col items-center justify-center space-y-1">
-                {/* <img
-                  src={currentStep === step.id ? step.active : step.icon}
-                  alt={step.label}
-                  className="w-5 h-5"
-                /> */}
-                <span className="text-xs md:text-sm">{step.label}</span>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </div>
+    <div className="min-h-screen flex items-center justify-center p-4 bg-[url('/bg.png')] bg-cover">
+      <Card className="w-full max-w-5xl grid grid-cols-[280px,1fr] overflow-hidden">
+        {/* Left sidebar with steps */}
+        <div className="bg-gray-50 p-6 border-r">
+          <div className="space-y-2">
+            {steps.map((step, index) => {
+              const isCompleted = completedSteps.includes(step.id);
+              const isCurrent = currentStep === step.id;
+              const isClickable =
+                index === 0 || completedSteps.includes(steps[index - 1].id);
 
-      {/* Step content */}
-      <Card>
-        <CardContent className="pt-6">
-          {/* Organization setup step */}
+              return (
+                <button
+                  key={step.id}
+                  className={`w-full flex items-center gap-4 p-4 rounded-lg transition-colors
+                    ${isCurrent ? "bg-white shadow-sm" : "hover:bg-white/50"}
+                    ${!isClickable ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
+                  `}
+                  onClick={() => isClickable && setCurrentStep(step.id)}
+                  disabled={!isClickable}
+                >
+                  <div className="w-8 h-8 flex-shrink-0">
+                    {isCompleted ? (
+                      <img
+                        src="src/assets/completed.svg"
+                        alt="Complete"
+                        className="w-full h-full"
+                      />
+                    ) : (
+                      <img
+                        src={isCurrent ? step.active : step.icon}
+                        alt={step.label}
+                        className="w-full h-full"
+                      />
+                    )}
+                  </div>
+                  <div>
+                    <h3
+                      className={`text-base font-medium ${
+                        isCurrent ? "text-[#407c87]" : "text-gray-700"
+                      }`}
+                    >
+                      {step.label}
+                    </h3>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Right content area */}
+        <div className="p-6">
           {currentStep === "organization" && (
             <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-semibold">Create your organization</h2>
-                <p className="text-gray-500">
-                  This is your company or team's workspace.
-                </p>
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl font-semibold">
+                    {organization ? "Organization Details" : "Give your organization a name"}
+                  </h2>
+                  <p className="text-gray-500">
+                    {organization 
+                      ? isEditing ? "Update your organization details" : "Your organization details"
+                      : "Details help any collaborators that join"}
+                  </p>
+                </div>
+                {organization && !isEditing && (
+                  <Button
+                    onClick={() => setIsEditing(true)}
+                    variant="outline"
+                  >
+                    Edit Details
+                  </Button>
+                )}
               </div>
 
               <Form {...orgForm}>
@@ -632,24 +679,33 @@ export function OnboardingFlow() {
                     name="name"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Organization Name</FormLabel>
+                        <FormLabel>Organization name</FormLabel>
                         <FormControl>
-                          <Input placeholder="Acme Inc" {...field} />
+                          <Input
+                            placeholder="e.g. Acme Inc, Tech Solutions"
+                            {...field}
+                            disabled={organization && !isEditing}
+                          />
                         </FormControl>
+                        <p className="text-sm text-muted-foreground">
+                          {organization && !isEditing
+                            ? "Organization name"
+                            : "Use a unique name that represents your organization"}
+                        </p>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
 
-                  <div className="space-y-2">
+                  <div>
                     <FormLabel>Organization Logo</FormLabel>
-                    <div className="flex items-start gap-4">
-                      <div className="h-16 w-16 border border-dashed rounded flex items-center justify-center bg-gray-50">
+                    <div className="flex items-start gap-4 mt-2">
+                      <div className="h-24 w-24 border border-dashed rounded flex items-center justify-center bg-gray-50">
                         {logoPreview ? (
                           <img
                             src={logoPreview}
-                            alt="Organization logo"
-                            className="h-full w-full object-cover rounded"
+                            alt="Logo preview"
+                            className="h-full w-full object-cover"
                           />
                         ) : (
                           <Upload className="h-6 w-6 text-gray-400" />
@@ -659,9 +715,13 @@ export function OnboardingFlow() {
                         <div className="flex gap-2">
                           <label
                             htmlFor="logo-upload"
-                            className="inline-flex items-center justify-center bg-primary text-primary-foreground px-4 py-2 rounded cursor-pointer hover:opacity-90 transition-opacity"
+                            className={`inline-flex items-center justify-center px-4 py-2 rounded cursor-pointer transition-colors
+                              ${organization && !isEditing
+                                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                : "bg-[#407c87] text-white hover:bg-[#386d77]"
+                              }`}
                           >
-                            Upload a logo
+                            Upload Logo
                             <input
                               id="logo-upload"
                               type="file"
@@ -670,15 +730,16 @@ export function OnboardingFlow() {
                               onChange={(e) =>
                                 handleLogoUpload(e.target.files?.[0] as File)
                               }
+                              disabled={organization && !isEditing}
                             />
                           </label>
-                          {logoPreview && (
+                          {logoPreview && (organization ? isEditing : true) && (
                             <Button
                               type="button"
                               variant="outline"
                               onClick={() => {
-                                setLogoPreview(null);
                                 setLogoFile(null);
+                                setLogoPreview(null);
                               }}
                             >
                               Reset
@@ -692,26 +753,28 @@ export function OnboardingFlow() {
                     </div>
                   </div>
 
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={loading}
-                  >
-                    {loading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      "Continue"
-                    )}
-                  </Button>
+                  {(organization ? isEditing : true) && (
+                    <Button
+                      type="submit"
+                      className="w-full bg-[#407c87] hover:bg-[#386d77]"
+                      disabled={loading}
+                    >
+                      {loading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          {organization ? "Updating..." : "Creating..."}
+                        </>
+                      ) : organization ? (
+                        "Update Organization"
+                      ) : (
+                        "Continue to Profile Setup"
+                      )}
+                    </Button>
+                  )}
                 </form>
               </Form>
             </div>
           )}
-
-          {/* Profile setup step */}
           {currentStep === "profile" && (
             <div className="space-y-6">
               <div>
@@ -731,7 +794,7 @@ export function OnboardingFlow() {
                       <FormItem>
                         <FormLabel>Your Name</FormLabel>
                         <FormControl>
-                          <Input placeholder="John Doe" {...field} />
+                          <Input placeholder="Name" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -739,14 +802,14 @@ export function OnboardingFlow() {
                   />
 
                   <div className="space-y-2">
-                    <FormLabel>Profile Photo</FormLabel>
+                    <FormLabel>Your profile photo</FormLabel>
                     <div className="flex items-start gap-4">
-                      <div className="h-16 w-16 border border-dashed rounded-full flex items-center justify-center bg-gray-50">
+                      <div className="h-24 w-24 border border-dashed rounded flex items-center justify-center bg-gray-50">
                         {avatarPreview ? (
                           <img
                             src={avatarPreview}
                             alt="Avatar preview"
-                            className="h-full w-full object-cover rounded-full"
+                            className="h-full w-full object-cover"
                           />
                         ) : (
                           <Upload className="h-6 w-6 text-gray-400" />
@@ -756,7 +819,7 @@ export function OnboardingFlow() {
                         <div className="flex gap-2">
                           <label
                             htmlFor="avatar-upload"
-                            className="inline-flex items-center justify-center bg-primary text-primary-foreground px-4 py-2 rounded cursor-pointer hover:opacity-90 transition-opacity"
+                            className="inline-flex items-center justify-center bg-[#407c87] text-white px-4 py-2 rounded cursor-pointer hover:bg-[#386d77] transition-colors"
                           >
                             Upload a photo
                             <input
@@ -774,8 +837,8 @@ export function OnboardingFlow() {
                               type="button"
                               variant="outline"
                               onClick={() => {
-                                setAvatarPreview(null);
                                 setAvatarFile(null);
+                                setAvatarPreview(null);
                               }}
                             >
                               Reset
@@ -791,7 +854,7 @@ export function OnboardingFlow() {
 
                   <Button
                     type="submit"
-                    className="w-full"
+                    className="w-full bg-[#407c87] hover:bg-[#386d77]"
                     disabled={loading}
                   >
                     {loading ? (
@@ -807,40 +870,47 @@ export function OnboardingFlow() {
               </Form>
             </div>
           )}
-
-          {/* TODO: Add other steps here */}
           {currentStep === "invite" && (
             <div className="space-y-6">
               <div>
-                <h2 className="text-2xl font-semibold">Invite your team</h2>
-                <p className="text-gray-500">Invite members to collaborate with you in this workspace</p>
+                <h2 className="text-2xl font-semibold">Invite team members</h2>
+                <p className="text-gray-500">
+                  Collaborate with your team members
+                </p>
               </div>
-              
+              {/* Invite members form will be implemented here */}
               <Button
-                onClick={moveToNextStep}
-                className="w-full"
+                onClick={() => {
+                  const newCompletedSteps = [...completedSteps, "invite"];
+                  setCompletedSteps(newCompletedSteps);
+                  saveProgress("workspace", newCompletedSteps).then(()=>moveToNextStep());
+                }}
               >
-                Skip for now
+                Continue to next step
               </Button>
             </div>
           )}
-
           {currentStep === "workspace" && (
             <div className="space-y-6">
               <div>
-                <h2 className="text-2xl font-semibold">Set up your workspace</h2>
-                <p className="text-gray-500">Configure your workspace settings</p>
+                <h2 className="text-2xl font-semibold">Create your workspace</h2>
+                <p className="text-gray-500">
+                  Set up your collaboration workspace
+                </p>
               </div>
-              
+              {/* Workspace setup form will be implemented here */}
               <Button
-                onClick={() => setLocation("/")}
-                className="w-full"
+                onClick={() => {
+                  const newCompletedSteps = [...completedSteps, "workspace"];
+                  setCompletedSteps(newCompletedSteps);
+                  saveProgress("completed", newCompletedSteps).then(()=>setLocation("/"));
+                }}
               >
-                Finish setup
+                Complete Setup
               </Button>
             </div>
           )}
-        </CardContent>
+        </div>
       </Card>
     </div>
   );

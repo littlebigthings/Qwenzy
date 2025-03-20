@@ -19,7 +19,8 @@ export const organizations = pgTable("organizations", {
 export const profiles = pgTable("profiles", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
-  name: text("name").notNull(),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
   email: text("email").notNull(),
   jobTitle: text("job_title").notNull(),
   avatarUrl: text("avatar_url"),
@@ -52,7 +53,8 @@ export const insertUserSchema = createInsertSchema(users).pick({
 });
 
 export const insertProfileSchema = createInsertSchema(profiles).pick({
-  name: true,
+  firstName: true,
+  lastName: true,
   email: true,
   jobTitle: true,
   avatarUrl: true,
