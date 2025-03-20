@@ -512,7 +512,7 @@ export function OnboardingFlow() {
   // Upload file to Supabase storage
   const uploadToSupabase = async (file: File, bucketName: string) => {
     try {
-      if (!file) return null;
+      if (!file || !user?.id) return null;
 
       // Check file size (800KB max)
       if (file.size > 800 * 1024) {
@@ -534,16 +534,20 @@ export function OnboardingFlow() {
         return null;
       }
 
+      // Use user-specific folder structure for RLS compliance
+      const userId = user.id.toString();
       const fileExt = file.name.split(".").pop();
       const fileName = `${Math.random()}.${fileExt}`;
-      const filePath = fileName; // Simplified path, no folders
+      const filePath = `${userId}/${fileName}`; // Include user ID in path
+
+      console.log("Uploading file to path:", filePath);
 
       // Upload to the specified bucket
       const { data, error: uploadError } = await supabase.storage
         .from(bucketName)
         .upload(filePath, file, {
           cacheControl: "3600",
-          upsert: false,
+          upsert: true, // Change to upsert to overwrite if exists
           contentType: file.type,
         });
 
