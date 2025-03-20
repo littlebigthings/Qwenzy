@@ -188,7 +188,10 @@ export function OnboardingFlow() {
           
           // Update profileForm values
           profileForm.reset({
-            fullName: profile.full_name || "",
+            firstName: profile.first_name || "",
+            lastName: profile.last_name || "",
+            email: profile.email || "",
+            jobTitle: profile.job_title || "",
           });
         }
 
@@ -224,7 +227,10 @@ export function OnboardingFlow() {
   const profileForm = useForm<z.infer<typeof profileSchema>>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
-      fullName: "",
+      firstName: "",
+      lastName: "",
+      email: "",
+      jobTitle: "",
     },
   });
 
@@ -373,7 +379,10 @@ export function OnboardingFlow() {
         const { error: updateError } = await supabase
           .from("profiles")
           .update({
-            full_name: data.fullName,
+            first_name: data.firstName,
+            last_name: data.lastName,
+            email: data.email,
+            job_title: data.jobTitle,
             avatar_url: avatarUrl,
           })
           .eq('id', existingProfile.id);
@@ -386,7 +395,10 @@ export function OnboardingFlow() {
           .insert({
             user_id: user.id,
             organization_id: organization.id,
-            full_name: data.fullName,
+            first_name: data.firstName,
+            last_name: data.lastName,
+            email: data.email,
+            job_title: data.jobTitle,
             avatar_url: avatarUrl,
           });
 
@@ -518,6 +530,12 @@ export function OnboardingFlow() {
     }
   };
 
+  // Reset avatar
+  const handleResetAvatar = () => {
+    setAvatarPreview(null);
+    setAvatarFile(null);
+  };
+
   // Upload file to Supabase storage
   const uploadToSupabase = async (file: File, bucketName: string) => {
     try {
@@ -581,7 +599,6 @@ export function OnboardingFlow() {
     }
   };
 
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[url('/bg.png')] bg-cover">
@@ -591,10 +608,10 @@ export function OnboardingFlow() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-[url('/bg.png')] bg-cover">
-      <Card className="w-full max-w-5xl grid grid-cols-[280px,1fr] overflow-hidden">
-        {/* Left sidebar with steps */}
-        <div className="bg-gray-50 p-6 border-r">
+    <div className="min-h-screen flex items-center justify-center bg-[url('/bg.png')] bg-cover">
+      <div className="w-full max-w-5xl flex gap-6 p-4">
+        {/* Left side (steps) */}
+        <div className="hidden md:block w-80 p-4 bg-muted/40 backdrop-blur-sm rounded-lg space-y-2">
           <div className="space-y-2">
             {steps.map((step, index) => {
               const isCompleted = completedSteps.includes(step.id);
@@ -616,7 +633,7 @@ export function OnboardingFlow() {
                     {isCompleted ? (
                       <img
                         src="src/assets/completed.svg"
-                        alt="Complete"
+                        alt="Completed"
                         className="w-full h-full"
                       />
                     ) : (
@@ -627,131 +644,271 @@ export function OnboardingFlow() {
                       />
                     )}
                   </div>
-                  <div>
-                    <h3
-                      className={`text-base font-medium ${
-                        isCurrent ? "text-[#407c87]" : "text-gray-700"
-                      }`}
-                    >
-                      {step.label}
-                    </h3>
-                  </div>
+                  <span
+                    className={`font-medium ${
+                      isCurrent ? "text-primary" : "text-foreground/80"
+                    }`}
+                  >
+                    {step.label}
+                  </span>
                 </button>
               );
             })}
           </div>
         </div>
 
-        {/* Right content area */}
-        <div className="p-6">
-          {currentStep === "organization" && (
-            <div className="space-y-6">
-              <div className="flex justify-between items-center">
+        {/* Right side (content) */}
+        <Card className="flex-1">
+          <CardContent className="p-6 space-y-6">
+            {/* Organization creation step */}
+            {currentStep === "organization" && (
+              <div className="space-y-6">
                 <div>
-                  <h2 className="text-2xl font-semibold">
-                    {organization ? "Organization Details" : "Give your organization a name"}
-                  </h2>
+                  <h2 className="text-2xl font-semibold">Create your organization</h2>
                   <p className="text-gray-500">
-                    {organization 
-                      ? isEditing ? "Update your organization details" : "Your organization details"
-                      : "Details help any collaborators that join"}
+                    Set up your organization to start collaborating with your team.
                   </p>
                 </div>
-                {organization && !isEditing && (
-                  <Button
-                    onClick={() => setIsEditing(true)}
-                    variant="outline"
+
+                <Form {...orgForm}>
+                  <form
+                    onSubmit={orgForm.handleSubmit(handleOrganizationSubmit)}
+                    className="space-y-6"
                   >
-                    Edit Details
-                  </Button>
-                )}
-              </div>
-
-              <Form {...orgForm}>
-                <form
-                  onSubmit={orgForm.handleSubmit(handleOrganizationSubmit)}
-                  className="space-y-6"
-                >
-                  <FormField
-                    control={orgForm.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Organization name</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="e.g. Acme Inc, Tech Solutions"
-                            {...field}
-                            disabled={organization && !isEditing}
-                          />
-                        </FormControl>
-                        <p className="text-sm text-muted-foreground">
-                          {organization && !isEditing
-                            ? "Organization name"
-                            : "Use a unique name that represents your organization"}
-                        </p>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div>
-                    <FormLabel>Organization Logo</FormLabel>
-                    <div className="flex items-start gap-4 mt-2">
-                      <div className="h-24 w-24 border border-dashed rounded flex items-center justify-center bg-gray-50">
-                        {logoPreview ? (
-                          <img
-                            src={logoPreview}
-                            alt="Logo preview"
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <Upload className="h-6 w-6 text-gray-400" />
-                        )}
-                      </div>
-                      <div className="space-y-2">
-                        <div className="flex gap-2">
-                          <label
-                            htmlFor="logo-upload"
-                            className={`inline-flex items-center justify-center px-4 py-2 rounded cursor-pointer transition-colors
-                              ${organization && !isEditing
-                                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                : "bg-[#407c87] text-white hover:bg-[#386d77]"
-                              }`}
-                          >
-                            Upload Logo
-                            <input
-                              id="logo-upload"
-                              type="file"
-                              className="hidden"
-                              accept="image/jpeg,image/png,image/gif"
-                              onChange={(e) =>
-                                handleLogoUpload(e.target.files?.[0] as File)
-                              }
+                    <FormField
+                      control={orgForm.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Organization Name</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="Acme Corp"
+                              {...field}
                               disabled={organization && !isEditing}
                             />
-                          </label>
-                          {logoPreview && (organization ? isEditing : true) && (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              onClick={() => {
-                                setLogoFile(null);
-                                setLogoPreview(null);
-                              }}
-                            >
-                              Reset
-                            </Button>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <div className="space-y-2">
+                      <FormLabel>Organization Logo</FormLabel>
+                      <div className="flex items-start gap-4">
+                        <div className="h-24 w-24 border border-dashed rounded flex items-center justify-center bg-gray-50">
+                          {logoPreview ? (
+                            <img
+                              src={logoPreview}
+                              alt="Logo preview"
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <Upload className="h-6 w-6 text-gray-400" />
                           )}
                         </div>
-                        <p className="text-sm text-muted-foreground">
-                          Allowed JPG, GIF or PNG. Max size of 800K
-                        </p>
+                        <div className="space-y-2">
+                          <div className="flex gap-2">
+                            <label
+                              htmlFor="logo-upload"
+                              className={`inline-flex items-center justify-center px-4 py-2 rounded cursor-pointer transition-colors
+                                ${organization && !isEditing
+                                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                  : "bg-[#407c87] text-white hover:bg-[#386d77]"
+                                }`}
+                            >
+                              Upload Logo
+                              <input
+                                id="logo-upload"
+                                type="file"
+                                className="hidden"
+                                accept="image/jpeg,image/png,image/gif"
+                                onChange={(e) =>
+                                  handleLogoUpload(e.target.files?.[0] as File)
+                                }
+                                disabled={organization && !isEditing}
+                              />
+                            </label>
+                            {logoPreview && (organization ? isEditing : true) && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
+                                  setLogoPreview(null);
+                                  setLogoFile(null);
+                                }}
+                              >
+                                Reset
+                              </Button>
+                            )}
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            Allowed JPG, GIF or PNG. Max size of 800K
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  {(organization ? isEditing : true) && (
+                    {(organization ? isEditing : true) && (
+                      <Button
+                        type="submit"
+                        className="w-full bg-[#407c87] hover:bg-[#386d77]"
+                        disabled={loading}
+                      >
+                        {loading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            {organization ? "Updating..." : "Creating..."}
+                          </>
+                        ) : (
+                          `${organization ? "Update" : "Create"} Organization`
+                        )}
+                      </Button>
+                    )}
+                  </form>
+                </Form>
+
+                {organization && !isEditing && (
+                  <div className="flex justify-between gap-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsEditing(true)}
+                      className="flex-1"
+                    >
+                      Edit Organization
+                    </Button>
+                    <Button
+                      type="button"
+                      className="flex-1 bg-[#407c87] hover:bg-[#386d77]"
+                      onClick={moveToNextStep}
+                    >
+                      Continue
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Profile setup step - Updated to match the new design */}
+            {currentStep === "profile" && (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-2xl font-semibold">Add your profile information</h2>
+                  <p className="text-gray-500">Adding your name and profile photo helps your teammates to recognise and connect with you more easily.</p>
+                </div>
+                
+                <Form {...profileForm}>
+                  <form
+                    onSubmit={profileForm.handleSubmit(handleProfileSubmit)}
+                    className="space-y-6"
+                  >
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={profileForm.control}
+                        name="firstName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>First Name</FormLabel>
+                            <FormControl>
+                              <Input placeholder="John" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={profileForm.control}
+                        name="lastName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Last Name</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Doe" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <FormField
+                      control={profileForm.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Email Address</FormLabel>
+                          <FormControl>
+                            <Input placeholder="john.doe@example.com" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={profileForm.control}
+                      name="jobTitle"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Job Title</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Software Developer" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <div className="space-y-2">
+                      <FormLabel>Your profile photo</FormLabel>
+                      <div className="flex items-start gap-4">
+                        <div className="h-24 w-24 border border-dashed rounded flex items-center justify-center bg-gray-50">
+                          {avatarPreview ? (
+                            <img
+                              src={avatarPreview}
+                              alt="Avatar preview"
+                              className="h-full w-full object-cover rounded"
+                            />
+                          ) : (
+                            <Upload className="h-6 w-6 text-gray-400" />
+                          )}
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex gap-2">
+                            <label
+                              htmlFor="avatar-upload"
+                              className="inline-flex items-center justify-center bg-[#407c87] text-white px-4 py-2 rounded cursor-pointer hover:bg-[#386d77] transition-colors"
+                            >
+                              Upload a photo
+                              <input
+                                id="avatar-upload"
+                                type="file"
+                                className="hidden"
+                                accept="image/jpeg,image/png,image/gif"
+                                onChange={(e) =>
+                                  handleAvatarUpload(e.target.files?.[0] as File)
+                                }
+                              />
+                            </label>
+                            {avatarPreview && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={handleResetAvatar}
+                              >
+                                Reset
+                              </Button>
+                            )}
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            Allowed JPG, GIF or PNG. Max size of 800K
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
                     <Button
                       type="submit"
                       className="w-full bg-[#407c87] hover:bg-[#386d77]"
@@ -760,156 +917,73 @@ export function OnboardingFlow() {
                       {loading ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          {organization ? "Updating..." : "Creating..."}
+                          Saving...
                         </>
-                      ) : organization ? (
-                        "Update Organization"
                       ) : (
-                        "Continue to Profile Setup"
+                        "Continue"
                       )}
                     </Button>
-                  )}
-                </form>
-              </Form>
-            </div>
-          )}
-          {currentStep === "profile" && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-semibold">Add your profile information</h2>
-                <p className="text-gray-500">Adding your name and profile photo helps your teammates to recognise and connect with you more easily.</p>
+                  </form>
+                </Form>
               </div>
-              
-              <Form {...profileForm}>
-                <form
-                  onSubmit={profileForm.handleSubmit(handleProfileSubmit)}
-                  className="space-y-6"
-                >
-                  <FormField
-                    control={profileForm.control}
-                    name="fullName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Your Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Name" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+            )}
 
-                  <div className="space-y-2">
-                    <FormLabel>Your profile photo</FormLabel>
-                    <div className="flex items-start gap-4">
-                      <div className="h-24 w-24 border border-dashed rounded flex items-center justify-center bg-gray-50">
-                        {avatarPreview ? (
-                          <img
-                            src={avatarPreview}
-                            alt="Avatar preview"
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <Upload className="h-6 w-6 text-gray-400" />
-                        )}
-                      </div>
-                      <div className="space-y-2">
-                        <div className="flex gap-2">
-                          <label
-                            htmlFor="avatar-upload"
-                            className="inline-flex items-center justify-center bg-[#407c87] text-white px-4 py-2 rounded cursor-pointer hover:bg-[#386d77] transition-colors"
-                          >
-                            Upload a photo
-                            <input
-                              id="avatar-upload"
-                              type="file"
-                              className="hidden"
-                              accept="image/jpeg,image/png,image/gif"
-                              onChange={(e) =>
-                                handleAvatarUpload(e.target.files?.[0] as File)
-                              }
-                            />
-                          </label>
-                          {avatarPreview && (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              onClick={() => {
-                                setAvatarFile(null);
-                                setAvatarPreview(null);
-                              }}
-                            >
-                              Reset
-                            </Button>
-                          )}
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          Allowed JPG, GIF or PNG. Max size of 800K
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+            {/* Invite step */}
+            {currentStep === "invite" && (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-2xl font-semibold">Invite Team Members</h2>
+                  <p className="text-gray-500">
+                    Invite your team members to collaborate. You can add more people later.
+                  </p>
+                </div>
 
+                {/* Invite UI (placeholder) */}
+                <div className="space-y-4">
+                  <p className="text-sm text-gray-500">
+                    This feature is coming soon. For now, you can continue to the next step.
+                  </p>
+                  
                   <Button
-                    type="submit"
+                    type="button"
                     className="w-full bg-[#407c87] hover:bg-[#386d77]"
-                    disabled={loading}
+                    onClick={moveToNextStep}
                   >
-                    {loading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      "Continue"
-                    )}
+                    Continue
                   </Button>
-                </form>
-              </Form>
-            </div>
-          )}
-          {currentStep === "invite" && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-semibold">Invite team members</h2>
-                <p className="text-gray-500">
-                  Collaborate with your team members
-                </p>
+                </div>
               </div>
-              {/* Invite members form will be implemented here */}
-              <Button
-                onClick={() => {
-                  const newCompletedSteps = [...completedSteps, "invite"];
-                  setCompletedSteps(newCompletedSteps);
-                  saveProgress("workspace", newCompletedSteps).then(()=>moveToNextStep());
-                }}
-              >
-                Continue to next step
-              </Button>
-            </div>
-          )}
-          {currentStep === "workspace" && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-semibold">Create your workspace</h2>
-                <p className="text-gray-500">
-                  Set up your collaboration workspace
-                </p>
+            )}
+
+            {/* Workspace step */}
+            {currentStep === "workspace" && (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-2xl font-semibold">Set Up Your Workspace</h2>
+                  <p className="text-gray-500">
+                    Configure your workspace preferences to get started.
+                  </p>
+                </div>
+
+                {/* Workspace UI (placeholder) */}
+                <div className="space-y-4">
+                  <p className="text-sm text-gray-500">
+                    This feature is coming soon. For now, you can complete the onboarding process.
+                  </p>
+                  
+                  <Button
+                    type="button"
+                    className="w-full bg-[#407c87] hover:bg-[#386d77]"
+                    onClick={() => setLocation("/")}
+                  >
+                    Complete Onboarding
+                  </Button>
+                </div>
               </div>
-              {/* Workspace setup form will be implemented here */}
-              <Button
-                onClick={() => {
-                  const newCompletedSteps = [...completedSteps, "workspace"];
-                  setCompletedSteps(newCompletedSteps);
-                  saveProgress("completed", newCompletedSteps).then(()=>setLocation("/"));
-                }}
-              >
-                Complete Setup
-              </Button>
-            </div>
-          )}
-        </div>
-      </Card>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
