@@ -71,12 +71,9 @@ export function OnboardingFlow() {
 
   const [currentStep, setCurrentStep] = useState(() => {
     const completed = getInitialCompletedSteps();
-    // If organization step is completed, start with next incomplete step
-    if (completed.includes("organization")) {
-      const nextStep = steps.find(step => !completed.includes(step.id));
-      return nextStep ? nextStep.id : "organization";
-    }
-    return "organization";
+    // Find the first incomplete step
+    const nextStep = steps.find(step => !completed.includes(step.id));
+    return nextStep ? nextStep.id : steps[0].id;
   });
 
   const [completedSteps, setCompletedSteps] = useState(getInitialCompletedSteps);
@@ -85,13 +82,14 @@ export function OnboardingFlow() {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const { user } = useAuth();
+  const { user, setHasOrganization } = useAuth();
 
-  // Save completed steps to local storage
+  // Save completed steps to local storage whenever they change
   useEffect(() => {
     localStorage.setItem("completedOnboardingSteps", JSON.stringify(completedSteps));
   }, [completedSteps]);
 
+  // Form setup for organization creation
   const orgForm = useForm<z.infer<typeof organizationSchema>>({
     resolver: zodResolver(organizationSchema),
     defaultValues: {
@@ -99,14 +97,18 @@ export function OnboardingFlow() {
     },
   });
 
-  // Function to move to next step
+  // Move to the next incomplete step
   const moveToNextStep = () => {
     const currentIndex = steps.findIndex(step => step.id === currentStep);
     if (currentIndex < steps.length - 1) {
       setCurrentStep(steps[currentIndex + 1].id);
+    } else {
+      // All steps completed, redirect to main app
+      setLocation("/");
     }
   };
 
+  // Handle logo upload functionality
   const handleLogoUpload = async (file: File) => {
     try {
       if (!file) return null;
@@ -151,6 +153,7 @@ export function OnboardingFlow() {
     }
   };
 
+  // Upload logo to Supabase storage
   const uploadToSupabase = async (file: File) => {
     try {
       if (!file) return null;
@@ -213,6 +216,7 @@ export function OnboardingFlow() {
     }
   };
 
+  // Create organization and set user as admin
   const createOrganization = async (data: z.infer<typeof organizationSchema>) => {
     try {
       if (!user?.id) throw new Error("Missing user information");
@@ -258,6 +262,9 @@ export function OnboardingFlow() {
         console.error("Membership creation error:", membershipError);
         throw new Error("Failed to set up organization membership");
       }
+
+      // Update global auth state
+      setHasOrganization(true);
 
       toast({
         title: "Success",
@@ -447,13 +454,59 @@ export function OnboardingFlow() {
             </div>
           )}
           {currentStep === "profile" && (
-            <div>{/* Profile setup content here */}</div>
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-semibold">Set up your profile</h2>
+                <p className="text-gray-500">Tell us about yourself</p>
+              </div>
+              {/* Profile setup form will be implemented here */}
+              <Button
+                onClick={() => {
+                  setCompletedSteps([...completedSteps, "profile"]);
+                  moveToNextStep();
+                }}
+              >
+                Continue to next step
+              </Button>
+            </div>
           )}
           {currentStep === "invite" && (
-            <div>{/* Invite members content here */}</div>
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-semibold">Invite team members</h2>
+                <p className="text-gray-500">
+                  Collaborate with your team members
+                </p>
+              </div>
+              {/* Invite members form will be implemented here */}
+              <Button
+                onClick={() => {
+                  setCompletedSteps([...completedSteps, "invite"]);
+                  moveToNextStep();
+                }}
+              >
+                Continue to next step
+              </Button>
+            </div>
           )}
           {currentStep === "workspace" && (
-            <div>{/* Workspace setup content here */}</div>
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-semibold">Set up your workspace</h2>
+                <p className="text-gray-500">
+                  Configure your workspace settings
+                </p>
+              </div>
+              {/* Workspace setup form will be implemented here */}
+              <Button
+                onClick={() => {
+                  setCompletedSteps([...completedSteps, "workspace"]);
+                  moveToNextStep();
+                }}
+              >
+                Complete Setup
+              </Button>
+            </div>
           )}
         </div>
       </Card>
