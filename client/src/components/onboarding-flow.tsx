@@ -188,7 +188,10 @@ export function OnboardingFlow() {
           
           // Update profileForm values
           profileForm.reset({
-            fullName: profile.full_name || "",
+            firstName: profile.first_name || "",
+            lastName: profile.last_name || "",
+            email: profile.email || "",
+            jobTitle: profile.job_title || "",
           });
         }
 
@@ -224,7 +227,10 @@ export function OnboardingFlow() {
   const profileForm = useForm<z.infer<typeof profileSchema>>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
-      fullName: "",
+      firstName: "",
+      lastName: "",
+      email: "",
+      jobTitle: "",
     },
   });
 
