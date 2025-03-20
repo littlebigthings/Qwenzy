@@ -81,6 +81,7 @@ export function OnboardingFlow() {
   const [loading, setLoading] = useState(true);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
 
   // Load onboarding progress from Supabase
   useEffect(() => {
@@ -120,28 +121,20 @@ export function OnboardingFlow() {
           }
         }
 
-        // Get or create onboarding progress
-        let { data: progress, error: progressError } = await supabase
+        // Get or create onboarding progress using upsert
+        const { data: progress, error: progressError } = await supabase
           .from('onboarding_progress')
-          .select('*')
-          .eq('user_id', user.id)
+          .upsert({
+            user_id: user.id,
+            current_step: userHasOrg ? 'profile' : 'organization',
+            completed_steps: userHasOrg ? ['organization'] : []
+          }, {
+            onConflict: 'user_id'
+          })
+          .select()
           .single();
 
-        if (progressError && progressError.code === 'PGRST116') {
-          // No progress found, create initial progress
-          const { data: newProgress, error: insertError } = await supabase
-            .from('onboarding_progress')
-            .insert({
-              user_id: user.id,
-              current_step: userHasOrg ? 'profile' : 'organization',
-              completed_steps: userHasOrg ? ['organization'] : []
-            })
-            .select()
-            .single();
-
-          if (insertError) throw insertError;
-          progress = newProgress;
-        } else if (progressError) {
+        if (progressError) {
           throw progressError;
         }
 
@@ -193,6 +186,8 @@ export function OnboardingFlow() {
           user_id: user.id,
           current_step: step,
           completed_steps: completed
+        }, {
+          onConflict: 'user_id'
         });
 
       if (error) throw error;
@@ -203,6 +198,91 @@ export function OnboardingFlow() {
         title: "Error",
         description: "Failed to save your progress"
       });
+    }
+  };
+
+  // Handle organization form submission (create or update)
+  const handleOrganizationSubmit = async (data: z.infer<typeof organizationSchema>) => {
+    try {
+      if (!user?.id) throw new Error("Missing user information");
+
+      setLoading(true);
+
+      // Upload logo if exists
+      let logoUrl = logoFile ? await uploadToSupabase(logoFile) : organization?.logo_url;
+
+      if (organization) {
+        // Update existing organization
+        const { error: updateError } = await supabase
+          .from("organizations")
+          .update({
+            name: data.name,
+            logo_url: logoUrl,
+          })
+          .eq('id', organization.id);
+
+        if (updateError) throw updateError;
+
+        setOrganization({
+          ...organization,
+          name: data.name,
+          logo_url: logoUrl,
+        });
+
+        toast({
+          title: "Success",
+          description: "Organization updated successfully!",
+        });
+
+        setIsEditing(false);
+      } else {
+        // Create new organization
+        const { data: newOrg, error: orgError } = await supabase
+          .from("organizations")
+          .insert({
+            name: data.name,
+            logo_url: logoUrl,
+          })
+          .select()
+          .single();
+
+        if (orgError) throw orgError;
+
+        // Create organization membership
+        const { error: membershipError } = await supabase
+          .from("organization_members")
+          .insert({
+            user_id: user.id,
+            organization_id: newOrg.id,
+            is_owner: true,
+          });
+
+        if (membershipError) throw membershipError;
+
+        setOrganization(newOrg);
+        setHasOrganization(true);
+
+        // Update progress
+        const newCompleted = [...completedSteps, "organization"];
+        setCompletedSteps(newCompleted);
+        await saveProgress("profile", newCompleted);
+
+        toast({
+          title: "Success",
+          description: "Organization created successfully! Moving to profile setup.",
+        });
+
+        moveToNextStep();
+      }
+    } catch (error: any) {
+      console.error("Organization operation error:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Error processing organization",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -326,65 +406,6 @@ export function OnboardingFlow() {
     }
   };
 
-  // Create organization and set user as admin
-  const createOrganization = async (data: z.infer<typeof organizationSchema>) => {
-    try {
-      if (!user?.id) throw new Error("Missing user information");
-
-      setLoading(true);
-
-      // Upload logo if exists
-      let logoUrl = null;
-      if (logoFile) {
-        logoUrl = await uploadToSupabase(logoFile);
-      }
-
-      // Create organization
-      const { data: newOrg, error: orgError } = await supabase
-        .from("organizations")
-        .insert({
-          name: data.name,
-          logo_url: logoUrl,
-        })
-        .select()
-        .single();
-
-      if (orgError) throw orgError;
-
-      // Create organization membership
-      const { error: membershipError } = await supabase
-        .from("organization_members")
-        .insert({
-          user_id: user.id,
-          organization_id: newOrg.id,
-          is_owner: true,
-        });
-
-      if (membershipError) throw membershipError;
-
-      // Update progress
-      const newCompleted = [...completedSteps, "organization"];
-      setCompletedSteps(newCompleted);
-      setHasOrganization(true);
-      await saveProgress("profile", newCompleted);
-
-      toast({
-        title: "Success",
-        description: "Organization created successfully! Moving to profile setup.",
-      });
-
-      moveToNextStep();
-    } catch (error: any) {
-      console.error("Organization creation error:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message || "Error creating organization",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   if (loading) {
     return (
@@ -450,20 +471,30 @@ export function OnboardingFlow() {
         <div className="p-6">
           {currentStep === "organization" && (
             <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-semibold">
-                  {organization ? "Organization Details" : "Give your organization a name"}
-                </h2>
-                <p className="text-gray-500">
-                  {organization 
-                    ? "Your organization has been created successfully"
-                    : "Details help any collaborators that join"}
-                </p>
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl font-semibold">
+                    {organization ? "Organization Details" : "Give your organization a name"}
+                  </h2>
+                  <p className="text-gray-500">
+                    {organization 
+                      ? isEditing ? "Update your organization details" : "Your organization details"
+                      : "Details help any collaborators that join"}
+                  </p>
+                </div>
+                {organization && !isEditing && (
+                  <Button
+                    onClick={() => setIsEditing(true)}
+                    variant="outline"
+                  >
+                    Edit Details
+                  </Button>
+                )}
               </div>
 
               <Form {...orgForm}>
                 <form
-                  onSubmit={orgForm.handleSubmit(createOrganization)}
+                  onSubmit={orgForm.handleSubmit(handleOrganizationSubmit)}
                   className="space-y-6"
                 >
                   <FormField
@@ -476,12 +507,12 @@ export function OnboardingFlow() {
                           <Input
                             placeholder="e.g. Acme Inc, Tech Solutions"
                             {...field}
-                            disabled={!!organization}
+                            disabled={organization && !isEditing}
                           />
                         </FormControl>
                         <p className="text-sm text-muted-foreground">
-                          {organization 
-                            ? "Organization name cannot be changed here"
+                          {organization && !isEditing
+                            ? "Organization name"
                             : "Use a unique name that represents your organization"}
                         </p>
                         <FormMessage />
@@ -503,7 +534,7 @@ export function OnboardingFlow() {
                           <Upload className="h-8 w-8 text-gray-400" />
                         )}
                       </div>
-                      {!organization && (
+                      {(!organization || isEditing) && (
                         <div className="mt-2 flex items-center gap-2">
                           <input
                             type="file"
@@ -541,23 +572,43 @@ export function OnboardingFlow() {
                         </div>
                       )}
                       <p className="text-sm text-gray-500 mt-2">
-                        {organization
-                          ? "Organization logo is set"
+                        {organization && !isEditing
+                          ? "Organization logo"
                           : "Allowed JPG, GIF or PNG. Max size of 800K"}
                       </p>
                     </div>
                   </div>
 
-                  {!organization && (
+                  {(!organization || isEditing) && (
                     <Button
                       type="submit"
                       className="w-full bg-[#407c87] hover:bg-[#386d77]"
                     >
-                      Continue
+                      {organization ? "Save Changes" : "Continue"}
                     </Button>
                   )}
 
-                  {organization && (
+                  {organization && isEditing && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full mt-2"
+                      onClick={() => {
+                        setIsEditing(false);
+                        orgForm.reset({
+                          name: organization.name,
+                        });
+                        if (organization.logo_url) {
+                          setLogoPreview(organization.logo_url);
+                        }
+                        setLogoFile(null);
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  )}
+
+                  {organization && !isEditing && (
                     <Button
                       type="button"
                       onClick={() => moveToNextStep()}
