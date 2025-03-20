@@ -70,34 +70,13 @@ const organizationSchema = z.object({
 });
 
 const profileSchema = z.object({
-  firstName: z
+  fullName: z
     .string()
     .min(2, {
-      message: "First name must be at least 2 characters",
-    })
-    .max(50, {
-      message: "First name must be less than 50 characters",
-    }),
-  lastName: z
-    .string()
-    .min(2, {
-      message: "Last name must be at least 2 characters",
-    })
-    .max(50, {
-      message: "Last name must be less than 50 characters",
-    }),
-  email: z
-    .string()
-    .email({
-      message: "Please enter a valid email address",
-    }),
-  jobTitle: z
-    .string()
-    .min(2, {
-      message: "Job title must be at least 2 characters",
+      message: "Name must be at least 2 characters",
     })
     .max(100, {
-      message: "Job title must be less than 100 characters",
+      message: "Name must be less than 100 characters",
     }),
   avatar: z.any().optional(),
 });
@@ -227,10 +206,7 @@ export function OnboardingFlow() {
   const profileForm = useForm<z.infer<typeof profileSchema>>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
-      firstName: "",
-      lastName: "",
-      email: "",
-      jobTitle: "",
+      fullName: "",
     },
   });
 
@@ -363,7 +339,14 @@ export function OnboardingFlow() {
       setLoading(true);
 
       // Upload avatar if exists
-      let avatarUrl = avatarFile ? await uploadToSupabase(avatarFile, "avatars") : avatarPreview;
+      let avatarUrl = null;
+      if (avatarFile) {
+        avatarUrl = await uploadToSupabase(avatarFile, "avatars");
+      } else if (avatarPreview) {
+        avatarUrl = avatarPreview;
+      }
+
+      console.log("Saving profile with data:", { name: data.fullName, avatarUrl });
 
       // Check if profile exists
       const { data: existingProfile, error: checkError } = await supabase
@@ -381,6 +364,7 @@ export function OnboardingFlow() {
           .update({
             full_name: data.fullName,
             avatar_url: avatarUrl,
+            // Keep the existing data for other fields
           })
           .eq('id', existingProfile.id);
 
@@ -394,6 +378,7 @@ export function OnboardingFlow() {
             organization_id: organization.id,
             full_name: data.fullName,
             avatar_url: avatarUrl,
+            email: user.email,
           });
 
         if (insertError) throw insertError;
