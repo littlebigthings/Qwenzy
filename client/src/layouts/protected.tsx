@@ -29,7 +29,7 @@ export function Protected({ children }: ProtectedProps) {
           console.error('Error checking organization membership:', error);
         }
 
-        setHasOrganization(!!memberships);
+        setHasOrganization?.(!!memberships);
       } catch (error) {
         console.error('Failed to check organization membership:', error);
       }

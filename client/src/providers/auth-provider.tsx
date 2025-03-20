@@ -2,10 +2,16 @@ import { createContext, useContext, ReactNode, useEffect, useState } from 'react
 import { useAuth } from '@/hooks/use-auth'
 import { Loader2 } from "lucide-react"
 
-const AuthContext = createContext<ReturnType<typeof useAuth> | undefined>(undefined)
+interface AuthContextType extends ReturnType<typeof useAuth> {
+  hasOrganization?: boolean;
+  setHasOrganization?: (value: boolean) => void;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isInitialized, setIsInitialized] = useState(false)
+  const [hasOrganization, setHasOrganization] = useState<boolean>(false)
   const auth = useAuth()
 
   useEffect(() => {
@@ -26,7 +32,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     )
   }
 
-  return <AuthContext.Provider value={auth}>{children}</AuthContext.Provider>
+  return (
+    <AuthContext.Provider 
+      value={{
+        ...auth,
+        hasOrganization,
+        setHasOrganization
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  )
 }
 
 export function useAuthContext() {
