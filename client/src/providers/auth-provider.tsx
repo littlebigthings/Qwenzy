@@ -6,6 +6,7 @@ const AuthContext = createContext<ReturnType<typeof useAuth> | undefined>(undefi
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isInitialized, setIsInitialized] = useState(false)
+  const [hasOrganization, setHasOrganization] = useState(false)
   const auth = useAuth()
 
   useEffect(() => {
@@ -26,7 +27,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     )
   }
 
-  return <AuthContext.Provider value={auth}>{children}</AuthContext.Provider>
+  return (
+    <AuthContext.Provider 
+      value={{
+        ...auth,
+        hasOrganization,
+        setHasOrganization
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  )
 }
 
 export function useAuthContext() {
