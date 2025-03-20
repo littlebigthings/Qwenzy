@@ -19,6 +19,13 @@ import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 
+// Add type for organization data
+type Organization = {
+  id: string;
+  name: string;
+  logo_url: string | null;
+};
+
 const steps = [
   {
     id: "organization",
@@ -67,7 +74,8 @@ export function OnboardingFlow() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
 
-  // State for component
+  // Add organization state
+  const [organization, setOrganization] = useState<Organization | null>(null);
   const [currentStep, setCurrentStep] = useState<string>("organization");
   const [completedSteps, setCompletedSteps] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,21 +88,37 @@ export function OnboardingFlow() {
       if (!user) return;
 
       try {
-        // First check organization membership
+        // First check organization membership and get organization details
         const { data: memberships, error: membershipError } = await supabase
           .from('organization_members')
-          .select('organization_id')
+          .select(`
+            organization_id,
+            organizations:organization_id (
+              id,
+              name,
+              logo_url
+            )
+          `)
           .eq('user_id', user.id)
-          .limit(1);
+          .limit(1)
+          .single();
 
-        if (membershipError) {
+        if (membershipError && membershipError.code !== 'PGRST116') {
           console.error('Error checking organization membership:', membershipError);
           return;
         }
 
-        // Update hasOrganization state
-        const userHasOrg = memberships && memberships.length > 0;
+        // Update organization state and hasOrganization
+        const userHasOrg = !!memberships;
         setHasOrganization(userHasOrg);
+
+        if (userHasOrg && memberships.organizations) {
+          setOrganization(memberships.organizations);
+          // Set logo preview if organization has a logo
+          if (memberships.organizations.logo_url) {
+            setLogoPreview(memberships.organizations.logo_url);
+          }
+        }
 
         // Get or create onboarding progress
         let { data: progress, error: progressError } = await supabase
@@ -140,6 +164,23 @@ export function OnboardingFlow() {
 
     loadOnboardingProgress();
   }, [user, setHasOrganization]);
+
+  // Initialize form with organization data if it exists
+  const orgForm = useForm<z.infer<typeof organizationSchema>>({
+    resolver: zodResolver(organizationSchema),
+    defaultValues: {
+      name: organization?.name || "",
+    },
+  });
+
+  // Update form values when organization data is loaded
+  useEffect(() => {
+    if (organization) {
+      orgForm.reset({
+        name: organization.name,
+      });
+    }
+  }, [organization]);
 
   // Save progress to Supabase
   const saveProgress = async (step: string, completed: string[]) => {
@@ -345,14 +386,6 @@ export function OnboardingFlow() {
     }
   };
 
-  const orgForm = useForm<z.infer<typeof organizationSchema>>({
-    resolver: zodResolver(organizationSchema),
-    defaultValues: {
-      name: "",
-    },
-  });
-
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[url('/bg.png')] bg-cover">
@@ -419,10 +452,12 @@ export function OnboardingFlow() {
             <div className="space-y-6">
               <div>
                 <h2 className="text-2xl font-semibold">
-                  Give your organization a name
+                  {organization ? "Organization Details" : "Give your organization a name"}
                 </h2>
                 <p className="text-gray-500">
-                  Details help any collaborators that join
+                  {organization 
+                    ? "Your organization has been created successfully"
+                    : "Details help any collaborators that join"}
                 </p>
               </div>
 
@@ -441,12 +476,13 @@ export function OnboardingFlow() {
                           <Input
                             placeholder="e.g. Acme Inc, Tech Solutions"
                             {...field}
+                            disabled={!!organization}
                           />
                         </FormControl>
                         <p className="text-sm text-muted-foreground">
-                          Use a unique name that represents your organization.
-                          Letters, numbers, spaces, dots and hyphens are
-                          allowed.
+                          {organization 
+                            ? "Organization name cannot be changed here"
+                            : "Use a unique name that represents your organization"}
                         </p>
                         <FormMessage />
                       </FormItem>
@@ -467,53 +503,69 @@ export function OnboardingFlow() {
                           <Upload className="h-8 w-8 text-gray-400" />
                         )}
                       </div>
-                      <div className="mt-2 flex items-center gap-2">
-                        <input
-                          type="file"
-                          accept="image/jpeg,image/png,image/gif"
-                          className="hidden"
-                          id="logo-upload"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) handleLogoUpload(file);
-                          }}
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            document.getElementById("logo-upload")?.click();
-                          }}
-                        >
-                          Upload a photo
-                        </Button>
-                        {logoPreview && (
+                      {!organization && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/gif"
+                            className="hidden"
+                            id="logo-upload"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleLogoUpload(file);
+                            }}
+                          />
                           <Button
                             type="button"
                             variant="outline"
                             size="sm"
                             onClick={() => {
-                              setLogoFile(null);
-                              setLogoPreview(null);
+                              document.getElementById("logo-upload")?.click();
                             }}
                           >
-                            Reset
+                            Upload a photo
                           </Button>
-                        )}
-                      </div>
+                          {logoPreview && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setLogoFile(null);
+                                setLogoPreview(null);
+                              }}
+                            >
+                              Reset
+                            </Button>
+                          )}
+                        </div>
+                      )}
                       <p className="text-sm text-gray-500 mt-2">
-                        Allowed JPG, GIF or PNG. Max size of 800K
+                        {organization
+                          ? "Organization logo is set"
+                          : "Allowed JPG, GIF or PNG. Max size of 800K"}
                       </p>
                     </div>
                   </div>
 
-                  <Button
-                    type="submit"
-                    className="w-full bg-[#407c87] hover:bg-[#386d77]"
-                  >
-                    Continue
-                  </Button>
+                  {!organization && (
+                    <Button
+                      type="submit"
+                      className="w-full bg-[#407c87] hover:bg-[#386d77]"
+                    >
+                      Continue
+                    </Button>
+                  )}
+
+                  {organization && (
+                    <Button
+                      type="button"
+                      onClick={() => moveToNextStep()}
+                      className="w-full bg-[#407c87] hover:bg-[#386d77]"
+                    >
+                      Continue to Profile Setup
+                    </Button>
+                  )}
                 </form>
               </Form>
             </div>
