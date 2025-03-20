@@ -348,6 +348,11 @@ export function OnboardingFlow() {
 
       console.log("Saving profile with data:", { name: data.fullName, avatarUrl });
 
+      // Extract first and last name from full name
+      const nameParts = data.fullName.trim().split(" ");
+      const firstName = nameParts[0] || "";
+      const lastName = nameParts.slice(1).join(" ") || "";
+
       // Check if profile exists
       const { data: existingProfile, error: checkError } = await supabase
         .from("profiles")
@@ -362,7 +367,8 @@ export function OnboardingFlow() {
         const { error: updateError } = await supabase
           .from("profiles")
           .update({
-            full_name: data.fullName,
+            first_name: firstName,
+            last_name: lastName,
             avatar_url: avatarUrl,
             // Keep the existing data for other fields
           })
@@ -376,7 +382,8 @@ export function OnboardingFlow() {
           .insert({
             user_id: user.id,
             organization_id: organization.id,
-            full_name: data.fullName,
+            first_name: firstName,
+            last_name: lastName,
             avatar_url: avatarUrl,
             email: user.email,
           });

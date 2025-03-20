@@ -1,67 +1,44 @@
--- Enable Row Level Security
+-- Supabase Storage Policies for Avatar Uploads
+
+-- First, enable Row Level Security on the storage.objects table if not already enabled
 ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
 
--- Create avatars bucket if it doesn't exist
-INSERT INTO storage.buckets (id, name)
-SELECT 'avatars', 'avatars'
-WHERE NOT EXISTS (SELECT 1 FROM storage.buckets WHERE id = 'avatars');
+-- Create the avatars bucket if it doesn't exist
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('avatars', 'avatars', true)  -- Make it public so avatar images can be accessed without auth
+ON CONFLICT (id) DO NOTHING;
 
--- Create policy to allow authenticated users to upload their own avatars
-CREATE POLICY insert_avatar ON storage.objects FOR INSERT 
+-- Drop existing policies with the same names to avoid conflicts
+DROP POLICY IF EXISTS "Public read access for avatars" ON storage.objects;
+DROP POLICY IF EXISTS "Avatar insert access for authenticated users" ON storage.objects;
+DROP POLICY IF EXISTS "Avatar update access for authenticated users" ON storage.objects;
+DROP POLICY IF EXISTS "Avatar delete access for authenticated users" ON storage.objects;
+
+-- Policy to allow anyone to read avatars (they're public)
+CREATE POLICY "Public read access for avatars"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'avatars');
+
+-- Policy to allow authenticated users to upload their own avatars
+CREATE POLICY "Avatar insert access for authenticated users"
+ON storage.objects FOR INSERT
 WITH CHECK (
-  auth.uid() IS NOT NULL AND
+  auth.role() = 'authenticated' AND
   bucket_id = 'avatars'
 );
 
--- Create policy to allow authenticated users to update their own avatars
-CREATE POLICY update_avatar ON storage.objects FOR UPDATE 
+-- Policy to allow authenticated users to update their own avatars
+CREATE POLICY "Avatar update access for authenticated users"
+ON storage.objects FOR UPDATE
 USING (
-  auth.uid() IS NOT NULL AND
+  auth.role() = 'authenticated' AND
   bucket_id = 'avatars'
 );
 
--- Create policy to allow viewing avatars
-CREATE POLICY read_avatar ON storage.objects FOR SELECT 
+-- Policy to allow authenticated users to delete their own avatars
+CREATE POLICY "Avatar delete access for authenticated users"
+ON storage.objects FOR DELETE
 USING (
+  auth.role() = 'authenticated' AND
   bucket_id = 'avatars'
-);
-
--- Create policy to allow authenticated users to delete their own avatars
-CREATE POLICY delete_avatar ON storage.objects FOR DELETE 
-USING (
-  auth.uid() IS NOT NULL AND
-  bucket_id = 'avatars'
-);
-
--- Drop any existing policies with the same name to avoid conflicts
-DROP POLICY IF EXISTS user_insert_avatar ON storage.objects;
-DROP POLICY IF EXISTS user_select_avatar ON storage.objects;
-DROP POLICY IF EXISTS user_update_avatar ON storage.objects;
-DROP POLICY IF EXISTS user_delete_avatar ON storage.objects;
-
--- Create more specific policies for user avatar management
-CREATE POLICY user_insert_avatar ON storage.objects FOR INSERT 
-WITH CHECK (
-  auth.uid() IS NOT NULL AND
-  bucket_id = 'avatars' AND
-  (storage.foldername(name))[1] = auth.uid()::text
-);
-
-CREATE POLICY user_select_avatar ON storage.objects FOR SELECT 
-USING (
-  bucket_id = 'avatars'
-);
-
-CREATE POLICY user_update_avatar ON storage.objects FOR UPDATE 
-USING (
-  auth.uid() IS NOT NULL AND
-  bucket_id = 'avatars' AND
-  (storage.foldername(name))[1] = auth.uid()::text
-);
-
-CREATE POLICY user_delete_avatar ON storage.objects FOR DELETE 
-USING (
-  auth.uid() IS NOT NULL AND
-  bucket_id = 'avatars' AND
-  (storage.foldername(name))[1] = auth.uid()::text
 );
