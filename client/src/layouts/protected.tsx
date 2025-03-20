@@ -9,7 +9,7 @@ type ProtectedProps = {
 }
 
 export function Protected({ children }: ProtectedProps) {
-  const { user, loading, hasOrganization, setHasOrganization } = useAuthContext()
+  const { user, loading, hasOrganization } = useAuthContext()
   const [location] = useLocation()
 
   // Check if user belongs to any organization
