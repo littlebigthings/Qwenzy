@@ -1,4 +1,4 @@
-import { ReactNode, useEffect } from "react"
+import { ReactNode, useEffect, useState } from "react"
 import { useAuthContext } from "@/providers/auth-provider"
 import { Redirect, useLocation } from "wouter"
 import { Loader2 } from "lucide-react"
@@ -9,7 +9,7 @@ type ProtectedProps = {
 }
 
 export function Protected({ children }: ProtectedProps) {
-  const { user, loading, hasOrganization } = useAuthContext()
+  const { user, loading, hasOrganization, setHasOrganization } = useAuthContext() // Corrected line
   const [location] = useLocation()
 
   // Check if user belongs to any organization
