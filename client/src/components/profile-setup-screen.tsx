@@ -143,11 +143,6 @@ export function ProfileSetupScreen() {
         avatarUrl = await uploadToSupabase(avatarFile);
       }
 
-      // Split the name into first and last name
-      const nameParts = data.name.trim().split(' ');
-      const firstName = nameParts[0] || '';
-      const lastName = nameParts.slice(1).join(' ') || '';
-
       // Check if profile exists
       const { data: existingProfile, error: checkError } = await supabase
         .from("profiles")
@@ -162,8 +157,7 @@ export function ProfileSetupScreen() {
         const { error: updateError } = await supabase
           .from("profiles")
           .update({
-            first_name: firstName,
-            last_name: lastName,
+            name: data.name.trim(),
             avatar_url: avatarUrl || undefined,
           })
           .eq('id', existingProfile.id);
@@ -176,8 +170,7 @@ export function ProfileSetupScreen() {
           .insert({
             user_id: user.id,
             organization_id: membership.organization_id,
-            first_name: firstName,
-            last_name: lastName,
+            name: data.name.trim(),
             avatar_url: avatarUrl,
             email: user.email || '',
             job_title: '', // Default empty job title
