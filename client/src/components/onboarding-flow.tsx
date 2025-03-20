@@ -167,8 +167,7 @@ export function OnboardingFlow() {
           
           // Update profileForm values
           profileForm.reset({
-            firstName: profile.first_name || "",
-            lastName: profile.last_name || "",
+            fullName: profile.name || "",
             email: profile.email || "",
             jobTitle: profile.job_title || "",
           });
@@ -367,8 +366,7 @@ export function OnboardingFlow() {
         const { error: updateError } = await supabase
           .from("profiles")
           .update({
-            first_name: firstName,
-            last_name: lastName,
+            name: data.fullName,
             avatar_url: avatarUrl,
             // Keep the existing data for other fields
           })
@@ -382,8 +380,7 @@ export function OnboardingFlow() {
           .insert({
             user_id: user.id,
             organization_id: organization.id,
-            first_name: firstName,
-            last_name: lastName,
+            name: data.fullName,
             avatar_url: avatarUrl,
             email: user.email,
           });
