@@ -63,47 +63,116 @@ const organizationSchema = z.object({
 });
 
 export function OnboardingFlow() {
-  // Get completed steps from local storage on initial load
-  const getInitialCompletedSteps = () => {
-    const savedSteps = localStorage.getItem("completedOnboardingSteps");
-    return savedSteps ? JSON.parse(savedSteps) : [];
-  };
-
-  const [currentStep, setCurrentStep] = useState(() => {
-    const completed = getInitialCompletedSteps();
-    // Find the first incomplete step
-    const nextStep = steps.find(step => !completed.includes(step.id));
-    return nextStep ? nextStep.id : steps[0].id;
-  });
-
-  const [completedSteps, setCompletedSteps] = useState(getInitialCompletedSteps);
-  const [loading, setLoading] = useState(false);
-  const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const { user, hasOrganization, setHasOrganization } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const { user, setHasOrganization } = useAuth();
 
-  // Save completed steps to local storage whenever they change
+  // State for component
+  const [currentStep, setCurrentStep] = useState<string>("organization");
+  const [completedSteps, setCompletedSteps] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+
+  // Load onboarding progress from Supabase
   useEffect(() => {
-    localStorage.setItem("completedOnboardingSteps", JSON.stringify(completedSteps));
-  }, [completedSteps]);
+    const loadOnboardingProgress = async () => {
+      if (!user) return;
 
-  // Form setup for organization creation
-  const orgForm = useForm<z.infer<typeof organizationSchema>>({
-    resolver: zodResolver(organizationSchema),
-    defaultValues: {
-      name: "",
-    },
-  });
+      try {
+        // First check organization membership
+        const { data: memberships, error: membershipError } = await supabase
+          .from('organization_members')
+          .select('organization_id')
+          .eq('user_id', user.id)
+          .limit(1);
 
-  // Move to the next incomplete step
-  const moveToNextStep = () => {
+        if (membershipError) {
+          console.error('Error checking organization membership:', membershipError);
+          return;
+        }
+
+        // Update hasOrganization state
+        const userHasOrg = memberships && memberships.length > 0;
+        setHasOrganization(userHasOrg);
+
+        // Get or create onboarding progress
+        let { data: progress, error: progressError } = await supabase
+          .from('onboarding_progress')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+
+        if (progressError && progressError.code === 'PGRST116') {
+          // No progress found, create initial progress
+          const { data: newProgress, error: insertError } = await supabase
+            .from('onboarding_progress')
+            .insert({
+              user_id: user.id,
+              current_step: userHasOrg ? 'profile' : 'organization',
+              completed_steps: userHasOrg ? ['organization'] : []
+            })
+            .select()
+            .single();
+
+          if (insertError) throw insertError;
+          progress = newProgress;
+        } else if (progressError) {
+          throw progressError;
+        }
+
+        // Update component state
+        if (progress) {
+          setCurrentStep(progress.current_step);
+          setCompletedSteps(progress.completed_steps);
+        }
+      } catch (error) {
+        console.error('Error loading onboarding progress:', error);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to load your progress"
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadOnboardingProgress();
+  }, [user, setHasOrganization]);
+
+  // Save progress to Supabase
+  const saveProgress = async (step: string, completed: string[]) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('onboarding_progress')
+        .upsert({
+          user_id: user.id,
+          current_step: step,
+          completed_steps: completed
+        });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error saving progress:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to save your progress"
+      });
+    }
+  };
+
+  // Move to next step
+  const moveToNextStep = async () => {
     const currentIndex = steps.findIndex(step => step.id === currentStep);
     if (currentIndex < steps.length - 1) {
-      setCurrentStep(steps[currentIndex + 1].id);
+      const nextStep = steps[currentIndex + 1].id;
+      setCurrentStep(nextStep);
+      await saveProgress(nextStep, completedSteps);
     } else {
-      // All steps completed, redirect to main app
       setLocation("/");
     }
   };
@@ -226,15 +295,10 @@ export function OnboardingFlow() {
       // Upload logo if exists
       let logoUrl = null;
       if (logoFile) {
-        try {
-          logoUrl = await uploadToSupabase(logoFile);
-        } catch (error) {
-          console.error("Logo upload failed:", error);
-          // Continue without logo if upload fails
-        }
+        logoUrl = await uploadToSupabase(logoFile);
       }
 
-      // Create organization first
+      // Create organization
       const { data: newOrg, error: orgError } = await supabase
         .from("organizations")
         .insert({
@@ -244,38 +308,31 @@ export function OnboardingFlow() {
         .select()
         .single();
 
-      if (orgError) {
-        console.error("Organization creation error:", orgError);
-        throw new Error("Failed to create organization");
-      }
+      if (orgError) throw orgError;
 
-      // Create organization membership with is_owner=true
+      // Create organization membership
       const { error: membershipError } = await supabase
         .from("organization_members")
         .insert({
           user_id: user.id,
           organization_id: newOrg.id,
-          is_owner: true, // This makes the user an admin
+          is_owner: true,
         });
 
-      if (membershipError) {
-        console.error("Membership creation error:", membershipError);
-        throw new Error("Failed to set up organization membership");
-      }
+      if (membershipError) throw membershipError;
 
-      // Update global auth state
+      // Update progress
+      const newCompleted = [...completedSteps, "organization"];
+      setCompletedSteps(newCompleted);
       setHasOrganization(true);
+      await saveProgress("profile", newCompleted);
 
       toast({
         title: "Success",
-        description: "Organization created successfully! You are now the admin.",
+        description: "Organization created successfully! Moving to profile setup.",
       });
 
-      // Update completed steps and move to next step
-      const newCompletedSteps = [...completedSteps, "organization"];
-      setCompletedSteps(newCompletedSteps);
       moveToNextStep();
-
     } catch (error: any) {
       console.error("Organization creation error:", error);
       toast({
@@ -287,6 +344,14 @@ export function OnboardingFlow() {
       setLoading(false);
     }
   };
+
+  const orgForm = useForm<z.infer<typeof organizationSchema>>({
+    resolver: zodResolver(organizationSchema),
+    defaultValues: {
+      name: "",
+    },
+  });
+
 
   if (loading) {
     return (
@@ -462,8 +527,9 @@ export function OnboardingFlow() {
               {/* Profile setup form will be implemented here */}
               <Button
                 onClick={() => {
-                  setCompletedSteps([...completedSteps, "profile"]);
-                  moveToNextStep();
+                  const newCompletedSteps = [...completedSteps, "profile"];
+                  setCompletedSteps(newCompletedSteps);
+                  saveProgress("invite", newCompletedSteps).then(()=>moveToNextStep());
                 }}
               >
                 Continue to next step
@@ -481,8 +547,9 @@ export function OnboardingFlow() {
               {/* Invite members form will be implemented here */}
               <Button
                 onClick={() => {
-                  setCompletedSteps([...completedSteps, "invite"]);
-                  moveToNextStep();
+                  const newCompletedSteps = [...completedSteps, "invite"];
+                  setCompletedSteps(newCompletedSteps);
+                  saveProgress("workspace", newCompletedSteps).then(()=>moveToNextStep());
                 }}
               >
                 Continue to next step
@@ -500,8 +567,9 @@ export function OnboardingFlow() {
               {/* Workspace setup form will be implemented here */}
               <Button
                 onClick={() => {
-                  setCompletedSteps([...completedSteps, "workspace"]);
-                  moveToNextStep();
+                  const newCompletedSteps = [...completedSteps, "workspace"];
+                  setCompletedSteps(newCompletedSteps);
+                  saveProgress("/", newCompletedSteps).then(()=>moveToNextStep());
                 }}
               >
                 Complete Setup
