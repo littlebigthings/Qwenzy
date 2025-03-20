@@ -24,7 +24,7 @@ export function OrganizationList() {
         </div>
 
         <Button
-          onClick={() => setLocation("/organization-setup")}
+          onClick={() => setLocation("/onboarding")}
           className="w-full h-11 bg-[#407c87] hover:bg-[#386d77] text-white font-medium"
         >
           Create an organization
