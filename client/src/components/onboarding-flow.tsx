@@ -63,8 +63,23 @@ const organizationSchema = z.object({
 });
 
 export function OnboardingFlow() {
-  const [currentStep, setCurrentStep] = useState("organization");
-  const [completedSteps, setCompletedSteps] = useState<string[]>([]);
+  // Get completed steps from local storage on initial load
+  const getInitialCompletedSteps = () => {
+    const savedSteps = localStorage.getItem("completedOnboardingSteps");
+    return savedSteps ? JSON.parse(savedSteps) : [];
+  };
+
+  const [currentStep, setCurrentStep] = useState(() => {
+    const completed = getInitialCompletedSteps();
+    // If organization step is completed, start with next incomplete step
+    if (completed.includes("organization")) {
+      const nextStep = steps.find(step => !completed.includes(step.id));
+      return nextStep ? nextStep.id : "organization";
+    }
+    return "organization";
+  });
+
+  const [completedSteps, setCompletedSteps] = useState(getInitialCompletedSteps);
   const [loading, setLoading] = useState(false);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -72,12 +87,25 @@ export function OnboardingFlow() {
   const [, setLocation] = useLocation();
   const { user } = useAuth();
 
+  // Save completed steps to local storage
+  useEffect(() => {
+    localStorage.setItem("completedOnboardingSteps", JSON.stringify(completedSteps));
+  }, [completedSteps]);
+
   const orgForm = useForm<z.infer<typeof organizationSchema>>({
     resolver: zodResolver(organizationSchema),
     defaultValues: {
       name: "",
     },
   });
+
+  // Function to move to next step
+  const moveToNextStep = () => {
+    const currentIndex = steps.findIndex(step => step.id === currentStep);
+    if (currentIndex < steps.length - 1) {
+      setCurrentStep(steps[currentIndex + 1].id);
+    }
+  };
 
   const handleLogoUpload = async (file: File) => {
     try {
@@ -88,7 +116,7 @@ export function OnboardingFlow() {
         toast({
           variant: "destructive",
           title: "Error",
-          description: "File size must be less than 800KB",
+          description: "File size must be less than 800K",
         });
         return null;
       }
@@ -185,9 +213,7 @@ export function OnboardingFlow() {
     }
   };
 
-  const createOrganization = async (
-    data: z.infer<typeof organizationSchema>,
-  ) => {
+  const createOrganization = async (data: z.infer<typeof organizationSchema>) => {
     try {
       if (!user?.id) throw new Error("Missing user information");
 
@@ -238,8 +264,11 @@ export function OnboardingFlow() {
         description: "Organization created successfully! You are now the admin.",
       });
 
-      setCompletedSteps([...completedSteps, "organization"]);
-      setCurrentStep("profile");
+      // Update completed steps and move to next step
+      const newCompletedSteps = [...completedSteps, "organization"];
+      setCompletedSteps(newCompletedSteps);
+      moveToNextStep();
+
     } catch (error: any) {
       console.error("Organization creation error:", error);
       toast({
