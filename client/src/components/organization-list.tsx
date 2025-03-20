@@ -1,9 +1,17 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useLocation } from "wouter";
+import { useAuth } from "@/hooks/use-auth";
 
 export function OrganizationList() {
   const [, setLocation] = useLocation();
+  const { user } = useAuth();
+
+  // Extract domain from user's email
+  const getDomain = () => {
+    if (!user?.email) return "your organization";
+    return user.email.split("@")[1];
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-[url('/bg.png')] bg-cover">
@@ -11,7 +19,7 @@ export function OrganizationList() {
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-semibold text-gray-900">Qwenzy</h1>
           <p className="text-sm text-gray-500">
-            We detected your organization domain as company.com
+            We detected your organization domain as {getDomain()}
           </p>
         </div>
 
