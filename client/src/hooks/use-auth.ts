@@ -6,6 +6,7 @@ import { useLocation } from "wouter";
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [hasOrganization, setHasOrganization] = useState(false);
   const [, setLocation] = useLocation();
 
   useEffect(() => {
@@ -23,9 +24,9 @@ export function useAuth() {
       setUser(session?.user ?? null);
       setLoading(false);
 
-      // If user is authenticated, redirect to organization setup
+      // Check organization membership when user is authenticated
       if (session?.user) {
-        setLocation("/organization-setup");
+        checkOrganizationMembership(session.user.id);
       }
     });
 
@@ -41,18 +42,45 @@ export function useAuth() {
 
       setUser(session?.user ?? null);
 
-      // Debounce navigation on sign in/up
-      if ((event === "SIGNED_IN" || event === "SIGNED_UP") && location !== "/organization-setup") {
-        console.log("[useAuth] Sign in/up successful, redirecting to organization setup");
-        setTimeout(() => setLocation("/organization-setup"), 100);
-      } else if (event === "SIGNED_OUT") {
-        console.log("[useAuth] Sign out detected, redirecting to login");
+      // Check organization membership on auth state change
+      if (session?.user) {
+        checkOrganizationMembership(session.user.id);
+      } else {
+        setHasOrganization(false);
+      }
+
+      // Handle navigation based on auth state
+      if (event === "SIGNED_OUT") {
         setLocation("/login");
       }
     });
 
     return () => subscription.unsubscribe();
   }, [setLocation]);
+
+  // Function to check organization membership
+  const checkOrganizationMembership = async (userId: string) => {
+    try {
+      const { data: memberships, error } = await supabase
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', userId)
+        .limit(1);
+
+      if (error) throw error;
+
+      const hasOrg = memberships && memberships.length > 0;
+      setHasOrganization(hasOrg);
+
+      // Redirect based on organization status
+      if (!hasOrg) {
+        setLocation("/organization-setup");
+      }
+    } catch (error) {
+      console.error('Error checking organization membership:', error);
+      setHasOrganization(false);
+    }
+  };
 
   const signIn = async (email: string, password: string) => {
     try {
@@ -134,6 +162,7 @@ export function useAuth() {
   return {
     user,
     loading,
+    hasOrganization,
     signIn,
     signUp,
   };
