@@ -1,4 +1,7 @@
 import { users, type User, type InsertUser } from "@shared/schema";
+import { db } from "./db";
+import { eq, and } from "drizzle-orm";
+import { profiles } from "@shared/schema";
 
 // modify the interface with any CRUD methods
 // you might need
@@ -37,3 +40,12 @@ export class MemStorage implements IStorage {
 }
 
 export const storage = new MemStorage();
+
+export async function getProfileByUserIdAndOrgId(userId: number, organizationId: number) {
+  return await db.query.profiles.findFirst({
+    where: and(
+      eq(profiles.userId, userId),
+      eq(profiles.organizationId, organizationId)
+    ),
+  });
+}
