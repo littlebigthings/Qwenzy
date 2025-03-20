@@ -219,13 +219,13 @@ export function OnboardingFlow() {
         throw new Error("Failed to create organization");
       }
 
-      // Create organization membership
+      // Create organization membership with is_owner=true
       const { error: membershipError } = await supabase
         .from("organization_members")
         .insert({
           user_id: user.id,
           organization_id: newOrg.id,
-          is_owner: true,
+          is_owner: true, // This makes the user an admin
         });
 
       if (membershipError) {
@@ -235,7 +235,7 @@ export function OnboardingFlow() {
 
       toast({
         title: "Success",
-        description: "Organization created successfully",
+        description: "Organization created successfully! You are now the admin.",
       });
 
       setCompletedSteps([...completedSteps, "organization"]);
@@ -245,7 +245,7 @@ export function OnboardingFlow() {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Error creating organization",
+        description: error.message || "Error creating organization",
       });
     } finally {
       setLoading(false);
