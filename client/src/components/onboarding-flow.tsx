@@ -406,18 +406,35 @@ export function OnboardingFlow() {
         if (insertError) throw insertError;
       }
 
-      // Update progress
-      const newCompleted = [...completedSteps, "profile"];
-      console.log(newCompleted);
-      setCompletedSteps(newCompleted);
-      await saveProgress("invite", newCompleted);
+      // Turn off edit mode if it was on
+      if (isProfileEditing) {
+        setIsProfileEditing(false);
+      }
 
-      toast({
-        title: "Success",
-        description: "Profile updated successfully!",
-      });
-
-      moveToNextStep();
+      // Check if profile step was already completed
+      const alreadyCompleted = completedSteps.includes("profile");
+      
+      // Only add to completed steps if not already there
+      let newCompleted = completedSteps;
+      if (!alreadyCompleted) {
+        newCompleted = [...completedSteps, "profile"];
+        console.log(newCompleted);
+        setCompletedSteps(newCompleted);
+        await saveProgress("invite", newCompleted);
+        
+        toast({
+          title: "Success",
+          description: "Profile updated successfully!",
+        });
+        
+        // Only move to next step if this was the first time completing
+        moveToNextStep();
+      } else {
+        toast({
+          title: "Success",
+          description: "Profile updated successfully!",
+        });
+      }
     } catch (error: any) {
       console.error("Profile operation error:", error);
       toast({
@@ -796,9 +813,25 @@ export function OnboardingFlow() {
           )}
           {currentStep === "profile" && (
             <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-semibold">Add your profile information</h2>
-                <p className="text-gray-500">Adding your name and profile photo helps your teammates to recognise and connect with you more easily.</p>
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl font-semibold">
+                    {completedSteps.includes("profile") ? "Profile Details" : "Add your profile information"}
+                  </h2>
+                  <p className="text-gray-500">
+                    {completedSteps.includes("profile") 
+                      ? isProfileEditing ? "Update your profile details" : "Your profile details"
+                      : "Adding your name and profile photo helps your teammates to recognise and connect with you more easily."}
+                  </p>
+                </div>
+                {completedSteps.includes("profile") && !isProfileEditing && (
+                  <Button
+                    onClick={() => setIsProfileEditing(true)}
+                    variant="outline"
+                  >
+                    Edit Details
+                  </Button>
+                )}
               </div>
               
               <Form {...profileForm}>
@@ -813,7 +846,11 @@ export function OnboardingFlow() {
                       <FormItem>
                         <FormLabel>Your Name</FormLabel>
                         <FormControl>
-                          <Input placeholder="Name" {...field} />
+                          <Input 
+                            placeholder="Name" 
+                            {...field} 
+                            disabled={completedSteps.includes("profile") && !isProfileEditing}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -838,7 +875,11 @@ export function OnboardingFlow() {
                         <div className="flex gap-2">
                           <label
                             htmlFor="avatar-upload"
-                            className="inline-flex items-center justify-center bg-[#407c87] text-white px-4 py-2 rounded cursor-pointer hover:bg-[#386d77] transition-colors"
+                            className={`inline-flex items-center justify-center px-4 py-2 rounded cursor-pointer transition-colors
+                              ${completedSteps.includes("profile") && !isProfileEditing
+                                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                : "bg-[#407c87] text-white hover:bg-[#386d77]"
+                              }`}
                           >
                             Upload a photo
                             <input
@@ -849,9 +890,10 @@ export function OnboardingFlow() {
                               onChange={(e) =>
                                 handleAvatarUpload(e.target.files?.[0] as File)
                               }
+                              disabled={completedSteps.includes("profile") && !isProfileEditing}
                             />
                           </label>
-                          {avatarPreview && (
+                          {avatarPreview && (completedSteps.includes("profile") ? isProfileEditing : true) && (
                             <Button
                               type="button"
                               variant="outline"
@@ -882,7 +924,7 @@ export function OnboardingFlow() {
                         Saving...
                       </>
                     ) : (
-                      "Continue"
+                      isProfileEditing ? "Save Changes" : "Continue"
                     )}
                   </Button>
                 </form>
