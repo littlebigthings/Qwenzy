@@ -26,6 +26,7 @@ import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
+import { sendInvitationEmail, checkInvitation, markInvitationAsAccepted } from "@/lib/invitation";
 
 // Add type for organization data
 type Organization = {
