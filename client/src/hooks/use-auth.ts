@@ -26,16 +26,7 @@ export function useAuth() {
 
       // If user is authenticated, redirect to organization setup
       if (session?.user) {
-        // Check if this was from an invitation redirect (stored in localStorage)
-        const isInvitation = localStorage.getItem('invitation') === 'true';
-        const invitationOrgId = localStorage.getItem('invitationOrgId');
-        
-        if (isInvitation && invitationOrgId) {
-          // Redirect to organization setup with invitation parameters
-          setLocation(`/organization-setup?invitation=true&organization=${invitationOrgId}`);
-        } else {
-          setLocation("/organization-setup");
-        }
+        setLocation("/organization-setup");
       }
     });
 
@@ -54,17 +45,7 @@ export function useAuth() {
       // Debounce navigation on sign in/up
       if ((event === "SIGNED_IN" || event === "SIGNED_UP") && location !== "/organization-setup") {
         console.log("[useAuth] Sign in/up successful, redirecting to organization setup");
-        
-        // Check if this was from an invitation redirect
-        const isInvitation = localStorage.getItem('invitation') === 'true';
-        const invitationOrgId = localStorage.getItem('invitationOrgId');
-        
-        if (isInvitation && invitationOrgId) {
-          // Pass invitation parameters with the redirect
-          setTimeout(() => setLocation(`/organization-setup?invitation=true&organization=${invitationOrgId}`), 100);
-        } else {
-          setTimeout(() => setLocation("/organization-setup"), 100);
-        }
+        setTimeout(() => setLocation("/organization-setup"), 100);
       } else if (event === "SIGNED_OUT") {
         console.log("[useAuth] Sign out detected, redirecting to login");
         setLocation("/login");
