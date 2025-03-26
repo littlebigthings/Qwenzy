@@ -26,7 +26,16 @@ export function useAuth() {
 
       // If user is authenticated, redirect to organization setup
       if (session?.user) {
-        setLocation("/organization-setup");
+        // Check if this user has an invitation in localStorage
+        const invitation = localStorage.getItem('invitation');
+        const invitationOrgId = localStorage.getItem('invitationOrgId');
+        
+        if (invitation === 'true' && invitationOrgId) {
+          // Redirect to organization setup with invitation parameters
+          setLocation(`/organization-setup?invitation=true&organization=${invitationOrgId}`);
+        } else {
+          setLocation("/organization-setup");
+        }
       }
     });
 
@@ -45,9 +54,24 @@ export function useAuth() {
       // Debounce navigation on sign in/up
       if ((event === "SIGNED_IN" || event === "SIGNED_UP") && location !== "/organization-setup") {
         console.log("[useAuth] Sign in/up successful, redirecting to organization setup");
-        setTimeout(() => setLocation("/organization-setup"), 100);
+        
+        // Check if this user has an invitation in localStorage
+        const invitation = localStorage.getItem('invitation');
+        const invitationOrgId = localStorage.getItem('invitationOrgId');
+        
+        if (invitation === 'true' && invitationOrgId) {
+          // Redirect to organization setup with invitation parameters
+          setTimeout(() => setLocation(`/organization-setup?invitation=true&organization=${invitationOrgId}`), 100);
+        } else {
+          setTimeout(() => setLocation("/organization-setup"), 100);
+        }
       } else if (event === "SIGNED_OUT") {
         console.log("[useAuth] Sign out detected, redirecting to login");
+        
+        // Clear any invitation data on sign out
+        localStorage.removeItem('invitation');
+        localStorage.removeItem('invitationOrgId');
+        
         setLocation("/login");
       }
     });
