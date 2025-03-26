@@ -519,7 +519,19 @@ export function OnboardingFlow({
         newCompleted = [...completedSteps, "profile"];
         console.log(newCompleted);
         setCompletedSteps(newCompleted);
-        await saveProgress("invite", newCompleted);
+        
+        // For invited users, mark the invitation as accepted
+        if (isInvitation && invitationOrgId && user?.email) {
+          try {
+            await markInvitationAsAccepted(user.email, invitationOrgId);
+            console.log("Invitation marked as accepted");
+          } catch (invitationError) {
+            console.error("Error marking invitation as accepted:", invitationError);
+            // Don't throw here, as we still want to continue with the flow
+          }
+        }
+        
+        await saveProgress(isInvitation ? "workspace" : "invite", newCompleted);
         
         toast({
           title: "Success",
@@ -921,12 +933,24 @@ export function OnboardingFlow({
               <div className="flex justify-between items-center">
                 <div>
                   <h2 className="text-2xl font-semibold">
-                    {completedSteps.includes("profile") ? "Profile Details" : "Add your profile information"}
+                    {isInvitation 
+                      ? completedSteps.includes("profile") 
+                        ? "Profile Details" 
+                        : `Welcome to ${organization?.name || "the organization"}`
+                      : completedSteps.includes("profile") 
+                        ? "Profile Details" 
+                        : "Add your profile information"
+                    }
                   </h2>
                   <p className="text-gray-500">
-                    {completedSteps.includes("profile") 
-                      ? isProfileEditing ? "Update your profile details" : "Your profile details"
-                      : "Adding your name and profile photo helps your teammates to recognise and connect with you more easily."}
+                    {isInvitation
+                      ? completedSteps.includes("profile")
+                        ? isProfileEditing ? "Update your profile details" : "Your profile details"
+                        : "Please set up your profile to complete your registration."
+                      : completedSteps.includes("profile") 
+                        ? isProfileEditing ? "Update your profile details" : "Your profile details"
+                        : "Adding your name and profile photo helps your teammates to recognise and connect with you more easily."
+                    }
                   </p>
                 </div>
                 {completedSteps.includes("profile") && !isProfileEditing && (
