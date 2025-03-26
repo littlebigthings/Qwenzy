@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useAuth } from "@/hooks/use-auth"
 import { Link, useLocation } from "wouter"
 import { Card } from "@/components/ui/card"
@@ -7,18 +7,39 @@ import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import logo from "../assets/logo.png"
 import { BackgroundPattern } from "@/components/background-pattern"
+import { useVerificationStore } from "@/lib/verification-store"
 
 export default function Register() {
   const { signUp } = useAuth()
   const [, setLocation] = useLocation()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [isInvitation, setIsInvitation] = useState(false)
+  const [invitationOrgId, setInvitationOrgId] = useState<string | null>(null)
+  const setEmail = useVerificationStore(state => state.setEmail)
   const [formData, setFormData] = useState({
     email: "",
     password: "",
     confirmPassword: "",
     acceptTerms: false
   })
+  
+  // Check for invitation parameters in URL
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const invitation = searchParams.get('invitation');
+    const email = searchParams.get('email');
+    const orgId = searchParams.get('organization');
+    
+    if (invitation === 'true' && email && orgId) {
+      setIsInvitation(true);
+      setInvitationOrgId(orgId);
+      setFormData(prev => ({
+        ...prev,
+        email
+      }));
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -37,6 +58,15 @@ export default function Register() {
 
       if (!formData.acceptTerms) {
         throw new Error("You must accept the terms and privacy policy")
+      }
+
+      // Store the email in verification store so it can be accessed on the verify page
+      setEmail(formData.email)
+      
+      // If this is from an invitation, store invitation data in localStorage
+      if (isInvitation && invitationOrgId) {
+        localStorage.setItem('invitation', 'true')
+        localStorage.setItem('invitationOrgId', invitationOrgId)
       }
 
       await signUp(formData.email, formData.password)
