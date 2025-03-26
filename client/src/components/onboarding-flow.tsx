@@ -90,7 +90,15 @@ const profileSchema = z.object({
   avatar: z.any().optional(),
 });
 
-export function OnboardingFlow() {
+interface OnboardingFlowProps {
+  isInvitation?: boolean;
+  invitationOrgId?: string | null;
+}
+
+export function OnboardingFlow({ 
+  isInvitation = false, 
+  invitationOrgId = null 
+}: OnboardingFlowProps = {}) {
   const { user, hasOrganization, setHasOrganization } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();

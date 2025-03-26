@@ -1,3 +1,7 @@
+#!/bin/bash
+
+# Update the organization-setup.tsx file
+cat > client/src/pages/organization-setup.tsx << 'EOL'
 import { useEffect, useState } from "react"
 import { useAuth } from "@/hooks/use-auth"
 import { OnboardingFlow } from "@/components/onboarding-flow"
@@ -73,3 +77,7 @@ export default function OrganizationSetup() {
 
   return <OnboardingFlow isInvitation={isInvitation} invitationOrgId={invitationOrgId} />
 }
+EOL
+
+chmod +x temp/update-organization-setup.sh
+./temp/update-organization-setup.sh
