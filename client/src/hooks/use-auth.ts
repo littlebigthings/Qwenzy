@@ -24,9 +24,17 @@ export function useAuth() {
       setUser(session?.user ?? null);
       setLoading(false);
 
-      // If user is authenticated, redirect to organization setup
+      // If user is authenticated, redirect to organization setup with invitation params if available
       if (session?.user) {
-        setLocation("/organization-setup");
+        // Check if we have invitation data in localStorage
+        const hasInvitation = localStorage.getItem('invitation') === 'true';
+        const invitationOrgId = localStorage.getItem('invitationOrgId');
+        
+        if (hasInvitation && invitationOrgId) {
+          setLocation(`/organization-setup?invitation=true&organization=${invitationOrgId}`);
+        } else {
+          setLocation("/organization-setup");
+        }
       }
     });
 
@@ -45,7 +53,16 @@ export function useAuth() {
       // Debounce navigation on sign in/up
       if ((event === "SIGNED_IN" || event === "SIGNED_UP") && location !== "/organization-setup") {
         console.log("[useAuth] Sign in/up successful, redirecting to organization setup");
-        setTimeout(() => setLocation("/organization-setup"), 100);
+        
+        // Check if we have invitation data in localStorage
+        const hasInvitation = localStorage.getItem('invitation') === 'true';
+        const invitationOrgId = localStorage.getItem('invitationOrgId');
+        
+        if (hasInvitation && invitationOrgId) {
+          setTimeout(() => setLocation(`/organization-setup?invitation=true&organization=${invitationOrgId}`), 100);
+        } else {
+          setTimeout(() => setLocation("/organization-setup"), 100);
+        }
       } else if (event === "SIGNED_OUT") {
         console.log("[useAuth] Sign out detected, redirecting to login");
         setLocation("/login");

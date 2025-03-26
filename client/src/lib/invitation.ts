@@ -24,42 +24,33 @@ export async function sendInvitationEmail(
   email: string, 
   organizationName: string,
   inviterName: string,
+  inviterEmail: string,
   organizationId: string
 ) {
   try {
     const deploymentUrl = getDeploymentUrl();
     const signupUrl = `${deploymentUrl}/register?invitation=true&email=${encodeURIComponent(email)}&organization=${organizationId}`;
     
-    // Generate email content
-    const emailSubject = `Invitation to join ${organizationName} on Qwenzy`;
-    const emailContent = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2>You've been invited to join ${organizationName}</h2>
-        <p>${inviterName} has invited you to join their organization on Qwenzy.</p>
-        <p>Click the button below to accept the invitation and create your account:</p>
-        <div style="text-align: center; margin: 30px 0;">
-          <a href="${signupUrl}" style="background-color: #407c87; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">
-            Accept Invitation
-          </a>
-        </div>
-        <p>Or copy and paste this URL into your browser:</p>
-        <p>${signupUrl}</p>
-        <hr style="border: 1px solid #eee; margin: 30px 0;" />
-        <p style="color: #666; font-size: 12px;">
-          If you weren't expecting this invitation, you can ignore this email.
-        </p>
-      </div>
-    `;
+    // First, save the invitation to the database
+    const { error: insertError } = await supabase
+      .from("invitations")
+      .insert({
+        organization_id: organizationId,
+        email: email,
+        invited_by: inviterEmail, // Use inviter's email instead of ID
+        auto_join: true,
+        accepted: false
+      });
+      
+    if (insertError) {
+      console.error("Error inserting invitation:", insertError);
+      // Continue anyway to try sending email
+    }
     
-    // Send email using Supabase's email service
+    // Since we don't have a dedicated email service set up, we'll use Supabase Auth's password reset
+    // functionality as a way to send emails with custom links to our users
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: signupUrl,
-      data: {
-        invitation: true,
-        organizationId,
-        organizationName,
-        inviterName
-      }
+      redirectTo: signupUrl
     });
     
     if (error) {
@@ -69,7 +60,10 @@ export async function sendInvitationEmail(
     return { success: true };
   } catch (error: any) {
     console.error("Error sending invitation email:", error);
-    return { success: false, error: error.message };
+    return { 
+      success: false, 
+      error: error.message || "Failed to send invitation email. Please try again later."
+    };
   }
 }
 
