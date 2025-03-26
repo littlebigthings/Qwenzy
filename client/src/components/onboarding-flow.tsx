@@ -149,12 +149,10 @@ export function OnboardingFlow() {
           // Only create new progress if it doesn't exist
           const { data: newProgress, error: progressError } = await supabase
             .from('onboarding_progress')
-            .upsert({
+            .insert({
               user_id: user.id,
               current_step: userHasOrg ? 'profile' : 'organization',
               completed_steps: userHasOrg ? ['organization'] : []
-            }, {
-              onConflict: 'user_id'
             })
             .select()
             .single();
@@ -165,11 +163,8 @@ export function OnboardingFlow() {
           
           progress = newProgress;
         } else {
+          // Use existing progress without modifying it
           progress = existingProgress;
-        }
-
-        if (progressError) {
-          throw progressError;
         }
 
         // Check if user has a profile already
