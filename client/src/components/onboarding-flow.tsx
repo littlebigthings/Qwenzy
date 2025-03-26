@@ -18,6 +18,7 @@ import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
+import { s } from "node_modules/vite/dist/node/types.d-aGj9QkWt";
 
 // Add type for organization data
 type Organization = {
@@ -135,18 +136,37 @@ export function OnboardingFlow() {
           }
         }
 
-        // Get or create onboarding progress using upsert
-        const { data: progress, error: progressError } = await supabase
+        // First check if onboarding progress exists
+        const { data: existingProgress, error: existingProgressError } = await supabase
           .from('onboarding_progress')
-          .upsert({
-            user_id: user.id,
-            current_step: userHasOrg ? 'profile' : 'organization',
-            completed_steps: userHasOrg ? ['organization'] : []
-          }, {
-            onConflict: 'user_id'
-          })
-          .select()
-          .single();
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        let progress;
+        
+        if (!existingProgress) {
+          // Only create new progress if it doesn't exist
+          const { data: newProgress, error: progressError } = await supabase
+            .from('onboarding_progress')
+            .upsert({
+              user_id: user.id,
+              current_step: userHasOrg ? 'profile' : 'organization',
+              completed_steps: userHasOrg ? ['organization'] : []
+            }, {
+              onConflict: 'user_id'
+            })
+            .select()
+            .single();
+            
+          if (progressError) {
+            throw progressError;
+          }
+          
+          progress = newProgress;
+        } else {
+          progress = existingProgress;
+        }
 
         if (progressError) {
           throw progressError;
@@ -223,6 +243,8 @@ export function OnboardingFlow() {
     if (!user) return;
 
     try {
+      console.log("Completed: ",completed);
+      console.log("step: ",step);
       const { error } = await supabase
         .from('onboarding_progress')
         .upsert({
@@ -390,6 +412,7 @@ export function OnboardingFlow() {
 
       // Update progress
       const newCompleted = [...completedSteps, "profile"];
+      console.log(newCompleted);
       setCompletedSteps(newCompleted);
       await saveProgress("invite", newCompleted);
 
@@ -417,7 +440,10 @@ export function OnboardingFlow() {
     if (currentIndex < steps.length - 1) {
       const nextStep = steps[currentIndex + 1].id;
       setCurrentStep(nextStep);
-      await saveProgress(nextStep, completedSteps);
+      console.log("Steps from next: ",completedSteps);
+      console.log("Steps to next: ",nextStep);
+      // Update progress
+      //await saveProgress(nextStep, completedSteps);
     } else {
       setLocation("/");
     }
