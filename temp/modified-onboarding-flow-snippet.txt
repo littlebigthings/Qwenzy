@@ -1,0 +1,48 @@
+              <Button
+                onClick={async () => {
+                  try {
+                    setLoading(true);
+                    
+                    // Send invites if there are any
+                    if (inviteEmails.length > 0 && user && organization) {
+                      // Use sendInvitationEmail function from invitation.ts
+                      let successCount = 0;
+                      
+                      for (const email of inviteEmails) {
+                        const result = await sendInvitationEmail(
+                          email,
+                          organization.name,
+                          user.user_metadata?.full_name || "A team member",
+                          user.email || "",
+                          organization.id
+                        );
+                        
+                        if (result.success) {
+                          successCount++;
+                        } else {
+                          console.error(`Failed to send invitation to ${email}:`, result.error);
+                        }
+                      }
+                      
+                      toast({
+                        title: "Success",
+                        description: `${successCount} invitation${successCount === 1 ? "" : "s"} sent`
+                      });
+                    }
+                    
+                    // Mark step as completed
+                    const newCompletedSteps = [...completedSteps, "invite"];
+                    setCompletedSteps(newCompletedSteps);
+                    await saveProgress("workspace", newCompletedSteps);
+                    moveToNextStep();
+                  } catch (error: any) {
+                    console.error("Error sending invitations:", error);
+                    toast({
+                      variant: "destructive",
+                      title: "Error",
+                      description: error.message || "Failed to send invitations"
+                    });
+                  } finally {
+                    setLoading(false);
+                  }
+                }}

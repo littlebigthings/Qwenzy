@@ -1059,25 +1059,30 @@ export function OnboardingFlow() {
                   try {
                     setLoading(true);
                     
-                    // Save invites to database if there are any
+                    // Send invites if there are any
                     if (inviteEmails.length > 0 && user && organization) {
-                      // Send invites
+                      // Use sendInvitationEmail function from invitation.ts
+                      let successCount = 0;
+                      
                       for (const email of inviteEmails) {
-                        const { error } = await supabase
-                          .from("invitations")
-                          .insert({
-                            organization_id: organization.id,
-                            email: email,
-                            invited_by: user.id,
-                            auto_join: allowAutoJoin
-                          });
-                          
-                        if (error) throw error;
+                        const result = await sendInvitationEmail(
+                          email,
+                          organization.name,
+                          user.user_metadata?.full_name || "A team member",
+                          user.email || "",
+                          organization.id
+                        );
+                        
+                        if (result.success) {
+                          successCount++;
+                        } else {
+                          console.error(`Failed to send invitation to ${email}:`, result.error);
+                        }
                       }
                       
                       toast({
                         title: "Success",
-                        description: `${inviteEmails.length} invitation${inviteEmails.length === 1 ? "" : "s"} sent`
+                        description: `${successCount} invitation${successCount === 1 ? "" : "s"} sent`
                       });
                     }
                     
