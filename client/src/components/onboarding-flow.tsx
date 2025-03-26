@@ -97,6 +97,7 @@ export function OnboardingFlow() {
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [isProfileEditing, setIsProfileEditing] = useState(false);
 
   // Load onboarding progress from Supabase
   useEffect(() => {
