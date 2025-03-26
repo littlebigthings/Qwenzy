@@ -1,0 +1,25 @@
+        {/* Right content area */}
+        <div className="p-6">
+          {/* Skip organization step for invited users */}
+          {(currentStep === "organization" && !isInvitation) && (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl font-semibold">
+                    {organization ? "Organization Details" : "Give your organization a name"}
+                  </h2>
+                  <p className="text-gray-500">
+                    {organization 
+                      ? isEditing ? "Update your organization details" : "Your organization details"
+                      : "Details help any collaborators that join"}
+                  </p>
+                </div>
+                {organization && !isEditing && (
+                  <Button
+                    onClick={() => setIsEditing(true)}
+                    variant="outline"
+                  >
+                    Edit Details
+                  </Button>
+                )}
+              </div>
