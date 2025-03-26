@@ -924,7 +924,7 @@ export function OnboardingFlow() {
                       </div>
                     </div>
                   </div>
-
+                  {(completedSteps.includes("profile") ? isProfileEditing : true) && (
                   <Button
                     type="submit"
                     className="w-full bg-[#407c87] hover:bg-[#386d77]"
@@ -939,6 +939,7 @@ export function OnboardingFlow() {
                       isProfileEditing ? "Save Changes" : "Continue"
                     )}
                   </Button>
+                  )}
                 </form>
               </Form>
             </div>
@@ -1051,30 +1052,6 @@ export function OnboardingFlow() {
                 </div>
               </div>
               
-              <div className="flex justify-between mt-6">
-                <Button 
-                  variant="ghost"
-                  onClick={() => {
-                    setCurrentStep("profile");
-                  }}
-                  className="text-gray-600 flex items-center"
-                >
-                  <ChevronLeft className="h-4 w-4 mr-1" />
-                  Go Back
-                </Button>
-                
-                <Button 
-                  variant="ghost"
-                  onClick={() => {
-                    const newCompletedSteps = [...completedSteps, "invite"];
-                    setCompletedSteps(newCompletedSteps);
-                    saveProgress("workspace", newCompletedSteps).then(()=>moveToNextStep());
-                  }}
-                  className="text-gray-600"
-                >
-                  Skip this step <ChevronRight className="h-4 w-4 ml-1" />
-                </Button>
-              </div>
               
               <Button
                 onClick={async () => {
@@ -1131,6 +1108,20 @@ export function OnboardingFlow() {
                   "Continue"
                 )}
               </Button>
+              <div className="flex justify-center mt-6">
+
+                <Button 
+                  variant="ghost"
+                  onClick={() => {
+                    const newCompletedSteps = [...completedSteps, "invite"];
+                    setCompletedSteps(newCompletedSteps);
+                    saveProgress("workspace", newCompletedSteps).then(()=>moveToNextStep());
+                  }}
+                  className="text-gray-600"
+                >
+                  Skip this step <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
             </div>
           )}
           {currentStep === "workspace" && (
