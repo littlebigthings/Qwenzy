@@ -27,6 +27,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { sendInvitationEmail, checkInvitation, markInvitationAsAccepted } from "@/lib/invitation";
+import { Check, Copy } from "lucide-react";
 
 // Add type for organization data
 type Organization = {
@@ -119,6 +120,7 @@ export function OnboardingFlow({
   const [inviteEmails, setInviteEmails] = useState<string[]>([]);
   const [currentInviteInput, setCurrentInviteInput] = useState<string>("");
   const [allowAutoJoin, setAllowAutoJoin] = useState<boolean>(true);
+  const [copied, setCopied] = useState<boolean>(false);
 
   // Load onboarding progress from Supabase
   useEffect(() => {
@@ -664,6 +666,22 @@ export function OnboardingFlow({
   };
 
   // Upload file to Supabase storage
+  // Function to get invitation URL
+  const getInvitationUrl = () => {
+    if (!organization) return "";
+    const deploymentUrl = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
+    return `${deploymentUrl}/register?invitation=true&organization=${organization.id}`;
+  };
+
+  // Function to copy invitation link
+  const copyInvitationLink = () => {
+    const url = getInvitationUrl();
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
   const uploadToSupabase = async (file: File, bucketName: string) => {
     try {
       if (!file || !user?.id) return null;
@@ -1151,9 +1169,25 @@ export function OnboardingFlow({
                   </div>
                 </div>
                 
-                <div className="flex items-center">
-                  <Link className="h-5 w-5 text-gray-500 mr-2" />
-                  <span className="text-sm text-gray-600">Copy invitation link</span>
+                <div className="flex items-center mt-4 mb-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-2 text-sm"
+                    onClick={copyInvitationLink}
+                  >
+                    {copied ? (
+                      <>
+                        <Check className="h-4 w-4 text-green-500" />
+                        Link copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-4 w-4" />
+                        Copy invitation link
+                      </>
+                    )}
+                  </Button>
                 </div>
                 
                 <div className="flex items-start gap-2">

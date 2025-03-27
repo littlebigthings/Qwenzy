@@ -29,7 +29,7 @@ export async function sendInvitationEmail(
 ) {
   try {
     const deploymentUrl = getDeploymentUrl();
-    const signupUrl = `${deploymentUrl}/register?invitation=true&email=${encodeURIComponent(email)}&organization=${organizationId}`;
+    const signupUrl = `${deploymentUrl}/register?invitation=true&organization=${organizationId}`;
     
     // First, save the invitation to the database
     const { error: insertError } = await supabase
@@ -54,6 +54,7 @@ export async function sendInvitationEmail(
     });
     
     if (error) {
+      console.log(error.message);
       throw new Error(error.message);
     }
     
