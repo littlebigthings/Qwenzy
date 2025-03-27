@@ -26,7 +26,7 @@ import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { sendInvitationEmail, checkInvitation, markInvitationAsAccepted } from "@/lib/invitation-handler";
+import { sendInvitationEmail, checkInvitation, markInvitationAsAccepted, checkUserInvitations } from "@/lib/invitation-handler";
 import { Check, Copy } from "lucide-react";
 
 // Add type for organization data
@@ -34,6 +34,11 @@ type Organization = {
   id: string;
   name: string;
   logo_url: string | null;
+};
+
+type Invitation = {
+  organizationId: string;
+  invitedBy: string;
 };
 
 const steps = [
@@ -91,19 +96,11 @@ const profileSchema = z.object({
   avatar: z.any().optional(),
 });
 
-interface OnboardingFlowProps {
-  isInvitation?: boolean;
-  invitationOrgId?: string | null;
-}
-
-export function OnboardingFlow({ 
-  isInvitation = false, 
-  invitationOrgId = null 
-}: OnboardingFlowProps = {}) {
+export function OnboardingFlow() {
   const { user, hasOrganization, setHasOrganization } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-
+  
   // Add organization state
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [currentStep, setCurrentStep] = useState<string>("organization");
@@ -116,13 +113,43 @@ export function OnboardingFlow({
   const [isEditing, setIsEditing] = useState(false);
   const [isProfileEditing, setIsProfileEditing] = useState(false);
   
+  // Invitation state
+  const [isInvitation, setIsInvitation] = useState<boolean>(false);
+  const [invitationData, setInvitationData] = useState<Invitation | null>(null);
+  
   // Invite state
   const [inviteEmails, setInviteEmails] = useState<string[]>([]);
   const [currentInviteInput, setCurrentInviteInput] = useState<string>("");
   const [allowAutoJoin, setAllowAutoJoin] = useState<boolean>(true);
   const [copied, setCopied] = useState<boolean>(false);
   
-  // No need to check localStorage - we'll verify invitation status directly from DB
+  // Check for user invitations from the database
+  useEffect(() => {
+    const checkForInvitations = async () => {
+      if (!user?.email) return;
+      
+      try {
+        // Check if the user has any pending invitations
+        const invitationResult = await checkUserInvitations(user.email);
+        console.log(invitationResult);
+        
+        if (invitationResult.hasInvitation) {
+          setIsInvitation(true);
+          setInvitationData({
+            organizationId: invitationResult.organizationId,
+            invitedBy: invitationResult.invitedBy
+          });
+        }
+      } catch (error) {
+        console.error("Error checking invitations:", error);
+      }
+    };
+    
+    checkForInvitations();
+  }, [user]);
+  
+  // Access invitation organization ID from invitationData
+  const invitationOrgId = invitationData?.organizationId;
 
   // Load onboarding progress from Supabase
   useEffect(() => {
@@ -143,7 +170,7 @@ export function OnboardingFlow({
           `)
           .eq('user_id', user.id)
           .limit(1)
-          .single();
+          .maybeSingle();
 
         if (membershipError && membershipError.code !== 'PGRST116') {
           console.error('Error checking organization membership:', membershipError);
@@ -169,14 +196,17 @@ export function OnboardingFlow({
           .eq('user_id', user.id)
           .maybeSingle();
 
+        console.log(existingProgress);
         let progress;
         
         if (!existingProgress) {
+          console.log("enter");
           // For invited users, start directly at profile step
           // Otherwise, follow normal flow
           const initialStep = isInvitation ? 'profile' : (userHasOrg ? 'profile' : 'organization');
+          console.log('initialStep', initialStep);
           const initialCompletedSteps = isInvitation ? ['organization'] : (userHasOrg ? ['organization'] : []);
-          
+          console.log(initialCompletedSteps);
           // Only create new progress if it doesn't exist
           const { data: newProgress, error: progressError } = await supabase
             .from('onboarding_progress')
@@ -241,7 +271,7 @@ export function OnboardingFlow({
 
   // Handle invited user flow
   useEffect(() => {
-    if (isInvitation && invitationOrgId && user) {
+    if (isInvitation && invitationData?.organizationId && user) {
       // For invited users, we should skip directly to profile setup
       const loadInvitedOrganization = async () => {
         try {
@@ -252,7 +282,7 @@ export function OnboardingFlow({
             .from("organization_members")
             .select("organization_id")
             .eq("user_id", user.id)
-            .eq("organization_id", invitationOrgId)
+            .eq("organization_id", invitationData.organizationId)
             .maybeSingle();
             
           if (membershipError) {
@@ -269,7 +299,7 @@ export function OnboardingFlow({
           const { data: org, error } = await supabase
             .from("organizations")
             .select("*")
-            .eq("id", invitationOrgId)
+            .eq("id", invitationData.organizationId)
             .single();
             
           if (error) {
@@ -285,7 +315,7 @@ export function OnboardingFlow({
             .from("organization_members")
             .insert({
               user_id: user.id,
-              organization_id: invitationOrgId,
+              organization_id: invitationData.organizationId,
               role: "member",
               is_owner: false
             });
@@ -303,8 +333,8 @@ export function OnboardingFlow({
           await saveProgress("profile", ["organization"]);
           
           // Mark the invitation as accepted
-          if (user.email) {
-            await markInvitationAsAccepted(user.email, invitationOrgId);
+          if (user.email && invitationData?.organizationId) {
+            await markInvitationAsAccepted(user.email, invitationData.organizationId);
           }
           
         } catch (error) {
@@ -316,7 +346,7 @@ export function OnboardingFlow({
       
       loadInvitedOrganization();
     }
-  }, [user, isInvitation, invitationOrgId]);
+  }, [user, isInvitation, invitationData]);
 
   // Initialize form with organization data if it exists
   const orgForm = useForm<z.infer<typeof organizationSchema>>({
@@ -463,7 +493,9 @@ export function OnboardingFlow({
       
       // For invited users, use the invitation org ID
       // Otherwise use the organization from state
-      const orgId = isInvitation && invitationOrgId ? invitationOrgId : organization?.id;
+      const orgId = isInvitation && invitationData?.organizationId 
+        ? invitationData.organizationId 
+        : organization?.id;
       
       if (!orgId) throw new Error("Missing organization information");
 
@@ -478,6 +510,38 @@ export function OnboardingFlow({
       }
 
       console.log("Saving profile with data:", { name: data.fullName, avatarUrl, orgId });
+
+      // For invited users, ensure they are added to the organization
+      if (isInvitation && invitationData?.organizationId) {
+        // Check if already a member
+        const { data: existingMembership, error: membershipCheckError } = await supabase
+          .from("organization_members")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("organization_id", invitationData.organizationId)
+          .maybeSingle();
+          
+        if (membershipCheckError) {
+          console.error("Error checking membership:", membershipCheckError);
+        }
+        
+        // If not already a member, add them
+        if (!existingMembership) {
+          const { error: membershipError } = await supabase
+            .from("organization_members")
+            .insert({
+              user_id: user.id,
+              organization_id: invitationData.organizationId,
+              role: "member",
+              is_owner: false
+            });
+            
+          if (membershipError) {
+            console.error("Error adding organization member:", membershipError);
+            throw membershipError;
+          }
+        }
+      }
 
       // Extract first and last name from full name
       const nameParts = data.fullName.trim().split(" ");
@@ -536,9 +600,9 @@ export function OnboardingFlow({
         setCompletedSteps(newCompleted);
         
         // For invited users, mark the invitation as accepted
-        if (isInvitation && invitationOrgId && user?.email) {
+        if (isInvitation && invitationData?.organizationId && user?.email) {
           try {
-            await markInvitationAsAccepted(user.email, invitationOrgId);
+            await markInvitationAsAccepted(user.email, invitationData.organizationId);
             console.log("Invitation marked as accepted");
           } catch (invitationError) {
             console.error("Error marking invitation as accepted:", invitationError);
