@@ -136,9 +136,10 @@ export async function getInviterInfo(userId: string) {
       .from('profiles')
       .select('email')
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
     
     if (error) {
+      console.log(error.message);
       throw new Error(error.message);
     }
     

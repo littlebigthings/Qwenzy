@@ -31,20 +31,16 @@ export default function Register() {
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const invitation = searchParams.get('invitation');
-    const email = searchParams.get('email');
+    console.log(invitation);
     const orgId = searchParams.get('organization');
+    console.log(orgId);
     const ib = searchParams.get('ib'); // inviter ID/reference
+    console.log(ib);
     
     if (invitation === 'true' && orgId) {
       setIsInvitation(true);
       setInvitationOrgId(orgId);
       
-      if (email) {
-        setFormData(prev => ({
-          ...prev,
-          email
-        }));
-      }
       
       if (ib && ib !== 'none') {
         setInviterId(ib);
