@@ -1,5 +1,13 @@
 import { supabase } from './supabase';
 
+// UUID validation regex
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Function to validate UUID format
+function isValidUUID(str: string): boolean {
+  return UUID_REGEX.test(str);
+}
+
 // Get deployment URL using Replit domain
 const getDeploymentUrl = () => {
   if (typeof window === "undefined") return "localhost";
@@ -132,6 +140,12 @@ export async function markInvitationAsAccepted(email: string, organizationId: st
  */
 export async function getInviterInfo(userId: string) {
   try {
+    // Validate UUID format before querying Supabase
+    if (!isValidUUID(userId)) {
+      console.error("Invalid UUID format for user ID:", userId);
+      return { success: false, error: "Invalid user ID format" };
+    }
+
     const { data, error } = await supabase
       .from('profiles')
       .select('email')
@@ -159,6 +173,12 @@ export async function getInviterInfo(userId: string) {
  */
 export async function addInvitation(email: string, organizationId: string, invitedBy: string) {
   try {
+    // Ensure organizationId is a valid UUID
+    if (!isValidUUID(organizationId)) {
+      console.error("Invalid UUID format for organization ID:", organizationId);
+      return { success: false, error: "Invalid organization ID format" };
+    }
+
     const { error } = await supabase
       .from('invitations')
       .insert({

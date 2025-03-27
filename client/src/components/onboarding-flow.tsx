@@ -719,7 +719,9 @@ export function OnboardingFlow({
       }
 
       // Use user-specific folder structure for RLS compliance
-      const userId = user.id.toString();
+      // Use user-specific folder structure for RLS compliance
+      // Ensure UUID is properly formatted for storage path (no need for toString as it is already a string)
+      const userId = user.id;
       const fileExt = file.name.split(".").pop();
       const fileName = `${Math.random()}.${fileExt}`;
       const filePath = `${userId}/${fileName}`; // Include user ID in path
