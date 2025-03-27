@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { useLocation } from "wouter";
+import { checkUserInvitations, addUserInvitation } from "@/lib/check-invitation-status";
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
@@ -24,24 +25,16 @@ export function useAuth() {
       setUser(session?.user ?? null);
       setLoading(false);
 
-      // If user is authenticated, redirect to organization setup with invitation params if available
+      // If user is authenticated, check for invitations and redirect
       if (session?.user) {
-        // Check if we have invitation data in localStorage
-        const hasInvitation = localStorage.getItem('invitation') === 'true';
-        const invitationOrgId = localStorage.getItem('invitationOrgId');
-        
-        if (hasInvitation && invitationOrgId) {
-          setLocation(`/organization-setup?invitation=true&organization=${invitationOrgId}`);
-        } else {
-          setLocation("/organization-setup");
-        }
+        handleUserAuthentication(session.user);
       }
     });
 
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log("[useAuth] Auth state changed:", {
         event,
         userEmail: session?.user?.email,
@@ -52,16 +45,10 @@ export function useAuth() {
 
       // Debounce navigation on sign in/up
       if ((event === "SIGNED_IN" || event === "SIGNED_UP") && location !== "/organization-setup") {
-        console.log("[useAuth] Sign in/up successful, redirecting to organization setup");
+        console.log("[useAuth] Sign in/up successful");
         
-        // Check if we have invitation data in localStorage
-        const hasInvitation = localStorage.getItem('invitation') === 'true';
-        const invitationOrgId = localStorage.getItem('invitationOrgId');
-        
-        if (hasInvitation && invitationOrgId) {
-          setTimeout(() => setLocation(`/organization-setup?invitation=true&organization=${invitationOrgId}`), 100);
-        } else {
-          setTimeout(() => setLocation("/organization-setup"), 100);
+        if (session?.user) {
+          handleUserAuthentication(session.user);
         }
       } else if (event === "SIGNED_OUT") {
         console.log("[useAuth] Sign out detected, redirecting to login");
@@ -71,6 +58,36 @@ export function useAuth() {
 
     return () => subscription.unsubscribe();
   }, [setLocation]);
+
+  // Handle authenticated user - check for invitations
+  const handleUserAuthentication = async (user: User) => {
+    if (!user.email) return;
+    
+    try {
+      // First check the URL for invitation parameters
+      const searchParams = new URLSearchParams(window.location.search);
+      const invitation = searchParams.get('invitation');
+      const orgId = searchParams.get('organization');
+      
+      // If there are invitation params in the URL, add to the database
+      if (invitation === 'true' && orgId) {
+        await addUserInvitation(user.email, orgId);
+      }
+      
+      // Check if the user has any invitations in the database
+      const { hasInvitation, organizationId } = await checkUserInvitations(user.email);
+      
+      // Redirect with invitation params if the user has an invitation
+      if (hasInvitation && organizationId) {
+        setTimeout(() => setLocation(`/organization-setup?invitation=true&organization=${organizationId}`), 100);
+      } else {
+        setTimeout(() => setLocation("/organization-setup"), 100);
+      }
+    } catch (error) {
+      console.error("[useAuth] Error handling user authentication:", error);
+      setTimeout(() => setLocation("/organization-setup"), 100);
+    }
+  };
 
   const signIn = async (email: string, password: string) => {
     try {
