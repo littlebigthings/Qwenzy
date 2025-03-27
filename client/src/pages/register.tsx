@@ -1,96 +1,187 @@
-import { useState } from "react";
-import { Link, useLocation } from "wouter";
-import { toast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/use-auth";
-import { AuthForm } from "@/components/auth-form";
-import { useVerificationStore } from "@/lib/verification-store";
-import { BackgroundPattern } from "@/components/background-pattern";
-import { addUserInvitation } from "@/lib/check-invitation-status";
+import { useState, useEffect } from "react"
+import { useAuth } from "@/hooks/use-auth"
+import { Link, useLocation } from "wouter"
+import { Card } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Checkbox } from "@/components/ui/checkbox"
+import logo from "../assets/logo.png"
+import { BackgroundPattern } from "@/components/background-pattern"
+import { useVerificationStore } from "@/lib/verification-store"
 
 export default function Register() {
-  const { signUp, loading } = useAuth();
-  const [error, setError] = useState("");
-  const [registrationComplete, setRegistrationComplete] = useState(false);
-  const setEmail = useVerificationStore((state) => state.setEmail);
-  const [, setLocation] = useLocation();
-
-  const handleSubmit = async (data: { email: string; password: string }) => {
-    try {
-      setError("");
-      await signUp(data.email, data.password);
-      
-      // Check URL for invitation parameters
-      const searchParams = new URLSearchParams(window.location.search);
-      const invitation = searchParams.get('invitation');
-      const orgId = searchParams.get('organization');
-      
-      // If there are invitation params, add to the database
-      if (invitation === 'true' && orgId) {
-        await addUserInvitation(data.email, orgId);
-      }
-      
-      // Store email for verification page
-      setEmail(data.email);
-      setRegistrationComplete(true);
-      
-      // Show toast and redirect to verify email page
-      toast({
-        title: "Registration successful",
-        description: "Please check your email to verify your account.",
-      });
-      
-      // Redirect to verify email page
-      setTimeout(() => {
-        setLocation("/verify-email");
-      }, 500);
-    } catch (err: any) {
-      console.error("Registration error:", err);
-      
-      if (err.message.includes("already registered")) {
-        setError("Email already registered. Please sign in instead.");
-      } else {
-        setError(err.message || "Failed to register. Please try again.");
-      }
+  const { signUp } = useAuth()
+  const [, setLocation] = useLocation()
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
+  const [isInvitation, setIsInvitation] = useState(false)
+  const [invitationOrgId, setInvitationOrgId] = useState<string | null>(null)
+  const setEmail = useVerificationStore(state => state.setEmail)
+  const [formData, setFormData] = useState({
+    email: "",
+    password: "",
+    confirmPassword: "",
+    acceptTerms: false
+  })
+  
+  // Check for invitation parameters in URL
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const invitation = searchParams.get('invitation');
+    const email = searchParams.get('email');
+    const orgId = searchParams.get('organization');
+    
+    if (invitation === 'true' && email && orgId) {
+      setIsInvitation(true);
+      setInvitationOrgId(orgId);
+      setFormData(prev => ({
+        ...prev,
+        email
+      }));
     }
-  };
+  }, []);
 
-  // If registration is complete, don't show form
-  if (registrationComplete) {
-    return (
-      <div className="flex min-h-screen items-center justify-center relative overflow-hidden">
-        <BackgroundPattern />
-        <div className="w-full max-w-md z-10 p-6 bg-white/90 backdrop-blur-sm shadow-xl rounded-xl space-y-6">
-          <div className="text-center">
-            <h1 className="text-2xl font-semibold text-primary">Check Your Email</h1>
-            <p className="text-gray-600 mt-2">
-              We've sent a verification link to your email address.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    try {
+      setLoading(true)
+      setError("")
+
+      if (!formData.email || !formData.password) {
+        throw new Error("All fields are required")
+      }
+
+      if (formData.password !== formData.confirmPassword) {
+        throw new Error("Passwords do not match")
+      }
+
+      if (!formData.acceptTerms) {
+        throw new Error("You must accept the terms and privacy policy")
+      }
+
+      // Store the email in verification store so it can be accessed on the verify page
+      setEmail(formData.email)
+      
+      // If this is from an invitation, store invitation data in localStorage
+      if (isInvitation && invitationOrgId) {
+        localStorage.setItem('invitation', 'true')
+        localStorage.setItem('invitationOrgId', invitationOrgId)
+      }
+
+      await signUp(formData.email, formData.password)
+      setLocation('/verify-email')
+
+    } catch (error: any) {
+      console.error('Registration error:', error)
+      setError(error.message)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center relative overflow-hidden">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-[#f8fafc]">
       <BackgroundPattern />
-      <div className="w-full max-w-md z-10 p-6 bg-white/90 backdrop-blur-sm shadow-xl rounded-xl">
-        <div className="text-center mb-6">
-          <h1 className="text-2xl font-semibold text-primary">Create an Account</h1>
-          <p className="text-gray-600 mt-2">
-            Sign up to start using our platform
+
+      <div className="relative z-10 w-full max-w-md text-center mb-8">
+        <img 
+          src={logo} 
+          alt="Qwenzy" 
+          className="h-8 mx-auto mb-8"
+        />
+      </div>
+
+      <Card className="relative z-10 w-full max-w-md p-8">
+        <div className="text-center mb-8">
+          <h2 className="text-2xl font-semibold text-gray-900">Welcome to Qwenzy!</h2>
+          <p className="text-base text-gray-600 mt-2">
+            Use an organization email and create a password to easily collaborate with teammates
           </p>
         </div>
 
-        <AuthForm mode="register" onSubmit={handleSubmit} error={error} />
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {error && (
+            <div className="p-4 rounded-md bg-red-50 text-red-500 text-sm">
+              {error}
+            </div>
+          )}
 
-        <p className="text-center mt-4 text-sm">
-          Already have an account?{" "}
-          <Link href="/login" className="text-primary font-medium hover:underline">
-            Sign in
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <Input
+                type="email"
+                placeholder="example@company.com"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                className="h-12 px-4 rounded-md border-gray-200 focus:border-[#407c87] focus:ring-[#407c87]"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Enter password</label>
+              <Input
+                type="password"
+                placeholder="••••••••••"
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                className="h-12 px-4 rounded-md border-gray-200 focus:border-[#407c87] focus:ring-[#407c87]"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+              <Input
+                type="password"
+                placeholder="••••••••••"
+                value={formData.confirmPassword}
+                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                className="h-12 px-4 rounded-md border-gray-200 focus:border-[#407c87] focus:ring-[#407c87]"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2 mt-6">
+            <Checkbox
+              id="terms"
+              checked={formData.acceptTerms}
+              onCheckedChange={(checked) => 
+                setFormData({ ...formData, acceptTerms: checked as boolean })
+              }
+              className="border-gray-300 rounded"
+            />
+            <label htmlFor="terms" className="text-sm text-gray-600">
+              I agree to{" "}
+              <Link href="/privacy" className="text-[#407c87] hover:text-[#386d77] font-medium">
+                privacy policy
+              </Link>
+              {" & "}
+              <Link href="/terms" className="text-[#407c87] hover:text-[#386d77] font-medium">
+                terms
+              </Link>
+            </label>
+          </div>
+
+          <Button
+            type="submit"
+            className="w-full h-12 bg-[#407c87] hover:bg-[#386d77] text-white font-medium rounded-md mt-6"
+            disabled={loading}
+          >
+            Sign up
+          </Button>
+        </form>
+
+        <div className="mt-6 text-sm text-center">
+          <span className="text-gray-600">Already have an account? </span>
+          <Link href="/login" className="text-[#407c87] hover:text-[#386d77] font-medium">
+            Log in
           </Link>
-        </p>
-      </div>
+        </div>
+      </Card>
     </div>
-  );
+  )
 }

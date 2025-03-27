@@ -1,26 +1,15 @@
-import { useEffect, useState } from "react";
-import { Link, useLocation } from "wouter";
-import { useAuth } from "@/hooks/use-auth";
-import { AuthForm } from "@/components/auth-form";
-import { BackgroundPattern } from "@/components/background-pattern";
+import { useAuth } from "@/hooks/use-auth"
+import { AuthForm } from "@/components/auth-form"
+import { Link, useLocation } from "wouter"
+import { Card } from "@/components/ui/card"
+import logo from "../assets/logo.png"
+import { BackgroundPattern } from "@/components/background-pattern"
+import { useEffect, useState } from "react"
 
 export default function Login() {
-  const { user, loading, signIn } = useAuth();
-  const [, setLocation] = useLocation();
-  const [error, setError] = useState("");
-  
-  // Check for invitation parameters
-  useEffect(() => {
-    // We don't need to store these here - they'll be handled by useAuth after login
-    // We just log them for debugging purposes
-    const searchParams = new URLSearchParams(window.location.search);
-    const invitation = searchParams.get('invitation');
-    const orgId = searchParams.get('organization');
-
-    if (invitation === 'true' && orgId) {
-      console.log("[LoginPage] Invitation detected:", { orgId });
-    }
-  }, []);
+  const { signIn, user, loading } = useAuth()
+  const [, setLocation] = useLocation()
+  const [error, setError] = useState<string>("")
 
   useEffect(() => {
     console.log("[LoginPage] Page mounted, auth state:", {
@@ -35,44 +24,73 @@ export default function Login() {
     }
   }, [user, setLocation])
 
-  const handleSubmit = async (data: { email: string; password: string }) => {
-    try {
-      setError("");
-      await signIn(data.email, data.password);
-      // Don't redirect here - let the useAuth hook handle it based on invitation status
-    } catch (err: any) {
-      console.error("Login error:", err);
-      setError(err.message || "Invalid email or password");
+  const handleLogin = async ({ email, password }: { email: string; password: string }) => {
+    if (loading) {
+      console.log("[LoginPage] Login attempted while loading, ignoring")
+      return
     }
-  };
+
+    try {
+      setError("")
+      console.log("[LoginPage] Login attempt started:", {
+        email,
+        timestamp: new Date().toISOString()
+      })
+
+      if (!email || !password) {
+        throw new Error("Email and password are required")
+      }
+
+      console.log("[LoginPage] Calling signIn function")
+      await signIn(email, password)
+
+    } catch (error: any) {
+      console.error("[LoginPage] Login error:", {
+        message: error.message,
+        code: error.code,
+        status: error.status,
+        timestamp: new Date().toISOString()
+      })
+
+      if (error.message.includes('not registered')) {
+        setError("User not allowed")
+      } else if (error.message.includes('incorrect')) {
+        setError("Login failed")
+      } else {
+        setError(error.message)
+      }
+    }
+  }
 
   return (
-    <div className="flex min-h-screen items-center justify-center relative overflow-hidden">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-[#f8fafc]">
       <BackgroundPattern />
-      <div className="w-full max-w-md z-10 p-6 bg-white/90 backdrop-blur-sm shadow-xl rounded-xl">
-        <div className="text-center mb-6">
-          <h1 className="text-2xl font-semibold text-primary">Welcome Back</h1>
-          <p className="text-gray-600 mt-2">
-            Sign in to your account to continue
-          </p>
-        </div>
 
-        <AuthForm mode="login" onSubmit={handleSubmit} error={error} />
-
-        <div className="mt-6 space-y-2">
-          <p className="text-center text-sm">
-            <Link href="/forgot-password" className="text-primary font-medium hover:underline">
-              Forgot your password?
-            </Link>
-          </p>
-          <p className="text-center text-sm">
-            Don't have an account?{" "}
-            <Link href="/register" className="text-primary font-medium hover:underline">
-              Sign up
-            </Link>
-          </p>
-        </div>
+      <div className="relative z-10 w-full max-w-md text-center mb-8">
+        <img 
+          src={logo} 
+          alt="Qwenzy" 
+          className="h-8 mx-auto mb-8"
+        />
       </div>
+
+      <Card className="relative z-10 w-full max-w-md p-8">
+        <div className="text-center mb-8">
+          <h2 className="text-2xl font-semibold text-gray-900">Welcome back!</h2>
+          <p className="text-base text-gray-600 mt-2">
+            Please sign in to your account
+          </p>
+        </div>
+
+        <AuthForm mode="login" onSubmit={handleLogin} error={error} />
+
+        <div className="mt-6 text-sm text-center">
+          <span className="text-gray-600">New on our platform?</span>{" "}
+          <Link href="/register" className="text-[#407c87] hover:text-[#386d77] font-medium">
+            Create an account
+          </Link>
+        </div>
+      </Card>
     </div>
-  );
+  )
 }
