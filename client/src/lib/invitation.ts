@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase } from "@/lib/supabase";
 
 // Get deployment URL using Replit domain
 const getDeploymentUrl = () => {
