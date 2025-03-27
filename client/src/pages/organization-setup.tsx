@@ -10,9 +10,9 @@ export default function OrganizationSetup() {
   const [invitationOrgId, setInvitationOrgId] = useState<string | null>(null);
   const [location] = useLocation();
 
-  // Check for invitation parameters in URL or local storage
+  // Check for invitation parameters in URL
   useEffect(() => {
-    // Check URL query parameters first
+    // Check URL query parameters
     const searchParams = new URLSearchParams(window.location.search);
     const invitation = searchParams.get('invitation');
     const orgId = searchParams.get('organization');
@@ -20,19 +20,6 @@ export default function OrganizationSetup() {
     if (invitation === 'true' && orgId) {
       setIsInvitation(true);
       setInvitationOrgId(orgId);
-    } else {
-      // Then check local storage
-      const hasInvitation = localStorage.getItem('invitation') === 'true';
-      const storedOrgId = localStorage.getItem('invitationOrgId');
-      
-      if (hasInvitation && storedOrgId) {
-        setIsInvitation(true);
-        setInvitationOrgId(storedOrgId);
-        
-        // Clear the invitation data from local storage so it doesn't persist
-        localStorage.removeItem('invitation');
-        localStorage.removeItem('invitationOrgId');
-      }
     }
   }, [location]);
 
