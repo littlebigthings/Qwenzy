@@ -1,9 +1,16 @@
-/**
- * Invitation Handler
- * Functions for managing user invitations to organizations
- */
+import { supabase } from './supabase';
 
-import { supabase } from "./supabase";
+// Get deployment URL using Replit domain
+const getDeploymentUrl = () => {
+  if (typeof window === "undefined") return "localhost";
+
+  // Check if we're on Replit deployment
+  if (window.location.hostname.endsWith(".replit.app")) {
+    return window.location.origin;
+  } else {
+    return "http://localhost:3000";
+  }
+};
 
 /**
  * Sends an invitation email to the specified email address
@@ -16,7 +23,7 @@ import { supabase } from "./supabase";
  * @returns Promise resolving to success or error
  */
 export async function sendInvitationEmail(
-  email: string,
+  email: string, 
   organizationName: string,
   inviterName: string,
   inviterEmail: string,
@@ -24,55 +31,45 @@ export async function sendInvitationEmail(
   inviterId?: string
 ) {
   try {
-    // Check if an invitation already exists for this email and organization
-    const { data: existingInvitations, error: checkError } = await supabase
-      .from('invitations')
-      .select('id')
-      .eq('email', email)
-      .eq('organization_id', organizationId)
-      .eq('accepted', false);
-      
-    if (checkError) {
-      console.error("Error checking existing invitations:", checkError);
-      return { success: false, error: checkError.message };
-    }
+    const deploymentUrl = getDeploymentUrl();
+    // Include inviter ID if available, otherwise mark as 'none'
+    const inviterParam = inviterId ? inviterId : 'none';
+    const signupUrl = `${deploymentUrl}/register?invitation=true&organization=${organizationId}&ib=${inviterParam}&email=${encodeURIComponent(email)}`;
     
-    // If invitation already exists, don't create a new one
-    if (existingInvitations && existingInvitations.length > 0) {
-      console.log("Invitation already exists for this email and organization");
-      return { success: true };
-    }
-    
-    // Store invitation in database
+    // First, save the invitation to the database
     const { error: insertError } = await supabase
-      .from('invitations')
+      .from("invitations")
       .insert({
-        email,
         organization_id: organizationId,
+        email: email,
         invited_by: inviterEmail,
-        invited_by_user_id: inviterId,
+        auto_join: true,
         accepted: false
       });
       
     if (insertError) {
-      console.error("Error storing invitation:", insertError);
-      return { success: false, error: insertError.message };
+      console.error("Error inserting invitation:", insertError);
+      // Continue anyway to try sending email
     }
     
-    // Generate invitation URL
-    const invitationUrl = `${window.location.origin}/register?invitation=true&organization=${organizationId}&ib=${inviterId || 'none'}`;
+    // Since we don't have a dedicated email service set up, we'll use Supabase Auth's password reset
+    // functionality as a way to send emails with custom links to our users
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: signupUrl
+    });
     
-    // TODO: In a real application, would call an API to send the email
-    // For demo purposes, log the invitation URL
-    console.log("Invitation URL:", invitationUrl);
-    console.log("Would send email to:", email);
-    console.log("From:", inviterEmail);
-    console.log("Organization:", organizationName);
+    if (error) {
+      console.log(error.message);
+      throw new Error(error.message);
+    }
     
     return { success: true };
   } catch (error: any) {
-    console.error("Error sending invitation:", error);
-    return { success: false, error: error.message };
+    console.error("Error sending invitation email:", error);
+    return { 
+      success: false, 
+      error: error.message || "Failed to send invitation email. Please try again later."
+    };
   }
 }
 
@@ -90,17 +87,16 @@ export async function checkInvitation(email: string, organizationId: string) {
       .eq('email', email)
       .eq('organization_id', organizationId)
       .eq('accepted', false)
-      .maybeSingle();
+      .single();
     
     if (error) {
-      console.error("Error checking invitation:", error);
-      return false;
+      return { exists: false };
     }
     
-    return !!data;
+    return { exists: true, invitation: data };
   } catch (error) {
     console.error("Error checking invitation:", error);
-    return false;
+    return { exists: false };
   }
 }
 
@@ -119,14 +115,13 @@ export async function markInvitationAsAccepted(email: string, organizationId: st
       .eq('organization_id', organizationId);
     
     if (error) {
-      console.error("Error marking invitation as accepted:", error);
-      return { error: error.message };
+      throw new Error(error.message);
     }
     
     return { success: true };
   } catch (error: any) {
     console.error("Error marking invitation as accepted:", error);
-    return { error: error.message };
+    return { success: false, error: error.message };
   }
 }
 
@@ -139,25 +134,18 @@ export async function getInviterInfo(userId: string) {
   try {
     const { data, error } = await supabase
       .from('profiles')
-      .select('email, full_name')
+      .select('email')
       .eq('user_id', userId)
       .single();
     
     if (error) {
-      console.error("Error getting inviter info:", error);
-      return { error: error.message };
+      throw new Error(error.message);
     }
     
-    return { 
-      success: true, 
-      data: {
-        email: data.email,
-        name: data.full_name
-      }
-    };
+    return { success: true, email: data?.email };
   } catch (error: any) {
     console.error("Error getting inviter info:", error);
-    return { error: error.message };
+    return { success: false, error: error.message };
   }
 }
 
@@ -173,15 +161,15 @@ export async function addInvitation(email: string, organizationId: string, invit
     const { error } = await supabase
       .from('invitations')
       .insert({
-        email,
         organization_id: organizationId,
+        email: email,
         invited_by: invitedBy,
+        auto_join: true,
         accepted: false
       });
     
     if (error) {
-      console.error("Error adding invitation:", error);
-      return { success: false, error: error.message };
+      throw new Error(error.message);
     }
     
     return { success: true };
@@ -217,57 +205,5 @@ export async function checkUserInvitations(email: string) {
   } catch (error) {
     console.error("Error checking user invitations:", error);
     return { hasInvitation: false };
-  }
-}
-
-/**
- * Add user to an organization they were invited to
- * @param userId User ID to add to organization
- * @param organizationId Organization ID to add the user to
- * @param email User's email to mark invitation as accepted
- * @returns Promise resolving to success or error
- */
-export async function joinInvitedOrganization(userId: string, organizationId: string, email: string) {
-  try {
-    // First check if the user is already a member
-    const { data: existingMembership, error: checkError } = await supabase
-      .from('organization_members')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('organization_id', organizationId)
-      .maybeSingle();
-      
-    if (checkError) {
-      console.error("Error checking existing membership:", checkError);
-      return { success: false, error: checkError.message };
-    }
-    
-    // If not a member, add them
-    if (!existingMembership) {
-      const { error: insertError } = await supabase
-        .from('organization_members')
-        .insert({
-          user_id: userId,
-          organization_id: organizationId,
-          role: "member"
-        });
-        
-      if (insertError) {
-        console.error("Error creating membership:", insertError);
-        return { success: false, error: insertError.message };
-      }
-    }
-    
-    // Mark invitation as accepted
-    const { error: updateError } = await markInvitationAsAccepted(email, organizationId);
-    
-    if (updateError) {
-      return { success: false, error: updateError };
-    }
-    
-    return { success: true };
-  } catch (error: any) {
-    console.error("Error joining organization:", error);
-    return { success: false, error: error.message };
   }
 }

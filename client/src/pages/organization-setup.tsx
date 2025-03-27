@@ -11,9 +11,9 @@ export default function OrganizationSetup() {
   const [invitationOrgId, setInvitationOrgId] = useState<string | null>(null);
   const [location] = useLocation();
 
-  // Check for invitation parameters in URL
+  // Check for invitation parameters in URL or localStorage
   useEffect(() => {
-    // Check URL query parameters
+    // Check URL query parameters first
     const searchParams = new URLSearchParams(window.location.search);
     const invitation = searchParams.get('invitation');
     const orgId = searchParams.get('organization');
@@ -21,41 +21,22 @@ export default function OrganizationSetup() {
     if (invitation === 'true' && orgId) {
       setIsInvitation(true);
       setInvitationOrgId(orgId);
+    } else {
+      // Then check localStorage for invitation data (set by verify-email.tsx)
+      const storedInvitation = localStorage.getItem('invitation');
+      const storedOrgId = localStorage.getItem('invitationOrgId');
+      
+      if (storedInvitation === 'true' && storedOrgId) {
+        console.log("Found invitation in localStorage:", storedOrgId);
+        setIsInvitation(true);
+        setInvitationOrgId(storedOrgId);
+        
+        // Clear localStorage after reading to prevent persistence after onboarding
+        localStorage.removeItem('invitation');
+        localStorage.removeItem('invitationOrgId');
+      }
     }
   }, [location]);
-  
-  // Check if user has any active invitations in the database
-  useEffect(() => {
-    const checkUserInvitations = async () => {
-      if (!user || isInvitation) return; // Skip if we already have invitation from URL or if no user
-      
-      try {
-        // Query invitations table for the user's email
-        const { data: invitations, error } = await supabase
-          .from('invitations')
-          .select('organization_id')
-          .eq('email', user.email)
-          .eq('accepted', false)
-          .limit(1);
-          
-        if (error) {
-          console.error("Error checking user invitations:", error);
-          return;
-        }
-        
-        // If there's an invitation, set the state
-        if (invitations && invitations.length > 0) {
-          console.log("Found invitation in database:", invitations[0].organization_id);
-          setIsInvitation(true);
-          setInvitationOrgId(invitations[0].organization_id);
-        }
-      } catch (error) {
-        console.error("Error in invitation check:", error);
-      }
-    };
-    
-    checkUserInvitations();
-  }, [user, isInvitation]);
 
   useEffect(() => {
     const checkOrganizationMembership = async () => {
@@ -96,7 +77,7 @@ export default function OrganizationSetup() {
     };
 
     checkOrganizationMembership();
-  }, [user, setHasOrganization, isInvitation, invitationOrgId]);
+  }, [user, setHasOrganization]);
 
   if (!user) {
     return <Redirect to="/login" />
