@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/use-auth"
 import { OnboardingFlow } from "@/components/onboarding-flow"
 import { Redirect, useLocation } from "wouter"
 import { supabase } from "@/lib/supabase"
-import { markInvitationAsAccepted } from "@/lib/invitation-handler"
+import { markInvitationAsAccepted, checkUserInvitations } from "@/lib/invitation-handler"
 
 export default function OrganizationSetup() {
   const { user, hasOrganization, setHasOrganization } = useAuth()
@@ -11,32 +11,38 @@ export default function OrganizationSetup() {
   const [invitationOrgId, setInvitationOrgId] = useState<string | null>(null);
   const [location] = useLocation();
 
-  // Check for invitation parameters in URL or localStorage
+  // Check for invitation parameters in URL and DB
   useEffect(() => {
-    // Check URL query parameters first
-    const searchParams = new URLSearchParams(window.location.search);
-    const invitation = searchParams.get('invitation');
-    const orgId = searchParams.get('organization');
-    
-    if (invitation === 'true' && orgId) {
-      setIsInvitation(true);
-      setInvitationOrgId(orgId);
-    } else {
-      // Then check localStorage for invitation data (set by verify-email.tsx)
-      const storedInvitation = localStorage.getItem('invitation');
-      const storedOrgId = localStorage.getItem('invitationOrgId');
+    const checkInvitations = async () => {
+      // First check URL query parameters 
+      const searchParams = new URLSearchParams(window.location.search);
+      const invitation = searchParams.get('invitation');
+      const orgId = searchParams.get('organization');
       
-      if (storedInvitation === 'true' && storedOrgId) {
-        console.log("Found invitation in localStorage:", storedOrgId);
+      if (invitation === 'true' && orgId) {
         setIsInvitation(true);
-        setInvitationOrgId(storedOrgId);
-        
-        // Clear localStorage after reading to prevent persistence after onboarding
-        localStorage.removeItem('invitation');
-        localStorage.removeItem('invitationOrgId');
+        setInvitationOrgId(orgId);
+        return;
       }
-    }
-  }, [location]);
+      
+      // If not in URL, check if user has active invitations in DB
+      if (user?.email) {
+        try {
+          const invitationInfo = await checkUserInvitations(user.email);
+          
+          if (invitationInfo && invitationInfo.organizationId) {
+            console.log("Found user invitation in database:", invitationInfo.organizationId);
+            setIsInvitation(true);
+            setInvitationOrgId(invitationInfo.organizationId);
+          }
+        } catch (error) {
+          console.error("Error checking user invitations:", error);
+        }
+      }
+    };
+    
+    checkInvitations();
+  }, [location, user]);
 
   useEffect(() => {
     const checkOrganizationMembership = async () => {

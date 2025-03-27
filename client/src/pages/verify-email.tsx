@@ -52,9 +52,8 @@ export default function VerifyEmail() {
             console.log("Found invitation, marking as accepted");
             await markInvitationAsAccepted(user.email, invitationOrgId);
             
-            // Store the invitation data in localStorage for the onboarding flow
-            localStorage.setItem('invitation', 'true');
-            localStorage.setItem('invitationOrgId', invitationOrgId);
+            // We don't need to store in localStorage - we'll verify from DB directly
+            console.log("Invitation accepted, will be verified from DB in onboarding flow");
             
             toast({
               title: "Invitation Accepted",
