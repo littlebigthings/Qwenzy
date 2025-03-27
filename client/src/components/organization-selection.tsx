@@ -16,7 +16,7 @@ type Organization = {
 };
 
 export function OrganizationSelection() {
-  const [, setLocation] = useLocation();
+  const [, navigate] = useLocation();
   const { user } = useAuth();
   const [domain, setDomain] = useState<string>("");
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -81,12 +81,13 @@ export function OrganizationSelection() {
   }, [user]);
 
   const handleCreateOrganization = () => {
-    setLocation("/organization-setup");
+    console.log("Navigating to organization setup");
+    navigate("/organization-setup");
   };
 
   const handleSelectOrganization = (orgId: string) => {
     // Set selected organization and navigate to the dashboard
-    setLocation("/"); 
+    navigate("/"); 
   };
 
   return (
@@ -149,7 +150,7 @@ export function OrganizationSelection() {
                 </div>
               ) : !loading ? (
                 <div className="p-4 text-center text-slate-500 text-sm">
-                  <p>We couldn't find any existing workspaces for the email address <span className="font-medium">{user?.email}</span>.</p>
+                  <p>We couldn't find any existing workspaces for the email domain <span className="font-medium">{domain}</span>.</p>
                 </div>
               ) : (
                 <div className="p-4 text-center text-slate-500 text-sm">
