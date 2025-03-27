@@ -677,15 +677,15 @@ export function OnboardingFlow({
 
   // Upload file to Supabase storage
   // Function to get invitation URL
-  const getInvitationUrl = () => {
+  const getInvitationUrl = (id: string | undefined) => {
     if (!organization) return "";
     const deploymentUrl = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
-    return `${deploymentUrl}/register?invitation=true&organization=${organization.id}`;
+    return `${deploymentUrl}/register?invitation=true&organization=${organization.id}&ib=${id}`;
   };
 
   // Function to copy invitation link
   const copyInvitationLink = () => {
-    const url = getInvitationUrl();
+    const url = getInvitationUrl(user?.id);
     navigator.clipboard.writeText(url).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
