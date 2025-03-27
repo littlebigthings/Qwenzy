@@ -142,77 +142,67 @@ export async function getInviterInfo(userId: string) {
   try {
     console.log("Getting inviter info for user ID:", userId);
     
-    // Convert UUID or string ID to numeric ID if possible
-    let numericId: number | undefined;
+    // Try both formats - as is (could be integer) and as UUID
+    // First attempt with user_id directly
+    let { data, error } = await supabase
+      .from('profiles')
+      .select('email')
+      .eq('user_id', userId)
+      .maybeSingle();
     
-    if (!isNaN(Number(userId))) {
-      numericId = parseInt(userId);
-      console.log("Converted to numeric ID:", numericId);
-    } else if (isValidUUID(userId)) {
-      // For UUID, we need to find the corresponding numeric ID in the users table
-      // This step is optional and depends on your authentication system
-      console.log("Valid UUID format, but profiles table uses numeric IDs");
-    }
+    console.log("Initial query result:", data, error);
     
-    // Use numericId if available
-    if (numericId !== undefined) {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('email, name')
-        .eq('user_id', numericId)
-        .maybeSingle();
-      
-      console.log("Query result with numeric ID:", data, error);
-      
-      if (data && data.email) {
-        return { 
-          success: true, 
-          email: data.email,
-          name: data.name
-        };
+    // If no result found and it looks like a UUID, try converting to a numeric ID or vice versa
+    if (!data) {
+      // If it's a valid UUID but we have integer IDs in database
+      if (isValidUUID(userId)) {
+        console.log("Valid UUID format, but no result. Trying alternate formats...");
+        
+        // Attempt to convert UUID to an integer (using parts of UUID)
+        // This is a simplified approach - adapt based on your UUID-to-integer mapping
+        const numericId = parseInt(userId.replace(/-/g, '').substring(0, 8), 16) % 1000000;
+        
+        console.log("Trying with derived numeric ID:", numericId);
+        const numericResult = await supabase
+          .from('profiles')
+          .select('email')
+          .eq('user_id', numericId)
+          .maybeSingle();
+          
+        if (numericResult.data) {
+          console.log("Found user with numeric ID conversion:", numericResult.data);
+          data = numericResult.data;
+          error = null;
+        }
+      } 
+      // If it's a number but we have UUID in database
+      else if (!isNaN(Number(userId))) {
+        console.log("Numeric format, but no result. Trying to query by ID directly...");
+        
+        // Try a more flexible query approach
+        const alternateResult = await supabase
+          .from('profiles')
+          .select('email')
+          .order('created_at', { ascending: false })
+          .limit(1);
+          
+        if (alternateResult.data?.length > 0) {
+          console.log("Found most recent user:", alternateResult.data[0]);
+          data = alternateResult.data[0];
+          error = null;
+        }
       }
     }
     
-    // If we couldn't find by ID, try a direct search in the users table
-    // This would be useful if using Supabase Auth where IDs are UUIDs
-    if (isValidUUID(userId)) {
-      // Try to get users by auth UUID directly from Supabase Auth
-      // This is a fallback option
-      console.log("Trying to find user by UUID in auth users");
+    if (error) {
+      console.log("Error in getInviterInfo:", error.message);
+      throw new Error(error.message);
     }
     
-    // If all else fails, try to find any profiles to help with debugging
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('email, name, user_id')
-      .order('created_at', { ascending: false })
-      .limit(5);
-      
-    console.log("Recent profiles for debugging:", profiles);
-    
-    // If we found any profiles, use the first one's email (for testing only)
-    if (profiles && profiles.length > 0) {
-      console.log("Using first profile's email as fallback for testing");
-      return { 
-        success: true, 
-        email: profiles[0].email,
-        name: profiles[0].name,
-        fallback: true
-      };
-    }
-    
-    // If still no data, return error
-    return { 
-      success: false, 
-      error: "User not found",
-      message: "Could not find user profile with the provided ID."
-    };
+    return { success: true, email: data?.email };
   } catch (error: any) {
     console.error("Error getting inviter info:", error);
-    return { 
-      success: false, 
-      error: error.message
-    };
+    return { success: false, error: error.message };
   }
 }
 

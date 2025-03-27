@@ -12,7 +12,6 @@ import ForgotPassword from "@/pages/forgot-password"
 import Home from "@/pages/home"
 import OrganizationSetup from "@/pages/organization-setup"
 import ProfileSetup from "@/pages/profile-setup"
-import TestInvitation from "@/pages/test-invitation"
 import { Protected } from "@/layouts/protected"
 
 function Router() {
@@ -21,7 +20,6 @@ function Router() {
       {/* Public routes */}
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
-      <Route path="/test-invitation" component={TestInvitation} />
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/reset-password" component={ResetPassword} />
       <Route path="/verify-email" component={VerifyEmail} />
