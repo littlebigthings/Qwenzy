@@ -1,3 +1,7 @@
+#!/bin/bash
+
+# Create a new version of onboarding-flow.tsx
+cat > temp/new-onboarding-flow.tsx << 'ONBOARDINGFLOW'
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -1246,3 +1250,8 @@ export function OnboardingFlow({
     </div>
   );
 }
+ONBOARDINGFLOW
+
+# Copy the file to the correct location
+cp temp/new-onboarding-flow.tsx client/src/components/onboarding-flow.tsx
+

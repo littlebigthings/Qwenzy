@@ -1,3 +1,7 @@
+#!/bin/bash
+
+# Create a new version of organization-setup.tsx
+cat > temp/new-organization-setup.tsx << 'SETUP'
 import { useEffect, useState } from "react"
 import { useAuth } from "@/hooks/use-auth"
 import { OnboardingFlow } from "@/components/onboarding-flow"
@@ -104,3 +108,8 @@ export default function OrganizationSetup() {
 
   return <OnboardingFlow isInvitation={isInvitation} invitationOrgId={invitationOrgId} />
 }
+SETUP
+
+# Copy the file to the correct location
+cp temp/new-organization-setup.tsx client/src/pages/organization-setup.tsx
+

@@ -1,0 +1,1 @@
+  // No longer checking localStorage - we'll get invitation data directly from props

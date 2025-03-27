@@ -1,3 +1,7 @@
+#!/bin/bash
+
+# Create a new version of invitation-handler.ts
+cat > temp/new-invitation-handler.ts << 'INVITATIONHANDLER'
 /**
  * Invitation Handler
  * Functions for managing user invitations to organizations
@@ -271,3 +275,8 @@ export async function joinInvitedOrganization(userId: string, organizationId: st
     return { success: false, error: error.message };
   }
 }
+INVITATIONHANDLER
+
+# Copy the file to the correct location
+cp temp/new-invitation-handler.ts client/src/lib/invitation-handler.ts
+

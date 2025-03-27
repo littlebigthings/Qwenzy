@@ -1,3 +1,7 @@
+#!/bin/bash
+
+# Create a new version of verify-email.tsx
+cat > temp/new-verify-email.tsx << 'VERIFYEMAIL'
 import { useEffect, useState } from "react"
 import { Link, useLocation } from "wouter"
 import logo from "../assets/logo.png"
@@ -152,3 +156,8 @@ export default function VerifyEmail() {
     </div>
   )
 }
+VERIFYEMAIL
+
+# Copy the file to the correct location
+cp temp/new-verify-email.tsx client/src/pages/verify-email.tsx
+
