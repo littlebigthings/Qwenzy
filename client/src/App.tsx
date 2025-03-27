@@ -12,6 +12,7 @@ import ForgotPassword from "@/pages/forgot-password"
 import Home from "@/pages/home"
 import OrganizationSetup from "@/pages/organization-setup"
 import ProfileSetup from "@/pages/profile-setup"
+import OrganizationSelection from "@/pages/organization-selection"
 import { Protected } from "@/layouts/protected"
 
 function Router() {
@@ -25,6 +26,12 @@ function Router() {
       <Route path="/verify-email" component={VerifyEmail} />
 
       {/* Protected routes */}
+      <Route path="/organization-selection">
+        <Protected>
+          <OrganizationSelection />
+        </Protected>
+      </Route>
+
       <Route path="/organization-setup">
         <Protected>
           <OrganizationSetup />

@@ -30,10 +30,12 @@ export function Protected({ children }: ProtectedProps) {
 
   // Handle organization setup routing
   if (!hasOrganization) {
-    if (location !== '/organization-setup') {
-      return <Redirect to="/organization-setup" />
+    // If not on organization selection or setup page, redirect to organization selection
+    if (location !== '/organization-selection' && location !== '/organization-setup') {
+      return <Redirect to="/organization-selection" />
     }
-  } else if (location === '/organization-setup') {
+  } else if (location === '/organization-selection') {
+    // If user already has an organization and is on organization selection page, redirect to home
     return <Redirect to="/" />
   }
 
