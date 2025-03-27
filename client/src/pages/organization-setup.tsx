@@ -7,6 +7,7 @@ import { markInvitationAsAccepted, checkUserInvitations } from "@/lib/invitation
 
 export default function OrganizationSetup() {
   const { user, hasOrganization, setHasOrganization } = useAuth()
+  console.log(user);
   const [isInvitation, setIsInvitation] = useState(false);
   const [invitationOrgId, setInvitationOrgId] = useState<string | null>(null);
   const [location] = useLocation();
@@ -29,7 +30,7 @@ export default function OrganizationSetup() {
       if (user?.email) {
         try {
           const invitationInfo = await checkUserInvitations(user.email);
-          
+          console.log(invitationInfo);
           if (invitationInfo && invitationInfo.organizationId) {
             console.log("Found user invitation in database:", invitationInfo.organizationId);
             setIsInvitation(true);
@@ -88,6 +89,5 @@ export default function OrganizationSetup() {
   if (!user) {
     return <Redirect to="/login" />
   }
-
   return <OnboardingFlow isInvitation={isInvitation} invitationOrgId={invitationOrgId} />
 }

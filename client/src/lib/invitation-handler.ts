@@ -145,28 +145,19 @@ export async function getInviterInfo(userId: string) {
       console.error("Invalid UUID format for user ID:", userId);
       return { success: false, error: "Invalid user ID format" };
     }
-    
-    console.log("Looking up user with ID:", userId);
-    
-    // Query all profiles
+    console.log(userId);
     const { data, error } = await supabase
       .from('profiles')
-      .select('*');
-      
-    console.log("All profiles:", data);
-    
+      .select('email')
+      .eq('user_id', userId)
+      .maybeSingle();
+    console.log(data);
     if (error) {
-      console.log("Error querying profiles:", error.message);
+      console.log(error.message);
       throw new Error(error.message);
     }
-    
-    if (data && data.length > 0) {
-      // Just use the first profile for now as a fallback
-      console.log("Using first profile's email:", data[0].email);
-      return { success: true, email: data[0].email };
-    }
-    
-    return { success: false, error: "No profiles found" };
+
+    return { success: true, email: data?.email };
   } catch (error: any) {
     console.error("Error getting inviter info:", error);
     return { success: false, error: error.message };
@@ -220,7 +211,6 @@ export async function checkUserInvitations(email: string) {
       .from('invitations')
       .select('organization_id, invited_by')
       .eq('email', email)
-      .eq('accepted', false)
       .limit(1);
     
     if (error || !data || data.length === 0) {

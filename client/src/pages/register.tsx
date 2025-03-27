@@ -49,80 +49,79 @@ export default function Register() {
   }, []);
   
   // Handle case when user is invited by another user (with user ID)
-  useEffect(() => {
-    const handleInviterLookup = async () => {
+const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    try {
+      setLoading(true);
+      setError("");
+
+      if (!formData.email || !formData.password) {
+        throw new Error("All fields are required");
+      }
+
+      if (formData.password !== formData.confirmPassword) {
+        throw new Error("Passwords do not match");
+      }
+
+      if (!formData.acceptTerms) {
+        throw new Error("You must accept the terms and privacy policy");
+      }
+
+      // Store the email in verification store so it can be accessed on the verify page
+      setEmail(formData.email);
+
+      // Run inviter lookup only when submitting the form
       if (isInvitation && invitationOrgId && inviterId && formData.email) {
         try {
           console.log("Looking up inviter profile for ID:", inviterId);
-          
+
           // Get inviter's email using helper function
           const inviterResponse = await getInviterInfo(inviterId);
-            
+
           if (!inviterResponse.success) {
             console.error("Error fetching inviter info:", inviterResponse.error);
-            return;
+            throw new Error("Failed to fetch inviter info");
           }
-          
+
           const inviterEmail = inviterResponse.email;
           if (inviterEmail) {
             console.log("Found inviter email:", inviterEmail);
-            
+
             // Add invitation to database using helper function
             const addResult = await addInvitation(formData.email, invitationOrgId, inviterEmail);
-            
+
             if (!addResult.success) {
               console.error("Error creating invitation:", addResult.error);
+              throw new Error("Failed to create invitation");
             } else {
               console.log("Created/updated invitation in database");
             }
           }
         } catch (error) {
           console.error("Error in inviter lookup:", error);
+          throw new Error("Error processing invitation");
         }
       }
-    };
-    
-    handleInviterLookup();
-  }, [isInvitation, invitationOrgId, inviterId, formData.email]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+      // Sign up the user
+      await signUp(formData.email, formData.password);
 
-    try {
-      setLoading(true)
-      setError("")
-
-      if (!formData.email || !formData.password) {
-        throw new Error("All fields are required")
-      }
-
-      if (formData.password !== formData.confirmPassword) {
-        throw new Error("Passwords do not match")
-      }
-
-      if (!formData.acceptTerms) {
-        throw new Error("You must accept the terms and privacy policy")
-      }
-
-      // Store the email in verification store so it can be accessed on the verify page
-      setEmail(formData.email)
-      
-      await signUp(formData.email, formData.password)
-      
-      // Pass invitation parameters directly in the URL
+      // Redirect based on invitation status
       if (isInvitation && invitationOrgId) {
-        setLocation(`/verify-email?invitation=true&organization=${invitationOrgId}`)
+        setLocation(`/verify-email?invitation=true&organization=${invitationOrgId}`);
       } else {
-        setLocation('/verify-email')
+        setLocation('/verify-email');
       }
 
     } catch (error: any) {
-      console.error('Registration error:', error)
-      setError(error.message)
+      console.error("Registration error:", error);
+      setError(error.message);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
+
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-[#f8fafc]">
