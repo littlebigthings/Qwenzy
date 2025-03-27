@@ -286,7 +286,8 @@ export function OnboardingFlow({
             .insert({
               user_id: user.id,
               organization_id: invitationOrgId,
-              role: "member"
+              role: "member",
+              is_owner: false
             });
               
           if (insertError) {
@@ -545,15 +546,29 @@ export function OnboardingFlow({
           }
         }
         
-        await saveProgress(isInvitation ? "workspace" : "invite", newCompleted);
-        
-        toast({
-          title: "Success",
-          description: "Profile updated successfully!",
-        });
-        
-        // Only move to next step if this was the first time completing
-        moveToNextStep();
+        if (isInvitation) {
+          // For invited users, go directly to home page after profile setup
+          await saveProgress("completed", newCompleted);
+          
+          toast({
+            title: "Success",
+            description: "Profile setup complete! Taking you to the dashboard.",
+          });
+          
+          // Navigate directly to home page
+          setLocation("/");
+        } else {
+          // For regular users, continue to next step
+          await saveProgress("invite", newCompleted);
+          
+          toast({
+            title: "Success",
+            description: "Profile updated successfully!",
+          });
+          
+          // Only move to next step if this was the first time completing
+          moveToNextStep();
+        }
       } else {
         toast({
           title: "Success",
@@ -778,8 +793,8 @@ export function OnboardingFlow({
         <div className="bg-gray-50 p-6 border-r">
           <div className="space-y-2">
             {steps
-              // Filter steps for invited users - only show profile and workspace steps
-              .filter(step => !isInvitation || (step.id !== "organization" && step.id !== "invite"))
+              // For invited users, only show profile step
+              .filter(step => !isInvitation || (step.id === "profile"))
               .map((step, index) => {
                 const isCompleted = completedSteps.includes(step.id);
                 const isCurrent = currentStep === step.id;
