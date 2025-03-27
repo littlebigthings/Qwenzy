@@ -170,13 +170,18 @@ export function OnboardingFlow({
         let progress;
         
         if (!existingProgress) {
+          // For invited users, start directly at profile step
+          // Otherwise, follow normal flow
+          const initialStep = isInvitation ? 'profile' : (userHasOrg ? 'profile' : 'organization');
+          const initialCompletedSteps = isInvitation ? ['organization'] : (userHasOrg ? ['organization'] : []);
+          
           // Only create new progress if it doesn't exist
           const { data: newProgress, error: progressError } = await supabase
             .from('onboarding_progress')
             .insert({
               user_id: user.id,
-              current_step: userHasOrg ? 'profile' : 'organization',
-              completed_steps: userHasOrg ? ['organization'] : []
+              current_step: initialStep,
+              completed_steps: initialCompletedSteps
             })
             .select()
             .single();
@@ -452,7 +457,12 @@ export function OnboardingFlow({
   const handleProfileSubmit = async (data: z.infer<typeof profileSchema>) => {
     try {
       if (!user?.id) throw new Error("Missing user information");
-      if (!organization?.id) throw new Error("Missing organization information");
+      
+      // For invited users, use the invitation org ID
+      // Otherwise use the organization from state
+      const orgId = isInvitation && invitationOrgId ? invitationOrgId : organization?.id;
+      
+      if (!orgId) throw new Error("Missing organization information");
 
       setLoading(true);
 
@@ -464,7 +474,7 @@ export function OnboardingFlow({
         avatarUrl = avatarPreview;
       }
 
-      console.log("Saving profile with data:", { name: data.fullName, avatarUrl });
+      console.log("Saving profile with data:", { name: data.fullName, avatarUrl, orgId });
 
       // Extract first and last name from full name
       const nameParts = data.fullName.trim().split(" ");
@@ -498,7 +508,7 @@ export function OnboardingFlow({
           .from("profiles")
           .insert({
             user_id: user.id,
-            organization_id: organization.id,
+            organization_id: orgId,
             name: data.fullName,
             avatar_url: avatarUrl,
             email: user.email,
