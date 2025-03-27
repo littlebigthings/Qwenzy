@@ -113,8 +113,8 @@ export function OnboardingFlow() {
   const [isEditing, setIsEditing] = useState(false);
   const [isProfileEditing, setIsProfileEditing] = useState(false);
   
-  // Invitation state
-  const [isInvitation, setIsInvitation] = useState<boolean>(false);
+  // Invitation state - default values will be set by checking invitations table
+  const [isInvitation, setIsInvitation] = useState<boolean | null>(null);
   const [invitationData, setInvitationData] = useState<Invitation | null>(null);
   
   // Invite state
@@ -123,13 +123,28 @@ export function OnboardingFlow() {
   const [allowAutoJoin, setAllowAutoJoin] = useState<boolean>(true);
   const [copied, setCopied] = useState<boolean>(false);
   
-  // Check for user invitations from the database
+  // Check for user invitations from URL parameters first, then from database
   useEffect(() => {
     const checkForInvitations = async () => {
       if (!user?.email) return;
       
+      // First check URL query parameters
+      const searchParams = new URLSearchParams(window.location.search);
+      const invitation = searchParams.get('invitation');
+      const orgId = searchParams.get('organization');
+      
+      if (invitation === 'true' && orgId) {
+        console.log("Found invitation parameter in URL:", orgId);
+        setIsInvitation(true);
+        setInvitationData({
+          organizationId: orgId,
+          invitedBy: "Unknown" // We don't have inviter info from URL
+        });
+        return; // Skip database check if URL has params
+      }
+      
       try {
-        // Check if the user has any pending invitations
+        // If not in URL, check if the user has any pending invitations in database
         const invitationResult = await checkUserInvitations(user.email);
         console.log(invitationResult);
         
