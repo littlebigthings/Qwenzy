@@ -9,6 +9,7 @@ import logo from "../assets/logo.png"
 import { BackgroundPattern } from "@/components/background-pattern"
 import { useVerificationStore } from "@/lib/verification-store"
 import { supabase } from "@/lib/supabase"
+import { getInviterInfo, addInvitation } from "@/lib/invitation-handler"
 
 export default function Register() {
   const { signUp } = useAuth()
@@ -58,52 +59,25 @@ export default function Register() {
         try {
           console.log("Looking up inviter profile for ID:", inviterId);
           
-          // Get inviter's email from profiles
-          const { data, error } = await supabase
-            .from('profiles')
-            .select('email')
-            .eq('user_id', inviterId)
-            .single();
+          // Get inviter's email using helper function
+          const inviterResponse = await getInviterInfo(inviterId);
             
-          if (error) {
-            console.error("Error fetching inviter email:", error);
+          if (!inviterResponse.success) {
+            console.error("Error fetching inviter info:", inviterResponse.error);
             return;
           }
           
-          if (data?.email) {
-            console.log("Found inviter email:", data.email);
+          const inviterEmail = inviterResponse.email;
+          if (inviterEmail) {
+            console.log("Found inviter email:", inviterEmail);
             
-            // Check if this invitation already exists
-            const { data: invitationExists, error: checkError } = await supabase
-              .from('invitations')
-              .select('id')
-              .eq('email', formData.email)
-              .eq('organization_id', invitationOrgId)
-              .maybeSingle();
-              
-            if (checkError) {
-              console.error("Error checking invitation:", checkError);
-            }
+            // Add invitation to database using helper function
+            const addResult = await addInvitation(formData.email, invitationOrgId, inviterEmail);
             
-            if (!invitationExists) {
-              // Add to invitations table
-              const { error: insertError } = await supabase
-                .from('invitations')
-                .insert({
-                  organization_id: invitationOrgId,
-                  email: formData.email,
-                  invited_by: data.email,
-                  auto_join: true,
-                  accepted: false
-                });
-                
-              if (insertError) {
-                console.error("Error creating invitation:", insertError);
-              } else {
-                console.log("Created new invitation in database");
-              }
+            if (!addResult.success) {
+              console.error("Error creating invitation:", addResult.error);
             } else {
-              console.log("Invitation already exists in database");
+              console.log("Created/updated invitation in database");
             }
           }
         } catch (error) {
