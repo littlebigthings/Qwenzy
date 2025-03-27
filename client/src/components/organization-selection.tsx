@@ -5,7 +5,7 @@ import { Separator } from "@/components/ui/separator";
 import { ChevronRight } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { BackgroundPattern } from "@/components/background-pattern";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuthContext } from "@/providers/auth-provider";
 import { supabase } from "@/lib/supabase";
 
 type Organization = {
@@ -17,7 +17,7 @@ type Organization = {
 
 export function OrganizationSelection() {
   const [, navigate] = useLocation();
-  const { user } = useAuth();
+  const { user } = useAuthContext();
   const [domain, setDomain] = useState<string>("");
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,19 +65,6 @@ export function OrganizationSelection() {
     };
     
     fetchOrganizations();
-    
-    // If no organizations match after a short delay, use sample data for demo
-    const timer = setTimeout(() => {
-      if (organizations.length === 0 && !loading) {
-        // Use sample data for demonstration purposes
-        setOrganizations([
-          { id: "1", name: "Lil Big Things", logo_url: null, members_count: 3 },
-          { id: "2", name: "Acme", logo_url: null, members_count: 2 },
-        ]);
-      }
-    }, 1000);
-    
-    return () => clearTimeout(timer);
   }, [user]);
 
   const handleCreateOrganization = () => {

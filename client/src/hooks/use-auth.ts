@@ -7,7 +7,7 @@ export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [hasOrganization, setHasOrganization] = useState<boolean>(false);
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
 
   useEffect(() => {
     console.log("[useAuth] Hook initializing...");
@@ -24,8 +24,12 @@ export function useAuth() {
       setUser(session?.user ?? null);
       setLoading(false);
 
-      // If user is authenticated, redirect to organization selection
-      if (session?.user) {
+      // If user is authenticated and not on a valid auth path, redirect to organization selection
+      if (session?.user && 
+          location !== "/organization-selection" && 
+          location !== "/organization-setup" && 
+          location !== "/profile-setup" &&
+          location !== "/") {
         setLocation("/organization-selection");
       }
     });
@@ -43,7 +47,10 @@ export function useAuth() {
       setUser(session?.user ?? null);
 
       // Debounce navigation on sign in/up
-      if ((event === "SIGNED_IN" || event === "SIGNED_UP") && location !== "/organization-selection") {
+      if ((event === "SIGNED_IN" || event === "SIGNED_UP") && 
+          location !== "/organization-selection" && 
+          location !== "/organization-setup" && 
+          location !== "/profile-setup") {
         console.log("[useAuth] Sign in/up successful, redirecting to organization selection");
         setTimeout(() => setLocation("/organization-selection"), 100);
       } else if (event === "SIGNED_OUT") {
@@ -53,7 +60,7 @@ export function useAuth() {
     });
 
     return () => subscription.unsubscribe();
-  }, [setLocation]);
+  }, [setLocation, location]);
 
   const signIn = async (email: string, password: string) => {
     try {
