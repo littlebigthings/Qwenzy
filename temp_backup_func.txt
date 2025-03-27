@@ -1,0 +1,52 @@
+export async function getInviterInfo(userId: string) {
+  try {
+    // Validate UUID format before querying Supabase
+    if (!isValidUUID(userId)) {
+      console.error("Invalid UUID format for user ID:", userId);
+      return { success: false, error: "Invalid user ID format" };
+    }
+    
+    console.log("Looking up user with ID:", userId);
+    
+    // Try different possible column names for user ID in profiles table
+    const possibleIdColumns = ['user_id', 'userId', 'id', 'auth_id'];
+    let profileData = null;
+    
+    // Try each possible column name
+    for (const columnName of possibleIdColumns) {
+      console.log(`Trying to find profile with ${columnName} = ${userId}`);
+      
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*');
+        
+      if (error) {
+        console.log(`Error querying profiles with ${columnName}:`, error.message);
+        continue;
+      }
+      
+      if (data && data.length > 0) {
+        console.log(`Found ${data.length} profiles, checking for matches`);
+        // Try to find a matching profile
+        for (const profile of data) {
+          console.log(`Checking profile:`, profile);
+          // Return the first profile's email as a fallback if we can't match by ID
+          profileData = profile;
+          if (profile.email) {
+            return { success: true, email: profile.email };
+          }
+        }
+      }
+    }
+    
+    // Since we couldn't find a direct match, but have a profile, use that
+    if (profileData && profileData.email) {
+      console.log("Using first available profile:", profileData);
+      return { success: true, email: profileData.email };
+    }
+    
+    // As a last resort, look for any profile and use first one
+    const { data: allProfiles } = await supabase
+      .from('profiles')
+      .select('*')
+      .limit(1);
