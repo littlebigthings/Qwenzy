@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import logo from "../assets/logo.png"
 import { BackgroundPattern } from "@/components/background-pattern"
 import { useVerificationStore } from "@/lib/verification-store"
+import { supabase } from "@/lib/supabase"
 
 export default function Register() {
   const { signUp } = useAuth()
@@ -16,6 +17,7 @@ export default function Register() {
   const [error, setError] = useState("")
   const [isInvitation, setIsInvitation] = useState(false)
   const [invitationOrgId, setInvitationOrgId] = useState<string | null>(null)
+  const [inviterId, setInviterId] = useState<string | null>(null)
   const setEmail = useVerificationStore(state => state.setEmail)
   const [formData, setFormData] = useState({
     email: "",
@@ -30,16 +32,88 @@ export default function Register() {
     const invitation = searchParams.get('invitation');
     const email = searchParams.get('email');
     const orgId = searchParams.get('organization');
+    const ib = searchParams.get('ib'); // inviter ID/reference
     
-    if (invitation === 'true' && email && orgId) {
+    if (invitation === 'true' && orgId) {
       setIsInvitation(true);
       setInvitationOrgId(orgId);
-      setFormData(prev => ({
-        ...prev,
-        email
-      }));
+      
+      if (email) {
+        setFormData(prev => ({
+          ...prev,
+          email
+        }));
+      }
+      
+      if (ib && ib !== 'none') {
+        setInviterId(ib);
+      }
     }
   }, []);
+  
+  // Handle case when user is invited by another user (with user ID)
+  useEffect(() => {
+    const handleInviterLookup = async () => {
+      if (isInvitation && invitationOrgId && inviterId && formData.email) {
+        try {
+          console.log("Looking up inviter profile for ID:", inviterId);
+          
+          // Get inviter's email from profiles
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('email')
+            .eq('user_id', inviterId)
+            .single();
+            
+          if (error) {
+            console.error("Error fetching inviter email:", error);
+            return;
+          }
+          
+          if (data?.email) {
+            console.log("Found inviter email:", data.email);
+            
+            // Check if this invitation already exists
+            const { data: invitationExists, error: checkError } = await supabase
+              .from('invitations')
+              .select('id')
+              .eq('email', formData.email)
+              .eq('organization_id', invitationOrgId)
+              .maybeSingle();
+              
+            if (checkError) {
+              console.error("Error checking invitation:", checkError);
+            }
+            
+            if (!invitationExists) {
+              // Add to invitations table
+              const { error: insertError } = await supabase
+                .from('invitations')
+                .insert({
+                  organization_id: invitationOrgId,
+                  email: formData.email,
+                  invited_by: data.email,
+                  auto_join: true,
+                  accepted: false
+                });
+                
+              if (insertError) {
+                console.error("Error creating invitation:", insertError);
+              } else {
+                console.log("Created new invitation in database");
+              }
+            } else {
+              console.log("Invitation already exists in database");
+            }
+          }
+        } catch (error) {
+          console.error("Error in inviter lookup:", error);
+        }
+      }
+    };
+    
+    handleInviterLookup();
+  }, [isInvitation, invitationOrgId, inviterId, formData.email]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

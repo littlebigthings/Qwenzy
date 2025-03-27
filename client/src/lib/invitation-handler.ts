@@ -124,3 +124,86 @@ export async function markInvitationAsAccepted(email: string, organizationId: st
     return { success: false, error: error.message };
   }
 }
+
+/**
+ * Gets inviter information by user ID
+ * @param userId User ID of the inviter
+ * @returns Promise resolving to inviter information or error
+ */
+export async function getInviterInfo(userId: string) {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('email')
+      .eq('user_id', userId)
+      .single();
+    
+    if (error) {
+      throw new Error(error.message);
+    }
+    
+    return { success: true, email: data?.email };
+  } catch (error: any) {
+    console.error("Error getting inviter info:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Adds an invitation to the database
+ * @param email Invitee email address
+ * @param organizationId Organization ID
+ * @param invitedBy Email of the inviter
+ * @returns Promise resolving to success or error
+ */
+export async function addInvitation(email: string, organizationId: string, invitedBy: string) {
+  try {
+    const { error } = await supabase
+      .from('invitations')
+      .insert({
+        organization_id: organizationId,
+        email: email,
+        invited_by: invitedBy,
+        auto_join: true,
+        accepted: false
+      });
+    
+    if (error) {
+      throw new Error(error.message);
+    }
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error adding invitation:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Check if user has active invitations
+ * @param email User's email address
+ * @returns Promise resolving to invitation information or false
+ */
+export async function checkUserInvitations(email: string) {
+  try {
+    const { data, error } = await supabase
+      .from('invitations')
+      .select('organization_id, invited_by')
+      .eq('email', email)
+      .eq('accepted', false)
+      .limit(1);
+    
+    if (error || !data || data.length === 0) {
+      return { hasInvitation: false };
+    }
+    
+    return { 
+      hasInvitation: true, 
+      organizationId: data[0].organization_id,
+      invitedBy: data[0].invited_by
+    };
+  } catch (error) {
+    console.error("Error checking user invitations:", error);
+    return { hasInvitation: false };
+  }
+}

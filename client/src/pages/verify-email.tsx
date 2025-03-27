@@ -4,26 +4,106 @@ import logo from "../assets/logo.png"
 import { Button } from "@/components/ui/button"
 import { BackgroundPattern } from "@/components/background-pattern"
 import { useVerificationStore } from "@/lib/verification-store"
+import { useAuth } from "@/hooks/use-auth"
+import { supabase } from "@/lib/supabase"
+import { checkInvitation, markInvitationAsAccepted } from "@/lib/invitation-handler"
+import { useToast } from "@/hooks/use-toast"
 
 export default function VerifyEmail() {
   const email = useVerificationStore(state => state.email)
+  const { user } = useAuth()
+  const { toast } = useToast()
   const [isInvitation, setIsInvitation] = useState(false)
   const [invitationOrgId, setInvitationOrgId] = useState<string | null>(null)
+  const [inviterId, setInviterId] = useState<string | null>(null)
+  const [processingInvitation, setProcessingInvitation] = useState(false)
   
   // Get invitation parameters from URL
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const invitation = searchParams.get('invitation');
     const orgId = searchParams.get('organization');
+    const ib = searchParams.get('ib'); // inviter ID/reference
     
     if (invitation === 'true' && orgId) {
       setIsInvitation(true);
       setInvitationOrgId(orgId);
+      
+      if (ib && ib !== 'none') {
+        setInviterId(ib);
+      }
     }
   }, []);
   
+  // Check if user has verified email and handle invitation process
+  useEffect(() => {
+    const handleVerification = async () => {
+      if (!user || !isInvitation || !invitationOrgId || processingInvitation) return;
+      
+      try {
+        setProcessingInvitation(true);
+        console.log("User verified email, processing invitation...");
+        
+        // Check if user exists in invitation database
+        if (user.email) {
+          const invitationExists = await checkInvitation(user.email, invitationOrgId);
+          
+          if (invitationExists) {
+            console.log("Found invitation, marking as accepted");
+            await markInvitationAsAccepted(user.email, invitationOrgId);
+            
+            // Store the invitation data in localStorage for the onboarding flow
+            localStorage.setItem('invitation', 'true');
+            localStorage.setItem('invitationOrgId', invitationOrgId);
+            
+            toast({
+              title: "Invitation Accepted",
+              description: "You've been successfully added to the organization!"
+            });
+          } else {
+            console.log("No invitation found in database");
+          }
+        }
+      } catch (error) {
+        console.error("Error processing invitation:", error);
+      } finally {
+        setProcessingInvitation(false);
+      }
+    };
+    
+    handleVerification();
+  }, [user, isInvitation, invitationOrgId, processingInvitation]);
+  
   const handleResendLink = async () => {
-    // TODO: Implement resend verification logic
+    try {
+      if (!email) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "No email address found to resend verification"
+        });
+        return;
+      }
+      
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email
+      });
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Verification Link Sent",
+        description: "A new verification link has been sent to your email"
+      });
+    } catch (error: any) {
+      console.error("Error resending verification:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to resend verification link"
+      });
+    }
   }
 
   return (

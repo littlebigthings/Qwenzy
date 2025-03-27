@@ -121,6 +121,19 @@ export function OnboardingFlow({
   const [currentInviteInput, setCurrentInviteInput] = useState<string>("");
   const [allowAutoJoin, setAllowAutoJoin] = useState<boolean>(true);
   const [copied, setCopied] = useState<boolean>(false);
+  
+  // Check for invitation in localStorage (from verify-email page)
+  useEffect(() => {
+    const storedInvitation = localStorage.getItem('invitation');
+    const storedOrgId = localStorage.getItem('invitationOrgId');
+    
+    if (storedInvitation === 'true' && storedOrgId && !isInvitation) {
+      console.log("Found invitation in localStorage:", storedOrgId);
+      // Override props with localStorage values
+      isInvitation = true;
+      invitationOrgId = storedOrgId;
+    }
+  }, []);
 
   // Load onboarding progress from Supabase
   useEffect(() => {
