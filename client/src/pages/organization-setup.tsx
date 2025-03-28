@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useAuthContext } from "@/providers/auth-provider";
+import { useAuth } from "@/hooks/use-auth";
 import { OnboardingFlow } from "@/components/onboarding-flow";
 import { Redirect, useLocation } from "wouter";
 import { supabase } from "@/lib/supabase";
