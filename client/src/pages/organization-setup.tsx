@@ -11,37 +11,37 @@ export default function OrganizationSetup() {
   const [location] = useLocation();
   const [isInvitation, setIsInvitation] = useState(false);
   const [invitationOrgId, setInvitationOrgId] = useState<string | null>(null);
-  
+
   // Check for invitation in URL parameters
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const invitation = searchParams.get('invitation');
     const orgId = searchParams.get('organization');
-    
+
     if (invitation === 'true' && orgId) {
       console.log("URL indicates invitation with org ID:", orgId);
       setIsInvitation(true);
       setInvitationOrgId(orgId);
     }
   }, []);
-  
+
   // Check DB for invitation if not in URL
   useEffect(() => {
     const checkInvitation = async () => {
       if (!user?.email) return;
-      
+
       try {
         const { data, error } = await supabase
           .from("invitations")
           .select("organization_id")
           .eq("email", user.email)
           .maybeSingle();
-          
+
         if (error) {
           console.error("Error checking for invitation:", error);
           return;
         }
-        
+
         if (data) {
           console.log("Found invitation in database:", data.organization_id);
           setIsInvitation(true);
@@ -51,12 +51,12 @@ export default function OrganizationSetup() {
         console.error("Exception checking invitation:", err);
       }
     };
-    
+
     if (!isInvitation) {
       checkInvitation();
     }
   }, [user?.email, isInvitation]);
-  
+
   useEffect(() => {
     const checkOrganizationMembership = async () => {
       if (!user) return;
@@ -73,12 +73,13 @@ export default function OrganizationSetup() {
           return;
         }
 
-        // Set hasOrganization to true if memberships array is not empty
-        setHasOrganization(memberships.length > 0);
+        const hasOrg = memberships && memberships.length > 0;
+        setHasOrganization(hasOrg);
 
-        console.log("Organization membership check:", {
-          hasOrganization: memberships.length > 0,
+        console.log("Organization membership check:", { 
+          hasOrganization: hasOrg,
           memberships,
+          userId: user.id 
         });
       } catch (error) {
         console.error("Failed to check organization membership:", error);
@@ -91,7 +92,7 @@ export default function OrganizationSetup() {
   if (!user) {
     return <Redirect to="/login" />;
   }
-  
+
   // Pass invitation information to the OnboardingFlow component
   return <OnboardingFlow />;
 }
