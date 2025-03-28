@@ -1,0 +1,9 @@
+// Update form values when organization data is loaded
+useEffect(() => {
+  if (organization) {
+    orgForm.reset({
+      name: organization.name,
+      domain: organization.domain,
+    });
+  }
+}, [organization]);

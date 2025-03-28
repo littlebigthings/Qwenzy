@@ -373,7 +373,7 @@ export function OnboardingFlow() {
     resolver: zodResolver(organizationSchema),
     defaultValues: {
       name: organization?.name || "",
-    },
+      domain: organization?.domain || ""},
   });
   
   // Initialize profile form
@@ -389,6 +389,7 @@ export function OnboardingFlow() {
     if (organization) {
       orgForm.reset({
         name: organization.name,
+        domain: organization.domain,
       });
     }
   }, [organization]);
@@ -437,6 +438,7 @@ export function OnboardingFlow() {
           .from("organizations")
           .update({
             name: data.name,
+            domain: data.domain,
             logo_url: logoUrl,
           })
           .eq('id', organization.id);
@@ -446,6 +448,7 @@ export function OnboardingFlow() {
         setOrganization({
           ...organization,
           name: data.name,
+          domain: data.domain,
           logo_url: logoUrl,
         });
 
@@ -461,6 +464,7 @@ export function OnboardingFlow() {
           .from("organizations")
           .insert({
             name: data.name,
+            domain: data.domain,
             logo_url: logoUrl,
           })
           .select()

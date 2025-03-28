@@ -1,0 +1,14 @@
+Fixes needed:
+
+1. Update organization form initialization:
+- Add domain to defaultValues in useForm
+- Update form reset to include domain
+
+2. Update organization update operation:
+- Add domain to the update object
+
+3. Update organization create operation:
+- Add domain to the insert object
+
+4. Update setOrganization after update:
+- Add domain to the updated organization object
