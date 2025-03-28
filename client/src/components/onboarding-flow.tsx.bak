@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Form,
   FormControl,
@@ -13,11 +14,20 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Loader2, Upload } from "lucide-react";
+import { 
+  Loader2, 
+  Upload, 
+  Link, 
+  X, 
+  ChevronLeft, 
+  ChevronRight 
+} from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
+import { sendInvitationEmail, checkInvitation, markInvitationAsAccepted } from "@/lib/invitation-handler";
+import { Check, Copy } from "lucide-react";
 
 // Add type for organization data
 type Organization = {
@@ -66,47 +76,82 @@ const organizationSchema = z.object({
       message:
         "Organization name can only contain letters, numbers, spaces, dots and hyphens",
     }),
+  domain: z
+    .string()
+    .min(3, {
+      message: "Domain must be at least 3 characters",
+    })
+    .max(50, {
+      message: "Domain must be less than 50 characters",
+    })
+    .regex(/^[a-z0-9.-]+$/, {
+      message: "Domain can only contain lowercase letters, numbers, dots and hyphens",
+    }),
   logo: z.any().optional(),
 });
 
 const profileSchema = z.object({
-  firstName: z
+  fullName: z
     .string()
     .min(2, {
-      message: "First name must be at least 2 characters",
-    })
-    .max(50, {
-      message: "First name must be less than 50 characters",
-    }),
-  lastName: z
-    .string()
-    .min(2, {
-      message: "Last name must be at least 2 characters",
-    })
-    .max(50, {
-      message: "Last name must be less than 50 characters",
-    }),
-  email: z
-    .string()
-    .email({
-      message: "Please enter a valid email address",
-    }),
-  jobTitle: z
-    .string()
-    .min(2, {
-      message: "Job title must be at least 2 characters",
+      message: "Name must be at least 2 characters",
     })
     .max(100, {
-      message: "Job title must be less than 100 characters",
+      message: "Name must be less than 100 characters",
     }),
   avatar: z.any().optional(),
 });
+
+interface OnboardingFlowProps {
+  isInvitation?: boolean;
+  invitationOrgId?: string | null;
+}
 
 export function OnboardingFlow() {
   const { user, hasOrganization, setHasOrganization } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const [isInvitation, setIsInvitation] = useState<boolean>(false);
+  const [invitationOrgId, setInvitationOrgId] = useState<string>("null");
+  const [invitationChecked, setInvitationChecked] = useState<boolean>(false);
+  
+  useEffect(() => {
+    const loadInvitation = async () => {
+      if (!user?.email) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from("invitations")
+          .select("organization_id")
+          .eq("email", user?.email)
+          .maybeSingle(); // Expecting a single record
 
+        if (error) {
+          console.error("Error fetching invitation:", error.message);
+          setInvitationChecked(true);
+          return;
+        }
+
+        if (data) {
+          console.log("Found invitation for organization:", data.organization_id);
+          setIsInvitation(true);
+          setInvitationOrgId(data.organization_id);
+        } else {
+          setIsInvitation(false);
+        }
+      } catch (err) {
+        console.error("Exception fetching invitation:", err);
+      } finally {
+        setInvitationChecked(true);
+      }
+    };
+
+    loadInvitation();
+  }, [user?.email]);
+  
+  console.log("Is invitation:", isInvitation);
+  console.log("Invitation org ID:", invitationOrgId);
+  console.log("Invitation checked:", invitationChecked);
   // Add organization state
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [currentStep, setCurrentStep] = useState<string>("organization");
@@ -117,12 +162,20 @@ export function OnboardingFlow() {
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [isProfileEditing, setIsProfileEditing] = useState(false);
+  
+  // Invite state
+  const [inviteEmails, setInviteEmails] = useState<string[]>([]);
+  const [currentInviteInput, setCurrentInviteInput] = useState<string>("");
+  const [allowAutoJoin, setAllowAutoJoin] = useState<boolean>(true);
+  const [copied, setCopied] = useState<boolean>(false);
+  
+  // No need to check localStorage - we'll verify invitation status directly from DB
 
   // Load onboarding progress from Supabase
   useEffect(() => {
     const loadOnboardingProgress = async () => {
-      if (!user) return;
-
+      if (!user || !invitationChecked) return; 
       try {
         // First check organization membership and get organization details
         const { data: memberships, error: membershipError } = await supabase
@@ -137,7 +190,7 @@ export function OnboardingFlow() {
           `)
           .eq('user_id', user.id)
           .limit(1)
-          .single();
+          .maybeSingle();
 
         if (membershipError && membershipError.code !== 'PGRST116') {
           console.error('Error checking organization membership:', membershipError);
@@ -156,21 +209,44 @@ export function OnboardingFlow() {
           }
         }
 
-        // Get or create onboarding progress using upsert
-        const { data: progress, error: progressError } = await supabase
+        // First check if onboarding progress exists
+        const { data: existingProgress, error: existingProgressError } = await supabase
           .from('onboarding_progress')
-          .upsert({
-            user_id: user.id,
-            current_step: userHasOrg ? 'profile' : 'organization',
-            completed_steps: userHasOrg ? ['organization'] : []
-          }, {
-            onConflict: 'user_id'
-          })
-          .select()
-          .single();
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle();
 
-        if (progressError) {
-          throw progressError;
+        console.log(existingProgress);
+        let progress;
+        
+        if (!existingProgress) {
+          console.log("enter");
+          // For invited users, start directly at profile step
+          // Otherwise, follow normal flow
+          console.log("isInvitation: ",isInvitation);
+          const initialStep = isInvitation ? 'profile' : (userHasOrg ? 'profile' : 'organization');
+          console.log('initialStep', initialStep);
+          const initialCompletedSteps = isInvitation ? ['organization'] : (userHasOrg ? ['organization'] : []);
+          console.log(initialCompletedSteps);
+          // Only create new progress if it doesn't exist
+          const { data: newProgress, error: progressError } = await supabase
+            .from('onboarding_progress')
+            .upsert({
+              user_id: user.id,
+              current_step: initialStep,
+              completed_steps: initialCompletedSteps
+            })
+            .select()
+            .single();
+            
+          if (progressError) {
+            throw progressError;
+          }
+          
+          progress = newProgress;
+        } else {
+          // Use existing progress without modifying it
+          progress = existingProgress;
         }
 
         // Check if user has a profile already
@@ -188,7 +264,9 @@ export function OnboardingFlow() {
           
           // Update profileForm values
           profileForm.reset({
-            fullName: profile.full_name || "",
+            fullName: profile.name || "",
+            email: profile.email || "",
+            jobTitle: profile.job_title || "",
           });
         }
 
@@ -210,7 +288,84 @@ export function OnboardingFlow() {
     };
 
     loadOnboardingProgress();
-  }, [user, setHasOrganization]);
+  }, [user, setHasOrganization, invitationChecked]);
+
+  // Handle invited user flow
+  useEffect(() => {
+    if (isInvitation && invitationOrgId !== "null" && user && invitationChecked) {
+      // For invited users, we should skip directly to profile setup
+      const loadInvitedOrganization = async () => {
+        try {
+          setLoading(true);
+          
+          // First check if the user is already a member
+          const { data: memberships, error: membershipError } = await supabase
+            .from("organization_members")
+            .select("organization_id")
+            .eq("user_id", user.id)
+            .eq("organization_id", invitationOrgId)
+            .maybeSingle();
+            
+          if (membershipError) {
+            console.error("Error checking membership:", membershipError);
+          }
+          
+          // If already a member, proceed normally
+          if (memberships) {
+            setHasOrganization(true);
+            return;
+          }
+          
+          // Get the organization data
+          const { data: org, error } = await supabase
+            .from("organizations")
+            .select("*")
+            .eq("id", invitationOrgId)
+            .single();
+            
+          if (error) {
+            console.error("Error loading invited organization:", error);
+            return;
+          }
+          
+          // Set the organization in state
+          setOrganization(org);
+          setHasOrganization(true);
+          // Create the user's membership to this organization
+          const { error: insertError } = await supabase
+            .from("organization_members")
+            .insert({
+              user_id: user.id,
+              organization_id: invitationOrgId,
+              is_owner: false
+            });
+              
+          if (insertError) {
+            console.error("Error creating membership:", insertError);
+            return;
+          }
+          
+          // Set the current step to profile setup
+          setCompletedSteps(["organization"]);
+          setCurrentStep("profile");
+          
+          // Save progress
+          await saveProgress("profile", ["organization"]);
+          // Mark the invitation as accepted
+          if (user.email) {
+            await markInvitationAsAccepted(user.email, invitationOrgId);
+          }
+          
+        } catch (error) {
+          console.error("Error in invitation flow:", error);
+        } finally {
+          setLoading(false);
+        }
+      };
+      
+      loadInvitedOrganization();
+    }
+  }, [user, isInvitation, invitationOrgId, setHasOrganization, invitationChecked]);
 
   // Initialize form with organization data if it exists
   const orgForm = useForm<z.infer<typeof organizationSchema>>({
@@ -242,6 +397,8 @@ export function OnboardingFlow() {
     if (!user) return;
 
     try {
+      console.log("Completed: ",completed);
+      console.log("step: ",step);
       const { error } = await supabase
         .from('onboarding_progress')
         .upsert({
@@ -352,12 +509,29 @@ export function OnboardingFlow() {
   const handleProfileSubmit = async (data: z.infer<typeof profileSchema>) => {
     try {
       if (!user?.id) throw new Error("Missing user information");
-      if (!organization?.id) throw new Error("Missing organization information");
+      
+      // For invited users, use the invitation org ID
+      // Otherwise use the organization from state
+      const orgId = isInvitation && invitationOrgId ? invitationOrgId : organization?.id;
+      
+      if (!orgId) throw new Error("Missing organization information");
 
       setLoading(true);
 
       // Upload avatar if exists
-      let avatarUrl = avatarFile ? await uploadToSupabase(avatarFile, "avatars") : avatarPreview;
+      let avatarUrl = null;
+      if (avatarFile) {
+        avatarUrl = await uploadToSupabase(avatarFile, "avatars");
+      } else if (avatarPreview) {
+        avatarUrl = avatarPreview;
+      }
+
+      console.log("Saving profile with data:", { name: data.fullName, avatarUrl, orgId });
+
+      // Extract first and last name from full name
+      const nameParts = data.fullName.trim().split(" ");
+      const firstName = nameParts[0] || "";
+      const lastName = nameParts.slice(1).join(" ") || "";
 
       // Check if profile exists
       const { data: existingProfile, error: checkError } = await supabase
@@ -373,8 +547,9 @@ export function OnboardingFlow() {
         const { error: updateError } = await supabase
           .from("profiles")
           .update({
-            full_name: data.fullName,
+            name: data.fullName,
             avatar_url: avatarUrl,
+            // Keep the existing data for other fields
           })
           .eq('id', existingProfile.id);
 
@@ -385,25 +560,72 @@ export function OnboardingFlow() {
           .from("profiles")
           .insert({
             user_id: user.id,
-            organization_id: organization.id,
-            full_name: data.fullName,
+            organization_id: orgId,
+            name: data.fullName,
             avatar_url: avatarUrl,
+            email: user.email,
           });
 
         if (insertError) throw insertError;
       }
 
-      // Update progress
-      const newCompleted = [...completedSteps, "profile"];
-      setCompletedSteps(newCompleted);
-      await saveProgress("invite", newCompleted);
+      // Turn off edit mode if it was on
+      if (isProfileEditing) {
+        setIsProfileEditing(false);
+      }
 
-      toast({
-        title: "Success",
-        description: "Profile updated successfully!",
-      });
-
-      moveToNextStep();
+      // Check if profile step was already completed
+      const alreadyCompleted = completedSteps.includes("profile");
+      
+      // Only add to completed steps if not already there
+      let newCompleted = completedSteps;
+      if (!alreadyCompleted) {
+        newCompleted = [...completedSteps, "profile"];
+        console.log(newCompleted);
+        setCompletedSteps(newCompleted);
+        
+        // For invited users, mark the invitation as accepted
+        if (isInvitation && invitationOrgId && user?.email) {
+          try {
+            await markInvitationAsAccepted(user.email, invitationOrgId);
+            console.log("Invitation marked as accepted");
+          } catch (invitationError) {
+            console.error("Error marking invitation as accepted:", invitationError);
+            // Don't throw here, as we still want to continue with the flow
+          }
+        }
+        
+        if (isInvitation) {
+          // For invited users, go directly to home page after profile setup
+          await saveProgress("completed", newCompleted);
+          
+          toast({
+            title: "Success",
+            description: "Profile setup complete! Taking you to the dashboard.",
+          });
+          
+          console.log("Redirecting invited user to home page");
+          // Navigate directly to home page
+          setLocation("/");
+          return; // Early return to prevent further processing
+        } else {
+          // For regular users, continue to next step
+          await saveProgress("invite", newCompleted);
+          
+          toast({
+            title: "Success",
+            description: "Profile updated successfully!",
+          });
+          
+          // Only move to next step if this was the first time completing
+          moveToNextStep();
+        }
+      } else {
+        toast({
+          title: "Success",
+          description: "Profile updated successfully!",
+        });
+      }
     } catch (error: any) {
       console.error("Profile operation error:", error);
       toast({
@@ -422,7 +644,10 @@ export function OnboardingFlow() {
     if (currentIndex < steps.length - 1) {
       const nextStep = steps[currentIndex + 1].id;
       setCurrentStep(nextStep);
-      await saveProgress(nextStep, completedSteps);
+      console.log("Steps from next: ",completedSteps);
+      console.log("Steps to next: ",nextStep);
+      // Update progress
+      //await saveProgress(nextStep, completedSteps);
     } else {
       setLocation("/");
     }
@@ -519,9 +744,25 @@ export function OnboardingFlow() {
   };
 
   // Upload file to Supabase storage
+  // Function to get invitation URL
+  const getInvitationUrl = (id: string | undefined) => {
+    if (!organization) return "";
+    const deploymentUrl = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
+    return `${deploymentUrl}/register?invitation=true&organization=${organization.id}&ib=${id}`;
+  };
+
+  // Function to copy invitation link
+  const copyInvitationLink = () => {
+    const url = getInvitationUrl(user?.id);
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
   const uploadToSupabase = async (file: File, bucketName: string) => {
     try {
-      if (!file) return null;
+      if (!file || !user?.id) return null;
 
       // Check file size (800KB max)
       if (file.size > 800 * 1024) {
@@ -543,16 +784,22 @@ export function OnboardingFlow() {
         return null;
       }
 
+      // Use user-specific folder structure for RLS compliance
+      // Use user-specific folder structure for RLS compliance
+      // Ensure UUID is properly formatted for storage path (no need for toString as it is already a string)
+      const userId = user.id;
       const fileExt = file.name.split(".").pop();
       const fileName = `${Math.random()}.${fileExt}`;
-      const filePath = fileName; // Simplified path, no folders
+      const filePath = `${userId}/${fileName}`; // Include user ID in path
+
+      console.log("Uploading file to path:", filePath);
 
       // Upload to the specified bucket
       const { data, error: uploadError } = await supabase.storage
         .from(bucketName)
         .upload(filePath, file, {
           cacheControl: "3600",
-          upsert: false,
+          upsert: true, // Change to upsert to overwrite if exists
           contentType: file.type,
         });
 
@@ -596,55 +843,61 @@ export function OnboardingFlow() {
         {/* Left sidebar with steps */}
         <div className="bg-gray-50 p-6 border-r">
           <div className="space-y-2">
-            {steps.map((step, index) => {
-              const isCompleted = completedSteps.includes(step.id);
-              const isCurrent = currentStep === step.id;
-              const isClickable =
-                index === 0 || completedSteps.includes(steps[index - 1].id);
+            {steps
+              // For invited users, only show profile step
+              .filter(step => !isInvitation || (step.id === "profile"))
+              .map((step, index) => {
+                const isCompleted = completedSteps.includes(step.id);
+                const isCurrent = currentStep === step.id;
+                
+                // For invited users, make both steps clickable
+                const isClickable = isInvitation || 
+                  index === 0 || 
+                  completedSteps.includes(steps[index - 1].id);
 
-              return (
-                <button
-                  key={step.id}
-                  className={`w-full flex items-center gap-4 p-4 rounded-lg transition-colors
-                    ${isCurrent ? "bg-white shadow-sm" : "hover:bg-white/50"}
-                    ${!isClickable ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
-                  `}
-                  onClick={() => isClickable && setCurrentStep(step.id)}
-                  disabled={!isClickable}
-                >
-                  <div className="w-8 h-8 flex-shrink-0">
-                    {isCompleted ? (
-                      <img
-                        src="src/assets/completed.svg"
-                        alt="Complete"
-                        className="w-full h-full"
-                      />
-                    ) : (
-                      <img
-                        src={isCurrent ? step.active : step.icon}
-                        alt={step.label}
-                        className="w-full h-full"
-                      />
-                    )}
-                  </div>
-                  <div>
-                    <h3
-                      className={`text-base font-medium ${
-                        isCurrent ? "text-[#407c87]" : "text-gray-700"
-                      }`}
-                    >
-                      {step.label}
-                    </h3>
-                  </div>
-                </button>
-              );
-            })}
+                return (
+                  <button
+                    key={step.id}
+                    className={`w-full flex items-center gap-4 p-4 rounded-lg transition-colors
+                      ${isCurrent ? "bg-white shadow-sm" : "hover:bg-white/50"}
+                      ${!isClickable ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
+                    `}
+                    onClick={() => isClickable && setCurrentStep(step.id)}
+                    disabled={!isClickable}
+                  >
+                    <div className="w-8 h-8 flex-shrink-0">
+                      {isCompleted ? (
+                        <img
+                          src="src/assets/completed.svg"
+                          alt="Complete"
+                          className="w-full h-full"
+                        />
+                      ) : (
+                        <img
+                          src={isCurrent ? step.active : step.icon}
+                          alt={step.label}
+                          className="w-full h-full"
+                        />
+                      )}
+                    </div>
+                    <div>
+                      <h3
+                        className={`text-base font-medium ${
+                          isCurrent ? "text-[#407c87]" : "text-gray-700"
+                        }`}
+                      >
+                        {step.label}
+                      </h3>
+                    </div>
+                  </button>
+                );
+              })}
           </div>
         </div>
 
         {/* Right content area */}
         <div className="p-6">
-          {currentStep === "organization" && (
+          {(currentStep === "organization" && !isInvitation) && (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
                 <div>
@@ -775,9 +1028,37 @@ export function OnboardingFlow() {
           )}
           {currentStep === "profile" && (
             <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-semibold">Add your profile information</h2>
-                <p className="text-gray-500">Adding your name and profile photo helps your teammates to recognise and connect with you more easily.</p>
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl font-semibold">
+                    {isInvitation 
+                      ? completedSteps.includes("profile") 
+                        ? "Profile Details" 
+                        : `Welcome to ${organization?.name || "the organization"}`
+                      : completedSteps.includes("profile") 
+                        ? "Profile Details" 
+                        : "Add your profile information"
+                    }
+                  </h2>
+                  <p className="text-gray-500">
+                    {isInvitation
+                      ? completedSteps.includes("profile")
+                        ? isProfileEditing ? "Update your profile details" : "Your profile details"
+                        : "Please set up your profile to complete your registration."
+                      : completedSteps.includes("profile") 
+                        ? isProfileEditing ? "Update your profile details" : "Your profile details"
+                        : "Adding your name and profile photo helps your teammates to recognise and connect with you more easily."
+                    }
+                  </p>
+                </div>
+                {completedSteps.includes("profile") && !isProfileEditing && (
+                  <Button
+                    onClick={() => setIsProfileEditing(true)}
+                    variant="outline"
+                  >
+                    Edit Details
+                  </Button>
+                )}
               </div>
               
               <Form {...profileForm}>
@@ -792,7 +1073,11 @@ export function OnboardingFlow() {
                       <FormItem>
                         <FormLabel>Your Name</FormLabel>
                         <FormControl>
-                          <Input placeholder="Name" {...field} />
+                          <Input 
+                            placeholder="Name" 
+                            {...field} 
+                            disabled={completedSteps.includes("profile") && !isProfileEditing}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -817,7 +1102,11 @@ export function OnboardingFlow() {
                         <div className="flex gap-2">
                           <label
                             htmlFor="avatar-upload"
-                            className="inline-flex items-center justify-center bg-[#407c87] text-white px-4 py-2 rounded cursor-pointer hover:bg-[#386d77] transition-colors"
+                            className={`inline-flex items-center justify-center px-4 py-2 rounded cursor-pointer transition-colors
+                              ${completedSteps.includes("profile") && !isProfileEditing
+                                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                : "bg-[#407c87] text-white hover:bg-[#386d77]"
+                              }`}
                           >
                             Upload a photo
                             <input
@@ -828,9 +1117,10 @@ export function OnboardingFlow() {
                               onChange={(e) =>
                                 handleAvatarUpload(e.target.files?.[0] as File)
                               }
+                              disabled={completedSteps.includes("profile") && !isProfileEditing}
                             />
                           </label>
-                          {avatarPreview && (
+                          {avatarPreview && (completedSteps.includes("profile") ? isProfileEditing : true) && (
                             <Button
                               type="button"
                               variant="outline"
@@ -849,7 +1139,7 @@ export function OnboardingFlow() {
                       </div>
                     </div>
                   </div>
-
+                  {(completedSteps.includes("profile") ? isProfileEditing : true) && (
                   <Button
                     type="submit"
                     className="w-full bg-[#407c87] hover:bg-[#386d77]"
@@ -861,31 +1151,213 @@ export function OnboardingFlow() {
                         Saving...
                       </>
                     ) : (
-                      "Continue"
+                      isProfileEditing ? "Save Changes" : "Continue"
                     )}
                   </Button>
+                  )}
                 </form>
               </Form>
             </div>
           )}
-          {currentStep === "invite" && (
+          {(currentStep === "invite" && !isInvitation) && (
             <div className="space-y-6">
               <div>
-                <h2 className="text-2xl font-semibold">Invite team members</h2>
+                <h2 className="text-2xl font-semibold">Invite your team to your organization</h2>
                 <p className="text-gray-500">
-                  Collaborate with your team members
+                  Add colleagues by email. We work best with your teammates
                 </p>
               </div>
-              {/* Invite members form will be implemented here */}
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium">Invite People</label>
+                  <div className="mt-1 p-2 border rounded-md flex flex-wrap gap-2 min-h-[120px]">
+                    {inviteEmails.map((email, index) => (
+                      <div key={index} className="bg-gray-100 rounded-md py-1 px-2 flex items-center gap-1">
+                        <span className="text-sm">{email}</span>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-5 w-5 rounded-full p-0"
+                          onClick={() => {
+                            const newEmails = [...inviteEmails];
+                            newEmails.splice(index, 1);
+                            setInviteEmails(newEmails);
+                          }}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                    <input
+                      type="text"
+                      className="flex-grow bg-transparent border-none outline-none placeholder:text-gray-400 text-sm"
+                      placeholder="Type or paste in one or multiple emails separated by commas, spaces, or line breaks."
+                      value={currentInviteInput}
+                      onChange={(e) => setCurrentInviteInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        // Add email on Enter, comma, or space
+                        if (e.key === 'Enter' || e.key === ',' || e.key === ' ') {
+                          e.preventDefault();
+                          
+                          const value = currentInviteInput.trim();
+                          if (value && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+                            if (!inviteEmails.includes(value)) {
+                              setInviteEmails([...inviteEmails, value]);
+                            }
+                            setCurrentInviteInput('');
+                          }
+                        }
+                        
+                        // Remove last email on Backspace if input is empty
+                        if (e.key === 'Backspace' && currentInviteInput === '' && inviteEmails.length > 0) {
+                          const newEmails = [...inviteEmails];
+                          newEmails.pop();
+                          setInviteEmails(newEmails);
+                        }
+                      }}
+                      onBlur={() => {
+                        // Add email on blur if it's valid
+                        const value = currentInviteInput.trim();
+                        if (value && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+                          if (!inviteEmails.includes(value)) {
+                            setInviteEmails([...inviteEmails, value]);
+                          }
+                          setCurrentInviteInput('');
+                        }
+                      }}
+                      onPaste={(e) => {
+                        // Handle pasting multiple emails
+                        e.preventDefault();
+                        const pastedText = e.clipboardData.getData('text');
+                        const emailsArray = pastedText
+                          .split(/[\s,;]+/)
+                          .map(email => email.trim())
+                          .filter(email => email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
+                        
+                        if (emailsArray.length > 0) {
+                          const newEmails = [...inviteEmails];
+                          emailsArray.forEach(email => {
+                            if (!newEmails.includes(email)) {
+                              newEmails.push(email);
+                            }
+                          });
+                          setInviteEmails(newEmails);
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex items-center mt-4 mb-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-2 text-sm"
+                    onClick={copyInvitationLink}
+                  >
+                    {copied ? (
+                      <>
+                        <Check className="h-4 w-4 text-green-500" />
+                        Link copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-4 w-4" />
+                        Copy invitation link
+                      </>
+                    )}
+                  </Button>
+                </div>
+                
+                <div className="flex items-start gap-2">
+                  <Checkbox 
+                    id="auto-join" 
+                    checked={allowAutoJoin}
+                    onCheckedChange={(checked) => setAllowAutoJoin(checked as boolean)}
+                    className="mt-1"
+                  />
+                  <label htmlFor="auto-join" className="text-sm">
+                    Anyone with a "@company.com" email can join your workspace
+                  </label>
+                </div>
+              </div>
+              
+              
               <Button
-                onClick={() => {
-                  const newCompletedSteps = [...completedSteps, "invite"];
-                  setCompletedSteps(newCompletedSteps);
-                  saveProgress("workspace", newCompletedSteps).then(()=>moveToNextStep());
+                onClick={async () => {
+                  try {
+                    setLoading(true);
+                    
+                    // Send invites if there are any
+                    if (inviteEmails.length > 0 && user && organization) {
+                      // Use sendInvitationEmail function from invitation.ts
+                      let successCount = 0;
+                      
+                      for (const email of inviteEmails) {
+                        const result = await sendInvitationEmail(
+                          email,
+                          organization.name,
+                          user.user_metadata?.full_name || "A team member",
+                          user.email || "",
+                          organization.id
+                        );
+                        
+                        if (result.success) {
+                          successCount++;
+                        } else {
+                          console.error(`Failed to send invitation to ${email}:`, result.error);
+                        }
+                      }
+                      
+                      toast({
+                        title: "Success",
+                        description: `${successCount} invitation${successCount === 1 ? "" : "s"} sent`
+                      });
+                    }
+                    
+                    // Mark step as completed
+                    const newCompletedSteps = [...completedSteps, "invite"];
+                    setCompletedSteps(newCompletedSteps);
+                    await saveProgress("workspace", newCompletedSteps);
+                    moveToNextStep();
+                  } catch (error: any) {
+                    console.error("Error sending invitations:", error);
+                    toast({
+                      variant: "destructive",
+                      title: "Error",
+                      description: error.message || "Failed to send invitations"
+                    });
+                  } finally {
+                    setLoading(false);
+                  }
                 }}
+                className="w-full bg-[#407c87] hover:bg-[#386d77] mt-4"
+                disabled={loading}
               >
-                Continue to next step
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Sending invites...
+                  </>
+                ) : (
+                  "Continue"
+                )}
               </Button>
+              <div className="flex justify-center mt-6">
+
+                <Button 
+                  variant="ghost"
+                  onClick={() => {
+                    const newCompletedSteps = [...completedSteps, "invite"];
+                    setCompletedSteps(newCompletedSteps);
+                    saveProgress("workspace", newCompletedSteps).then(()=>moveToNextStep());
+                  }}
+                  className="text-gray-600"
+                >
+                  Skip this step <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
             </div>
           )}
           {currentStep === "workspace" && (

@@ -33,6 +33,7 @@ import { Check, Copy } from "lucide-react";
 type Organization = {
   id: string;
   name: string;
+  domain: string;
   logo_url: string | null;
 };
 
@@ -75,6 +76,17 @@ const organizationSchema = z.object({
     .regex(/^[a-zA-Z0-9\s.-]+$/, {
       message:
         "Organization name can only contain letters, numbers, spaces, dots and hyphens",
+    }),
+  domain: z
+    .string()
+    .min(3, {
+      message: "Domain must be at least 3 characters",
+    })
+    .max(50, {
+      message: "Domain must be less than 50 characters",
+    })
+    .regex(/^[a-z0-9.-]+$/, {
+      message: "Domain can only contain lowercase letters, numbers, dots and hyphens",
     }),
   logo: z.any().optional(),
 });
@@ -931,6 +943,52 @@ export function OnboardingFlow() {
                           {organization && !isEditing
                             ? "Organization name"
                             : "Use a unique name that represents your organization"}
+                        </p>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={orgForm.control}
+                    name="domain"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Organization domain</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="e.g. acme, techsolutions"
+                            {...field}
+                            disabled={organization && !isEditing}
+                          />
+                        </FormControl>
+                        <p className="text-sm text-muted-foreground">
+                          {organization && !isEditing
+                            ? "Organization domain"
+                            : "This will be used for organization access and identity"}
+                        </p>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={orgForm.control}
+                    name="domain"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Organization domain</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="e.g. acme, techsolutions"
+                            {...field}
+                            disabled={organization && !isEditing}
+                          />
+                        </FormControl>
+                        <p className="text-sm text-muted-foreground">
+                          {organization && !isEditing
+                            ? "Organization domain"
+                            : "This will be used for organization access and identity"}
                         </p>
                         <FormMessage />
                       </FormItem>
