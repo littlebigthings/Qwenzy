@@ -29,6 +29,15 @@ export const profiles = pgTable("profiles", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const workspaces = pgTable("workspaces", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  organizationId: integer("organization_id").notNull().references(() => organizations.id),
+  createdBy: integer("created_by").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const invitations = pgTable("invitations", {
   id: serial("id").primaryKey(),
   organizationId: integer("organization_id").notNull().references(() => organizations.id),
@@ -60,6 +69,12 @@ export const insertProfileSchema = createInsertSchema(profiles).pick({
   organizationId: true,
 });
 
+export const insertWorkspaceSchema = createInsertSchema(workspaces).pick({
+  name: true,
+  organizationId: true,
+  createdBy: true,
+});
+
 export const insertInvitationSchema = createInsertSchema(invitations).pick({
   email: true,
   organizationId: true,
@@ -71,7 +86,9 @@ export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type Organization = typeof organizations.$inferSelect;
 export type Profile = typeof profiles.$inferSelect;
+export type Workspace = typeof workspaces.$inferSelect;
 export type InsertOrganization = z.infer<typeof insertOrganizationSchema>;
 export type InsertProfile = z.infer<typeof insertProfileSchema>;
+export type InsertWorkspace = z.infer<typeof insertWorkspaceSchema>;
 export type InsertInvitation = z.infer<typeof insertInvitationSchema>;
 export type Invitation = typeof invitations.$inferSelect;

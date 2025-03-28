@@ -26,6 +26,7 @@ import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
+import { WorkspaceSection } from "./workspace-section";
 import { sendInvitationEmail, checkInvitation, markInvitationAsAccepted } from "@/lib/invitation-handler";
 import { Check, Copy } from "lucide-react";
 
@@ -1363,25 +1364,16 @@ if (isInvitation) {
               </div>
             </div>
           )}
-          {currentStep === "workspace" && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-semibold">Create your workspace</h2>
-                <p className="text-gray-500">
-                  Set up your collaboration workspace
-                </p>
-              </div>
-              {/* Workspace setup form will be implemented here */}
-              <Button
-                onClick={() => {
-                  const newCompletedSteps = [...completedSteps, "workspace"];
-                  setCompletedSteps(newCompletedSteps);
-                  saveProgress("completed", newCompletedSteps).then(()=>setLocation("/"));
-                }}
-              >
-                Complete Setup
-              </Button>
-            </div>
+          {currentStep === "workspace" && user && organization && (
+            <WorkspaceSection
+              user={user}
+              organization={organization}
+              completedSteps={completedSteps}
+              setCompletedSteps={setCompletedSteps}
+              saveProgress={saveProgress}
+              setCurrentStep={setCurrentStep}
+              moveToNextStep={moveToNextStep}
+            />
           )}
         </div>
       </Card>
