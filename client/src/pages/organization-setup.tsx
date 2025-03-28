@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAuthContext } from "@/providers/auth-provider";
 import { useAuth } from "@/hooks/use-auth";
 import { OnboardingFlow } from "@/components/onboarding-flow";
@@ -7,9 +7,55 @@ import { supabase } from "@/lib/supabase";
 
 export default function OrganizationSetup() {
   const { hasOrganization, setHasOrganization } = useAuth();
-  const {user} = useAuthContext();
-  console.log(user);
+  const { user } = useAuthContext();
   const [location] = useLocation();
+  const [isInvitation, setIsInvitation] = useState(false);
+  const [invitationOrgId, setInvitationOrgId] = useState<string | null>(null);
+  
+  // Check for invitation in URL parameters
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const invitation = searchParams.get('invitation');
+    const orgId = searchParams.get('organization');
+    
+    if (invitation === 'true' && orgId) {
+      console.log("URL indicates invitation with org ID:", orgId);
+      setIsInvitation(true);
+      setInvitationOrgId(orgId);
+    }
+  }, []);
+  
+  // Check DB for invitation if not in URL
+  useEffect(() => {
+    const checkInvitation = async () => {
+      if (!user?.email) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from("invitations")
+          .select("organization_id")
+          .eq("email", user.email)
+          .maybeSingle();
+          
+        if (error) {
+          console.error("Error checking for invitation:", error);
+          return;
+        }
+        
+        if (data) {
+          console.log("Found invitation in database:", data.organization_id);
+          setIsInvitation(true);
+          setInvitationOrgId(data.organization_id);
+        }
+      } catch (err) {
+        console.error("Exception checking invitation:", err);
+      }
+    };
+    
+    if (!isInvitation) {
+      checkInvitation();
+    }
+  }, [user?.email, isInvitation]);
   
   useEffect(() => {
     const checkOrganizationMembership = async () => {
@@ -45,5 +91,7 @@ export default function OrganizationSetup() {
   if (!user) {
     return <Redirect to="/login" />;
   }
-  return <OnboardingFlow />;
+  
+  // Pass invitation information to the OnboardingFlow component
+  return <OnboardingFlow isInvitation={isInvitation} invitationOrgId={invitationOrgId} />;
 }
