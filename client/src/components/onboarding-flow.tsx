@@ -77,17 +77,6 @@ const organizationSchema = z.object({
       message:
         "Organization name can only contain letters, numbers, spaces, dots and hyphens",
     }),
-  domain: z
-    .string()
-    .min(3, {
-      message: "Domain must be at least 3 characters",
-    })
-    .max(50, {
-      message: "Domain must be less than 50 characters",
-    })
-    .regex(/^[a-z0-9.-]+$/, {
-      message: "Domain can only contain lowercase letters, numbers, dots and hyphens",
-    }),
   logo: z.any().optional(),
 });
 
@@ -197,9 +186,10 @@ export function OnboardingFlow() {
           console.error('Error checking organization membership:', membershipError);
           return;
         }
-
+    
         // Update organization state and hasOrganization
         const userHasOrg = !!memberships;
+        console.log("userHasOrg: ",userHasOrg);
         setHasOrganization(userHasOrg);
 
         if (userHasOrg && memberships.organizations) {
@@ -372,8 +362,7 @@ export function OnboardingFlow() {
   const orgForm = useForm<z.infer<typeof organizationSchema>>({
     resolver: zodResolver(organizationSchema),
     defaultValues: {
-      name: organization?.name || "",
-      domain: organization?.domain || ""},
+      name: organization?.name || ""},
   });
   
   // Initialize profile form
@@ -425,8 +414,11 @@ export function OnboardingFlow() {
   // Handle organization form submission (create or update)
   const handleOrganizationSubmit = async (data: z.infer<typeof organizationSchema>) => {
     try {
+      console.log(data);
       if (!user?.id) throw new Error("Missing user information");
-
+      const emailDomain = user?.email.split("@")[1]; 
+      const finalDomain = emailDomain;
+      
       setLoading(true);
 
       // Upload logo if exists
@@ -438,7 +430,7 @@ export function OnboardingFlow() {
           .from("organizations")
           .update({
             name: data.name,
-            domain: data.domain,
+            domain: finalDomain,
             logo_url: logoUrl,
           })
           .eq('id', organization.id);
@@ -448,7 +440,7 @@ export function OnboardingFlow() {
         setOrganization({
           ...organization,
           name: data.name,
-          domain: data.domain,
+          domain: finalDomain,
           logo_url: logoUrl,
         });
 
@@ -464,7 +456,7 @@ export function OnboardingFlow() {
           .from("organizations")
           .insert({
             name: data.name,
-            domain: data.domain,
+            domain: finalDomain,
             logo_url: logoUrl,
           })
           .select()
@@ -611,6 +603,7 @@ export function OnboardingFlow() {
           
           console.log("Redirecting invited user to home page");
           // Navigate directly to home page
+          console.log(hasOrganization);
           setLocation("/");
           return; // Early return to prevent further processing
         } else {
@@ -947,52 +940,6 @@ export function OnboardingFlow() {
                           {organization && !isEditing
                             ? "Organization name"
                             : "Use a unique name that represents your organization"}
-                        </p>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={orgForm.control}
-                    name="domain"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Organization domain</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="e.g. acme, techsolutions"
-                            {...field}
-                            disabled={organization && !isEditing}
-                          />
-                        </FormControl>
-                        <p className="text-sm text-muted-foreground">
-                          {organization && !isEditing
-                            ? "Organization domain"
-                            : "This will be used for organization access and identity"}
-                        </p>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={orgForm.control}
-                    name="domain"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Organization domain</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="e.g. acme, techsolutions"
-                            {...field}
-                            disabled={organization && !isEditing}
-                          />
-                        </FormControl>
-                        <p className="text-sm text-muted-foreground">
-                          {organization && !isEditing
-                            ? "Organization domain"
-                            : "This will be used for organization access and identity"}
                         </p>
                         <FormMessage />
                       </FormItem>

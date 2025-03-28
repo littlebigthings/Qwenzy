@@ -2,13 +2,15 @@ import { ReactNode, useEffect } from "react"
 import { useAuthContext } from "@/providers/auth-provider"
 import { Redirect, useLocation } from "wouter"
 import { Loader2 } from "lucide-react"
+import { useAuth } from "@/hooks/use-auth";
 
 type ProtectedProps = {
   children: ReactNode
 }
 
 export function Protected({ children }: ProtectedProps) {
-  const { user, loading, hasOrganization } = useAuthContext()
+  const { user, loading } = useAuthContext()
+  const {hasOrganization} = useAuth();
   const [location] = useLocation()
 
   console.log("Protected layout - Current location:", location);
@@ -45,7 +47,7 @@ export function Protected({ children }: ProtectedProps) {
     console.log("Redirecting to organization selection");
     return <Redirect to="/organization-selection" />
   }
-  
+  console.log(hasOrganization);
   // If user has organization and tries to access organization selection, redirect to home
   if (hasOrganization && location === '/organization-selection') {
     return <Redirect to="/" />

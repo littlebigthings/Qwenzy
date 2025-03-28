@@ -6,7 +6,8 @@ import { Redirect, useLocation } from "wouter";
 import { supabase } from "@/lib/supabase";
 
 export default function OrganizationSetup() {
-  const { user, hasOrganization, setHasOrganization } = useAuth();
+  const { hasOrganization, setHasOrganization } = useAuth();
+  const {user} = useAuthContext();
   console.log(user);
   const [location] = useLocation();
   
