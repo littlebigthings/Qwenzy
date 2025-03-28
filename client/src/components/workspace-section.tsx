@@ -48,17 +48,28 @@ export function WorkspaceSection({
     setIsSubmitting(true);
     try {
       // Create the workspace
+      const workspaceData = {
+        name: data.name,
+        organizationId: parseInt(organization.id, 10),
+        createdBy: parseInt(user.id, 10),
+      };
+      console.log("Creating workspace with data:", workspaceData);
+      
       const response = await fetch("/api/workspaces", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          name: data.name,
-          organizationId: organization.id,
-          createdBy: user.id,
-        }),
+        body: JSON.stringify(workspaceData),
       });
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log("Workspace created successfully:", result);
+      } else {
+        const errorData = await response.text();
+        console.error("Error response from server:", errorData);
+      }
 
       if (!response.ok) {
         throw new Error("Failed to create workspace");
