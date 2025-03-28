@@ -4,9 +4,11 @@ import { useAuth } from "@/hooks/use-auth";
 import { OnboardingFlow } from "@/components/onboarding-flow";
 import { Redirect, useLocation } from "wouter";
 import { supabase } from "@/lib/supabase";
+
 export default function OrganizationSetup() {
-  const { hasOrganization, setHasOrganization } = useAuth();
-  const { user } = useAuthContext()
+  const { user, hasOrganization, setHasOrganization } = useAuth();
+  console.log(user);
+  const [location] = useLocation();
   
   useEffect(() => {
     const checkOrganizationMembership = async () => {

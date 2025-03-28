@@ -33,7 +33,6 @@ import { Check, Copy } from "lucide-react";
 type Organization = {
   id: string;
   name: string;
-  domain: string;
   logo_url: string | null;
 };
 
@@ -76,6 +75,17 @@ const organizationSchema = z.object({
     .regex(/^[a-zA-Z0-9\s.-]+$/, {
       message:
         "Organization name can only contain letters, numbers, spaces, dots and hyphens",
+    }),
+  domain: z
+    .string()
+    .min(3, {
+      message: "Domain must be at least 3 characters",
+    })
+    .max(50, {
+      message: "Domain must be less than 50 characters",
+    })
+    .regex(/^[a-z0-9.-]+$/, {
+      message: "Domain can only contain lowercase letters, numbers, dots and hyphens",
     }),
   logo: z.any().optional(),
 });
@@ -362,7 +372,7 @@ export function OnboardingFlow() {
     resolver: zodResolver(organizationSchema),
     defaultValues: {
       name: organization?.name || "",
-      domain: organization?.domain || ""},
+    },
   });
   
   // Initialize profile form
@@ -378,7 +388,6 @@ export function OnboardingFlow() {
     if (organization) {
       orgForm.reset({
         name: organization.name,
-        domain: organization.domain,
       });
     }
   }, [organization]);
@@ -427,7 +436,6 @@ export function OnboardingFlow() {
           .from("organizations")
           .update({
             name: data.name,
-            domain: data.domain,
             logo_url: logoUrl,
           })
           .eq('id', organization.id);
@@ -437,7 +445,6 @@ export function OnboardingFlow() {
         setOrganization({
           ...organization,
           name: data.name,
-          domain: data.domain,
           logo_url: logoUrl,
         });
 
@@ -453,7 +460,6 @@ export function OnboardingFlow() {
           .from("organizations")
           .insert({
             name: data.name,
-            domain: data.domain,
             logo_url: logoUrl,
           })
           .select()
@@ -942,5 +948,440 @@ export function OnboardingFlow() {
                     )}
                   />
 
+                  <div>
+                    <FormLabel>Organization Logo</FormLabel>
+                    <div className="flex items-start gap-4 mt-2">
+                      <div className="h-24 w-24 border border-dashed rounded flex items-center justify-center bg-gray-50">
+                        {logoPreview ? (
+                          <img
+                            src={logoPreview}
+                            alt="Logo preview"
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <Upload className="h-6 w-6 text-gray-400" />
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex gap-2">
+                          <label
+                            htmlFor="logo-upload"
+                            className={`inline-flex items-center justify-center px-4 py-2 rounded cursor-pointer transition-colors
+                              ${organization && !isEditing
+                                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                : "bg-[#407c87] text-white hover:bg-[#386d77]"
+                              }`}
+                          >
+                            Upload Logo
+                            <input
+                              id="logo-upload"
+                              type="file"
+                              className="hidden"
+                              accept="image/jpeg,image/png,image/gif"
+                              onChange={(e) =>
+                                handleLogoUpload(e.target.files?.[0] as File)
+                              }
+                              disabled={organization && !isEditing}
+                            />
+                          </label>
+                          {logoPreview && (organization ? isEditing : true) && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => {
+                                setLogoFile(null);
+                                setLogoPreview(null);
+                              }}
+                            >
+                              Reset
+                            </Button>
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          Allowed JPG, GIF or PNG. Max size of 800K
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {(organization ? isEditing : true) && (
+                    <Button
+                      type="submit"
+                      className="w-full bg-[#407c87] hover:bg-[#386d77]"
+                      disabled={loading}
+                    >
+                      {loading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          {organization ? "Updating..." : "Creating..."}
+                        </>
+                      ) : organization ? (
+                        "Update Organization"
+                      ) : (
+                        "Continue to Profile Setup"
+                      )}
+                    </Button>
+                  )}
+                </form>
+              </Form>
+            </div>
+          )}
+          {currentStep === "profile" && (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl font-semibold">
+                    {isInvitation 
+                      ? completedSteps.includes("profile") 
+                        ? "Profile Details" 
+                        : `Welcome to ${organization?.name || "the organization"}`
+                      : completedSteps.includes("profile") 
+                        ? "Profile Details" 
+                        : "Add your profile information"
+                    }
+                  </h2>
+                  <p className="text-gray-500">
+                    {isInvitation
+                      ? completedSteps.includes("profile")
+                        ? isProfileEditing ? "Update your profile details" : "Your profile details"
+                        : "Please set up your profile to complete your registration."
+                      : completedSteps.includes("profile") 
+                        ? isProfileEditing ? "Update your profile details" : "Your profile details"
+                        : "Adding your name and profile photo helps your teammates to recognise and connect with you more easily."
+                    }
+                  </p>
+                </div>
+                {completedSteps.includes("profile") && !isProfileEditing && (
+                  <Button
+                    onClick={() => setIsProfileEditing(true)}
+                    variant="outline"
+                  >
+                    Edit Details
+                  </Button>
+                )}
+              </div>
+              
+              <Form {...profileForm}>
+                <form
+                  onSubmit={profileForm.handleSubmit(handleProfileSubmit)}
+                  className="space-y-6"
+                >
                   <FormField
-                    control={orgForm.control}
+                    control={profileForm.control}
+                    name="fullName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Your Name</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="Name" 
+                            {...field} 
+                            disabled={completedSteps.includes("profile") && !isProfileEditing}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="space-y-2">
+                    <FormLabel>Your profile photo</FormLabel>
+                    <div className="flex items-start gap-4">
+                      <div className="h-24 w-24 border border-dashed rounded flex items-center justify-center bg-gray-50">
+                        {avatarPreview ? (
+                          <img
+                            src={avatarPreview}
+                            alt="Avatar preview"
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <Upload className="h-6 w-6 text-gray-400" />
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex gap-2">
+                          <label
+                            htmlFor="avatar-upload"
+                            className={`inline-flex items-center justify-center px-4 py-2 rounded cursor-pointer transition-colors
+                              ${completedSteps.includes("profile") && !isProfileEditing
+                                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                : "bg-[#407c87] text-white hover:bg-[#386d77]"
+                              }`}
+                          >
+                            Upload a photo
+                            <input
+                              id="avatar-upload"
+                              type="file"
+                              className="hidden"
+                              accept="image/jpeg,image/png,image/gif"
+                              onChange={(e) =>
+                                handleAvatarUpload(e.target.files?.[0] as File)
+                              }
+                              disabled={completedSteps.includes("profile") && !isProfileEditing}
+                            />
+                          </label>
+                          {avatarPreview && (completedSteps.includes("profile") ? isProfileEditing : true) && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => {
+                                setAvatarFile(null);
+                                setAvatarPreview(null);
+                              }}
+                            >
+                              Reset
+                            </Button>
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          Allowed JPG, GIF or PNG. Max size of 800K
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  {(completedSteps.includes("profile") ? isProfileEditing : true) && (
+                  <Button
+                    type="submit"
+                    className="w-full bg-[#407c87] hover:bg-[#386d77]"
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      isProfileEditing ? "Save Changes" : "Continue"
+                    )}
+                  </Button>
+                  )}
+                </form>
+              </Form>
+            </div>
+          )}
+          {(currentStep === "invite" && !isInvitation) && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-semibold">Invite your team to your organization</h2>
+                <p className="text-gray-500">
+                  Add colleagues by email. We work best with your teammates
+                </p>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium">Invite People</label>
+                  <div className="mt-1 p-2 border rounded-md flex flex-wrap gap-2 min-h-[120px]">
+                    {inviteEmails.map((email, index) => (
+                      <div key={index} className="bg-gray-100 rounded-md py-1 px-2 flex items-center gap-1">
+                        <span className="text-sm">{email}</span>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-5 w-5 rounded-full p-0"
+                          onClick={() => {
+                            const newEmails = [...inviteEmails];
+                            newEmails.splice(index, 1);
+                            setInviteEmails(newEmails);
+                          }}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                    <input
+                      type="text"
+                      className="flex-grow bg-transparent border-none outline-none placeholder:text-gray-400 text-sm"
+                      placeholder="Type or paste in one or multiple emails separated by commas, spaces, or line breaks."
+                      value={currentInviteInput}
+                      onChange={(e) => setCurrentInviteInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        // Add email on Enter, comma, or space
+                        if (e.key === 'Enter' || e.key === ',' || e.key === ' ') {
+                          e.preventDefault();
+                          
+                          const value = currentInviteInput.trim();
+                          if (value && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+                            if (!inviteEmails.includes(value)) {
+                              setInviteEmails([...inviteEmails, value]);
+                            }
+                            setCurrentInviteInput('');
+                          }
+                        }
+                        
+                        // Remove last email on Backspace if input is empty
+                        if (e.key === 'Backspace' && currentInviteInput === '' && inviteEmails.length > 0) {
+                          const newEmails = [...inviteEmails];
+                          newEmails.pop();
+                          setInviteEmails(newEmails);
+                        }
+                      }}
+                      onBlur={() => {
+                        // Add email on blur if it's valid
+                        const value = currentInviteInput.trim();
+                        if (value && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+                          if (!inviteEmails.includes(value)) {
+                            setInviteEmails([...inviteEmails, value]);
+                          }
+                          setCurrentInviteInput('');
+                        }
+                      }}
+                      onPaste={(e) => {
+                        // Handle pasting multiple emails
+                        e.preventDefault();
+                        const pastedText = e.clipboardData.getData('text');
+                        const emailsArray = pastedText
+                          .split(/[\s,;]+/)
+                          .map(email => email.trim())
+                          .filter(email => email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
+                        
+                        if (emailsArray.length > 0) {
+                          const newEmails = [...inviteEmails];
+                          emailsArray.forEach(email => {
+                            if (!newEmails.includes(email)) {
+                              newEmails.push(email);
+                            }
+                          });
+                          setInviteEmails(newEmails);
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex items-center mt-4 mb-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-2 text-sm"
+                    onClick={copyInvitationLink}
+                  >
+                    {copied ? (
+                      <>
+                        <Check className="h-4 w-4 text-green-500" />
+                        Link copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-4 w-4" />
+                        Copy invitation link
+                      </>
+                    )}
+                  </Button>
+                </div>
+                
+                <div className="flex items-start gap-2">
+                  <Checkbox 
+                    id="auto-join" 
+                    checked={allowAutoJoin}
+                    onCheckedChange={(checked) => setAllowAutoJoin(checked as boolean)}
+                    className="mt-1"
+                  />
+                  <label htmlFor="auto-join" className="text-sm">
+                    Anyone with a "@company.com" email can join your workspace
+                  </label>
+                </div>
+              </div>
+              
+              
+              <Button
+                onClick={async () => {
+                  try {
+                    setLoading(true);
+                    
+                    // Send invites if there are any
+                    if (inviteEmails.length > 0 && user && organization) {
+                      // Use sendInvitationEmail function from invitation.ts
+                      let successCount = 0;
+                      
+                      for (const email of inviteEmails) {
+                        const result = await sendInvitationEmail(
+                          email,
+                          organization.name,
+                          user.user_metadata?.full_name || "A team member",
+                          user.email || "",
+                          organization.id
+                        );
+                        
+                        if (result.success) {
+                          successCount++;
+                        } else {
+                          console.error(`Failed to send invitation to ${email}:`, result.error);
+                        }
+                      }
+                      
+                      toast({
+                        title: "Success",
+                        description: `${successCount} invitation${successCount === 1 ? "" : "s"} sent`
+                      });
+                    }
+                    
+                    // Mark step as completed
+                    const newCompletedSteps = [...completedSteps, "invite"];
+                    setCompletedSteps(newCompletedSteps);
+                    await saveProgress("workspace", newCompletedSteps);
+                    moveToNextStep();
+                  } catch (error: any) {
+                    console.error("Error sending invitations:", error);
+                    toast({
+                      variant: "destructive",
+                      title: "Error",
+                      description: error.message || "Failed to send invitations"
+                    });
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                className="w-full bg-[#407c87] hover:bg-[#386d77] mt-4"
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Sending invites...
+                  </>
+                ) : (
+                  "Continue"
+                )}
+              </Button>
+              <div className="flex justify-center mt-6">
+
+                <Button 
+                  variant="ghost"
+                  onClick={() => {
+                    const newCompletedSteps = [...completedSteps, "invite"];
+                    setCompletedSteps(newCompletedSteps);
+                    saveProgress("workspace", newCompletedSteps).then(()=>moveToNextStep());
+                  }}
+                  className="text-gray-600"
+                >
+                  Skip this step <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            </div>
+          )}
+          {currentStep === "workspace" && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-semibold">Create your workspace</h2>
+                <p className="text-gray-500">
+                  Set up your collaboration workspace
+                </p>
+              </div>
+              {/* Workspace setup form will be implemented here */}
+              <Button
+                onClick={() => {
+                  const newCompletedSteps = [...completedSteps, "workspace"];
+                  setCompletedSteps(newCompletedSteps);
+                  saveProgress("completed", newCompletedSteps).then(()=>setLocation("/"));
+                }}
+              >
+                Complete Setup
+              </Button>
+            </div>
+          )}
+        </div>
+      </Card>
+    </div>
+  );
+}
