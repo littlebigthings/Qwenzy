@@ -80,6 +80,7 @@ const organizationSchema = z.object({
   logo: z.any().optional(),
 });
 
+
 const profileSchema = z.object({
   fullName: z
     .string()
@@ -362,7 +363,7 @@ export function OnboardingFlow() {
     resolver: zodResolver(organizationSchema),
     defaultValues: {
       name: organization?.name || "",
-      domain: organization?.domain || ""},
+    },
   });
   
   // Initialize profile form
@@ -378,7 +379,6 @@ export function OnboardingFlow() {
     if (organization) {
       orgForm.reset({
         name: organization.name,
-        domain: organization.domain,
       });
     }
   }, [organization]);
@@ -411,12 +411,25 @@ export function OnboardingFlow() {
     }
   };
 
-  // Handle organization form submission (create or update)
+  // Extract domain from user's email
+const extractDomainFromEmail = (email: string): string => {
+  if (!email) return "";
+  const parts = email.split('@');
+  return parts.length === 2 ? parts[1] : "";
+};
+
+// Handle organization form submission (create or update)
   const handleOrganizationSubmit = async (data: z.infer<typeof organizationSchema>) => {
     try {
       if (!user?.id) throw new Error("Missing user information");
 
       setLoading(true);
+
+      // Extract domain from user's email
+      const domain = extractDomainFromEmail(user.email || "");
+      if (!domain) {
+        throw new Error("Could not extract domain from email");
+      }
 
       // Upload logo if exists
       let logoUrl = logoFile ? await uploadToSupabase(logoFile, "organizations") : organization?.logo_url;
@@ -427,7 +440,7 @@ export function OnboardingFlow() {
           .from("organizations")
           .update({
             name: data.name,
-            domain: data.domain,
+            domain: domain, // Use extracted domain
             logo_url: logoUrl,
           })
           .eq('id', organization.id);
@@ -437,7 +450,7 @@ export function OnboardingFlow() {
         setOrganization({
           ...organization,
           name: data.name,
-          domain: data.domain,
+          domain: domain, // Use extracted domain
           logo_url: logoUrl,
         });
 
@@ -453,7 +466,7 @@ export function OnboardingFlow() {
           .from("organizations")
           .insert({
             name: data.name,
-            domain: data.domain,
+            domain: domain, // Use extracted domain
             logo_url: logoUrl,
           })
           .select()
@@ -488,11 +501,11 @@ export function OnboardingFlow() {
         moveToNextStep();
       }
     } catch (error: any) {
-      console.error("Organization operation error:", error);
+      console.error("Error creating/updating organization:", error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message || "Error processing organization",
+        description: error.message || "Failed to create/update organization",
       });
     } finally {
       setLoading(false);
@@ -919,8 +932,6 @@ export function OnboardingFlow() {
                   onSubmit={orgForm.handleSubmit(handleOrganizationSubmit)}
                   className="space-y-6"
                 >
-                  <FormField
-                    control={orgForm.control}
                     name="name"
                     render={({ field }) => (
                       <FormItem>
@@ -941,6 +952,3 @@ export function OnboardingFlow() {
                       </FormItem>
                     )}
                   />
-
-                  <FormField
-                    control={orgForm.control}
