@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Briefcase, ArrowLeft, ArrowRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/lib/supabase";
 
 const workspaceFormSchema = z.object({
   name: z
@@ -47,33 +48,28 @@ export function WorkspaceSection({
   const onSubmit = async (data: z.infer<typeof workspaceFormSchema>) => {
     setIsSubmitting(true);
     try {
-      // Create the workspace
+      // Create the workspace in Supabase
       const workspaceData = {
         name: data.name,
-        organizationId: parseInt(organization.id, 10),
-        createdBy: parseInt(user.id, 10),
+        organization_id: parseInt(organization.id, 10),
+        created_by: parseInt(user.id, 10),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       };
       console.log("Creating workspace with data:", workspaceData);
       
-      const response = await fetch("/api/workspaces", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(workspaceData),
-      });
+      const { data: newWorkspace, error } = await supabase
+        .from('workspaces')
+        .insert(workspaceData)
+        .select()
+        .single();
       
-      if (response.ok) {
-        const result = await response.json();
-        console.log("Workspace created successfully:", result);
-      } else {
-        const errorData = await response.text();
-        console.error("Error response from server:", errorData);
+      if (error) {
+        console.error("Error inserting workspace into Supabase:", error);
+        throw new Error(error.message || "Failed to create workspace");
       }
-
-      if (!response.ok) {
-        throw new Error("Failed to create workspace");
-      }
+      
+      console.log("Workspace created successfully:", newWorkspace);
 
       // Update completed steps
       const newCompleted = [...completedSteps, "workspace"];
