@@ -25,38 +25,7 @@ export default function OrganizationSetup() {
     }
   }, []);
 
-  // Check DB for invitation if not in URL
-  useEffect(() => {
-    const checkInvitation = async () => {
-      if (!user?.email) return;
-
-      try {
-        const { data, error } = await supabase
-          .from("invitations")
-          .select("organization_id")
-          .eq("email", user.email)
-          .maybeSingle();
-
-        if (error) {
-          console.error("Error checking for invitation:", error);
-          return;
-        }
-
-        if (data) {
-          console.log("Found invitation in database:", data.organization_id);
-          setIsInvitation(true);
-          setInvitationOrgId(data.organization_id);
-        }
-      } catch (err) {
-        console.error("Exception checking invitation:", err);
-      }
-    };
-
-    if (!isInvitation) {
-      checkInvitation();
-    }
-  }, [user?.email, isInvitation]);
-
+  // Check organization membership and update state
   useEffect(() => {
     const checkOrganizationMembership = async () => {
       if (!user) return;
@@ -74,13 +43,16 @@ export default function OrganizationSetup() {
         }
 
         const hasOrg = memberships && memberships.length > 0;
-        setHasOrganization(hasOrg);
-
         console.log("Organization membership check:", { 
           hasOrganization: hasOrg,
           memberships,
           userId: user.id 
         });
+
+        // Only update if the state needs to change
+        if (hasOrg) {
+          setHasOrganization(true);
+        }
       } catch (error) {
         console.error("Failed to check organization membership:", error);
       }
@@ -93,6 +65,5 @@ export default function OrganizationSetup() {
     return <Redirect to="/login" />;
   }
 
-  // Pass invitation information to the OnboardingFlow component
   return <OnboardingFlow />;
 }
