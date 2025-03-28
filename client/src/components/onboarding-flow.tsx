@@ -124,7 +124,6 @@ export function OnboardingFlow() {
         }
 
         if (data) {
-          console.log("Found invitation for organization:", data.organization_id);
           setIsInvitation(true);
           setInvitationOrgId(data.organization_id);
         } else {
@@ -140,9 +139,6 @@ export function OnboardingFlow() {
     loadInvitation();
   }, [user?.email]);
   
-  console.log("Is invitation:", isInvitation);
-  console.log("Invitation org ID:", invitationOrgId);
-  console.log("Invitation checked:", invitationChecked);
   // Add organization state
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [currentStep, setCurrentStep] = useState<string>("organization");
@@ -190,7 +186,6 @@ export function OnboardingFlow() {
     
         // Update organization state and hasOrganization
         const userHasOrg = !!memberships;
-        console.log("userHasOrg: ",userHasOrg);
         setHasOrganization(userHasOrg);
 
         if (userHasOrg && memberships.organizations) {
@@ -208,18 +203,13 @@ export function OnboardingFlow() {
           .eq('user_id', user.id)
           .maybeSingle();
 
-        console.log(existingProgress);
         let progress;
         
         if (!existingProgress) {
-          console.log("enter");
           // For invited users, start directly at profile step
           // Otherwise, follow normal flow
-          console.log("isInvitation: ",isInvitation);
           const initialStep = isInvitation ? 'profile' : (userHasOrg ? 'profile' : 'organization');
-          console.log('initialStep', initialStep);
           const initialCompletedSteps = isInvitation ? ['organization'] : (userHasOrg ? ['organization'] : []);
-          console.log(initialCompletedSteps);
           // Only create new progress if it doesn't exist
           const { data: newProgress, error: progressError } = await supabase
             .from('onboarding_progress')
@@ -389,8 +379,6 @@ export function OnboardingFlow() {
     if (!user) return;
 
     try {
-      console.log("Completed: ",completed);
-      console.log("step: ",step);
       const { error } = await supabase
         .from('onboarding_progress')
         .upsert({
@@ -415,7 +403,6 @@ export function OnboardingFlow() {
   // Handle organization form submission (create or update)
   const handleOrganizationSubmit = async (data: z.infer<typeof organizationSchema>) => {
     try {
-      console.log(data);
       if (!user?.id) throw new Error("Missing user information");
       const emailDomain = user?.email.split("@")[1]; 
       const finalDomain = emailDomain;
@@ -524,8 +511,6 @@ export function OnboardingFlow() {
         avatarUrl = avatarPreview;
       }
 
-      console.log("Saving profile with data:", { name: data.fullName, avatarUrl, orgId });
-
       // Extract first and last name from full name
       const nameParts = data.fullName.trim().split(" ");
       const firstName = nameParts[0] || "";
@@ -579,14 +564,12 @@ export function OnboardingFlow() {
       let newCompleted = completedSteps;
       if (!alreadyCompleted) {
         newCompleted = [...completedSteps, "profile"];
-        console.log(newCompleted);
-        setCompletedSteps(newCompleted);
         
         // For invited users, mark the invitation as accepted
         if (isInvitation && invitationOrgId && user?.email) {
           try {
             await markInvitationAsAccepted(user.email, invitationOrgId);
-            console.log("Invitation marked as accepted");
+
           } catch (invitationError) {
             console.error("Error marking invitation as accepted:", invitationError);
             // Don't throw here, as we still want to continue with the flow
@@ -605,9 +588,8 @@ if (isInvitation) {
             description: "Profile setup complete! Taking you to the dashboard.",
           });
           
-          console.log("Redirecting invited user to home page");
           // Navigate directly to home page - use timeout to ensure state updates first
-          console.log("hasOrganization set to:", true);
+          console.log("hasOrganization set to:", hasOrganization);
           setTimeout(() => {
             setLocation("/");
           }, 100);
@@ -648,8 +630,6 @@ if (isInvitation) {
     if (currentIndex < steps.length - 1) {
       const nextStep = steps[currentIndex + 1].id;
       setCurrentStep(nextStep);
-      console.log("Steps from next: ",completedSteps);
-      console.log("Steps to next: ",nextStep);
       // Update progress
       //await saveProgress(nextStep, completedSteps);
     } else {
@@ -796,7 +776,6 @@ if (isInvitation) {
       const fileName = `${Math.random()}.${fileExt}`;
       const filePath = `${userId}/${fileName}`; // Include user ID in path
 
-      console.log("Uploading file to path:", filePath);
 
       // Upload to the specified bucket
       const { data, error: uploadError } = await supabase.storage

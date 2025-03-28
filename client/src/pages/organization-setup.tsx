@@ -93,5 +93,5 @@ export default function OrganizationSetup() {
   }
   
   // Pass invitation information to the OnboardingFlow component
-  return <OnboardingFlow isInvitation={isInvitation} invitationOrgId={invitationOrgId} />;
+  return <OnboardingFlow />;
 }

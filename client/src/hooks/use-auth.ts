@@ -10,6 +10,10 @@ export function useAuth() {
   const [location, setLocation] = useLocation();
 
   useEffect(() => {
+    console.log("[useAuth] hasOrganization changed:", hasOrganization);
+  }, [hasOrganization]);
+  
+  useEffect(() => {
     console.log("[useAuth] Hook initializing...");
 
     // Get initial session
