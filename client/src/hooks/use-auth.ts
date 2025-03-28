@@ -16,8 +16,10 @@ export function useAuth() {
   useEffect(() => {
     console.log("[useAuth] Hook initializing...");
 
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
+    // Get initial session and check organization status
+    const initializeAuth = async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
       console.log("[useAuth] Initial session check:", {
         hasSession: !!session,
         userEmail: session?.user?.email,
@@ -25,10 +27,22 @@ export function useAuth() {
         timestamp: new Date().toISOString(),
       });
 
+      if (session?.user) {
+        const { data: memberships } = await supabase
+          .from('organization_members')
+          .select('organization_id')
+          .eq('user_id', session.user.id)
+          .limit(1);
+
+        const hasOrg = memberships && memberships.length > 0;
+        setHasOrganization(hasOrg);
+        console.log("[useAuth] Organization status:", { hasOrganization: hasOrg });
+      }
+
       setUser(session?.user ?? null);
       setLoading(false);
 
-      // If user is authenticated and not on a valid auth path, redirect to organization selection
+      // Handle redirects after checking organization status
       if (
         session?.user &&
         location !== "/organization-selection" &&
@@ -38,7 +52,9 @@ export function useAuth() {
       ) {
         setLocation("/organization-selection");
       }
-    });
+    };
+
+    initializeAuth();
 
     // Listen for auth changes
     const {
