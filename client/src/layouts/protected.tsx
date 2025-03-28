@@ -11,6 +11,9 @@ export function Protected({ children }: ProtectedProps) {
   const { user, loading, hasOrganization } = useAuthContext()
   const [location] = useLocation()
 
+  console.log("Protected layout - Current location:", location);
+  console.log("Protected layout - hasOrganization:", hasOrganization);
+
   // Always show login page if no user
   if (!user) {
     return <Redirect to="/login" />
@@ -28,12 +31,18 @@ export function Protected({ children }: ProtectedProps) {
     )
   }
 
-  // Handle organization setup routing
-  if (!hasOrganization) {
-    if (location !== '/organization-setup') {
-      return <Redirect to="/organization-setup" />
-    }
-  } else if (location === '/organization-setup') {
+  // Special case for organization setup flow
+  const isOnboardingPath = location === '/organization-setup' || 
+                           location === '/organization-selection' || 
+                           location === '/profile-setup';
+                           
+  // If no organization and not on onboarding path, redirect to organization selection
+  if (!hasOrganization && !isOnboardingPath) {
+    return <Redirect to="/organization-selection" />
+  }
+  
+  // If user has organization and tries to access organization selection, redirect to home
+  if (hasOrganization && location === '/organization-selection') {
     return <Redirect to="/" />
   }
 
