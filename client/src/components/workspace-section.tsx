@@ -51,10 +51,8 @@ export function WorkspaceSection({
       // Create the workspace in Supabase
       const workspaceData = {
         name: data.name,
-        organization_id: parseInt(organization.id, 10),
-        created_by: parseInt(user.id, 10),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        organization_id: organization.id,
+        created_by: user.id,
       };
       console.log("Creating workspace with data:", workspaceData);
       
