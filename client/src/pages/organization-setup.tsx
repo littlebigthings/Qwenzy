@@ -9,7 +9,7 @@ export default function OrganizationSetup() {
   const { user, hasOrganization, setHasOrganization } = useAuth();
   console.log(user);
   const [location] = useLocation();
-
+  
   useEffect(() => {
     const checkOrganizationMembership = async () => {
       if (!user) return;

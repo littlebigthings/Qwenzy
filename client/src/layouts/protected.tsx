@@ -37,7 +37,12 @@ export function Protected({ children }: ProtectedProps) {
                            location === '/profile-setup';
                            
   // If no organization and not on onboarding path, redirect to organization selection
+  console.log("isOnboardingPath:", isOnboardingPath);
+  console.log("hasOrganization:", hasOrganization);
+  console.log("Current location in protected layout:", location);
+  
   if (!hasOrganization && !isOnboardingPath) {
+    console.log("Redirecting to organization selection");
     return <Redirect to="/organization-selection" />
   }
   
@@ -45,6 +50,6 @@ export function Protected({ children }: ProtectedProps) {
   if (hasOrganization && location === '/organization-selection') {
     return <Redirect to="/" />
   }
-
+  console.log(children);
   return <>{children}</>
 }
