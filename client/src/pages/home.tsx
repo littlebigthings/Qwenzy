@@ -4,23 +4,26 @@ import { ChevronDown, BarChartIcon } from "lucide-react"
 import { useEffect, useState } from "react"
 import { Link } from "wouter"
 import { supabase } from "@/lib/supabase"
+import Modal from "@/components/ui/modal"
+import { Input } from "@/components/ui/input"
 
 export default function Home() {
   const { user } = useAuth()
-  const [organization, setOrganization] = useState({ name: "Lit Big Things", id: "" })
-  const [userName, setUserName] = useState("Sarah")
-  const [activeMenu, setActiveMenu] = useState("dashboard") // Default active menu is dashboard
+  const [organization, setOrganization] = useState({ name: "", id: "" })
+  const [userName, setUserName] = useState("")
+  const [activeMenu, setActiveMenu] = useState("dashboard")
+  const [showWorkspacePrompt, setShowWorkspacePrompt] = useState(false)
+  const [workspaceName, setWorkspaceName] = useState("")
+  const [showWorkspaceModal, setShowWorkspaceModal] = useState(false)
 
   useEffect(() => {
-    // Get organization and user data
     const fetchData = async () => {
       if (user) {
-        // Update with real user name when available
         setUserName(user.email?.split('@')[0] || "User")
         
         // Fetch user's organization
         try {
-          const { data: memberships, error } = await supabase
+          const { data: memberships } = await supabase
             .from('organization_members')
             .select('organization_id')
             .eq('user_id', user.id)
@@ -36,12 +39,24 @@ export default function Home() {
             if (orgData) {
               setOrganization({
                 id: orgData.id,
-                name: orgData.name || "My Organization"
+                name: orgData.name
               })
             }
           }
+
+          const { data: workspaces } = await supabase
+          .from('workspaces')
+          .select('name, completed')
+          .eq('created_by', user.id)
+          .eq('completed', false) 
+          .limit(1)
+
+          if (workspaces && workspaces.length > 0) {
+            setWorkspaceName(workspaces[0].name)
+            setShowWorkspacePrompt(true)
+          }
         } catch (error) {
-          console.error("Error fetching organization:", error)
+          console.error("Error fetching data:", error)
         }
       }
     }
@@ -51,10 +66,47 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex bg-gray-50">
+      {showWorkspacePrompt && (
+        <Modal
+          title="Complete Creating a Workspace"
+          onClose={() => setShowWorkspacePrompt(false)}
+          isOpen={showWorkspacePrompt}
+        >
+          <p className="mb-4">Do you want to continue setting up your workspace?</p>
+          <div className="flex justify-end space-x-2">
+            <Button onClick={() => setShowWorkspacePrompt(false)} variant="outline">
+              Not Now
+            </Button>
+            <Button onClick={() => { setShowWorkspacePrompt(false); setShowWorkspaceModal(true); }}>
+              Continue
+            </Button>
+          </div>
+        </Modal>
+      )}
+
+      {/* Workspace Setup Modal */}
+      {showWorkspaceModal && (
+        <Modal
+          title="Complete Your Workspace Setup"
+          onClose={() => setShowWorkspaceModal(false)}
+          isOpen={showWorkspaceModal}
+        >
+          <p className="mb-2">Enter your workspace name:</p>
+          <Input value={workspaceName} onChange={(e) => setWorkspaceName(e.target.value)} />
+          <div className="flex justify-end space-x-2 mt-4">
+            <Button onClick={() => setShowWorkspaceModal(false)} variant="outline">
+              Cancel
+            </Button>
+            <Button onClick={() => setShowWorkspaceModal(false)}>
+              Save
+            </Button>
+          </div>
+        </Modal>
+      )}
       {/* Sidebar */}
       <div className="w-56 bg-white shadow-sm z-10 border-r">
         {/* Header */}
-        <div className="p-4 bg-[#2c6e49] text-white flex items-center">
+        <div className="p-4 bg-[#579189] text-white flex items-center">
           <div className="w-7 h-7 bg-white rounded-full flex items-center justify-center text-[#2c6e49] font-bold">
             {organization.name.charAt(0)}
           </div>
@@ -71,7 +123,7 @@ export default function Home() {
               <Link href="/dashboard">
                 <a 
                   className={`flex items-center px-4 py-2 ${activeMenu === 'dashboard' 
-                    ? 'bg-[#2c6e49] text-white' 
+                    ? 'bg-[#579189] text-white' 
                     : 'text-gray-600 hover:bg-gray-100'}`}
                   onClick={() => setActiveMenu('dashboard')}
                 >
@@ -89,7 +141,7 @@ export default function Home() {
               <Link href="/updates">
                 <a 
                   className={`flex items-center px-4 py-2 ${activeMenu === 'updates' 
-                    ? 'bg-[#2c6e49] text-white' 
+                    ? 'bg-[#579189] text-white' 
                     : 'text-gray-600 hover:bg-gray-100'}`}
                   onClick={() => setActiveMenu('updates')}
                 >
@@ -112,7 +164,7 @@ export default function Home() {
             <li>
               <button 
                 className={`w-full flex items-center px-4 py-2 ${activeMenu === 'list' 
-                  ? 'bg-[#2c6e49] text-white' 
+                  ? 'bg-[#579189] text-white' 
                   : 'text-gray-600 hover:bg-gray-100'}`}
                 onClick={() => setActiveMenu('list')}
               >
@@ -128,7 +180,7 @@ export default function Home() {
                 <li>
                   <Link href="/list">
                     <a className={`block px-4 py-2 ${activeMenu === 'list-main' 
-                      ? 'bg-[#2c6e49] text-white' 
+                      ? 'bg-[#579189] text-white' 
                       : 'text-gray-600 hover:bg-gray-100'}`}
                       onClick={() => setActiveMenu('list-main')}
                     >List</a>
@@ -137,7 +189,7 @@ export default function Home() {
                 <li>
                   <Link href="/list/1">
                     <a className={`block px-4 py-2 ${activeMenu === 'list-1' 
-                      ? 'bg-[#2c6e49] text-white' 
+                      ? 'bg-[#579189] text-white' 
                       : 'text-gray-600 hover:bg-gray-100'}`}
                       onClick={() => setActiveMenu('list-1')}
                     >List</a>
@@ -146,7 +198,7 @@ export default function Home() {
                 <li>
                   <Link href="/list/2">
                     <a className={`block px-4 py-2 ${activeMenu === 'list-2' 
-                      ? 'bg-[#2c6e49] text-white' 
+                      ? 'bg-[#579189] text-white' 
                       : 'text-gray-600 hover:bg-gray-100'}`}
                       onClick={() => setActiveMenu('list-2')}
                     >List</a>
@@ -155,7 +207,7 @@ export default function Home() {
                 <li>
                   <Link href="/list/3">
                     <a className={`block px-4 py-2 ${activeMenu === 'list-3' 
-                      ? 'bg-[#2c6e49] text-white' 
+                      ? 'bg-[#579189] text-white' 
                       : 'text-gray-600 hover:bg-gray-100'}`}
                       onClick={() => setActiveMenu('list-3')}
                     >List</a>
@@ -168,7 +220,7 @@ export default function Home() {
               <Link href="/roles">
                 <a 
                   className={`flex items-center px-4 py-2 ${activeMenu === 'roles' 
-                    ? 'bg-[#2c6e49] text-white' 
+                    ? 'bg-[#579189] text-white' 
                     : 'text-gray-600 hover:bg-gray-100'}`}
                   onClick={() => setActiveMenu('roles')}
                 >
