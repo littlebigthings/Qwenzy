@@ -261,55 +261,57 @@ export default function Home() {
               
               <Dialog>
                 <DialogTrigger asChild>
-                  <Button className="bg-[#2c6e49] hover:bg-[#245a3a] flex items-center mx-auto">
+                  <Button className="bg-[#2c6e49] hover:bg-[#245a3a] text-white">
                     <PlusIcon className="w-4 h-4 mr-2" /> Create a workspace
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-[425px]">
-                  <DialogHeader>
-                    <DialogTitle>Create a workspace</DialogTitle>
-                    <DialogDescription>
-                      Create a new workspace to organize your projects and collaborate with your team.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="workspace-name" className="text-right">
-                        Name
-                      </Label>
-                      <Input
-                        id="workspace-name"
-                        value={workspaceName}
-                        onChange={(e) => setWorkspaceName(e.target.value)}
-                        className="col-span-3"
-                        placeholder="Enter workspace name"
-                      />
+                <DialogContent className="bg-white rounded-lg p-0 overflow-hidden max-w-md mx-auto">
+                  <div className="bg-[#62AE85] p-4 text-center text-white rounded-t-lg">
+                    <h2 className="text-xl font-semibold">Create Workspace</h2>
+                  </div>
+                  <div className="p-6">
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="workspace-name" className="block text-sm font-medium text-gray-700">
+                          Name
+                        </Label>
+                        <Input
+                          id="workspace-name"
+                          value={workspaceName}
+                          onChange={(e) => setWorkspaceName(e.target.value)}
+                          className="w-full rounded-md border-gray-300"
+                          placeholder="Enter workspace name"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="workspace-description" className="block text-sm font-medium text-gray-700">
+                          Description
+                        </Label>
+                        <Textarea
+                          id="workspace-description"
+                          value={workspaceDescription}
+                          onChange={(e) => setWorkspaceDescription(e.target.value)}
+                          className="w-full rounded-md border-gray-300"
+                          placeholder="Enter workspace description"
+                          rows={4}
+                        />
+                      </div>
                     </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="workspace-description" className="text-right">
-                        Description
-                      </Label>
-                      <Textarea
-                        id="workspace-description"
-                        value={workspaceDescription}
-                        onChange={(e) => setWorkspaceDescription(e.target.value)}
-                        className="col-span-3"
-                        placeholder="Enter workspace description"
-                      />
+                    <div className="mt-6 flex justify-end space-x-3">
+                      <DialogClose asChild>
+                        <Button variant="outline" className="border-gray-300 text-gray-700">
+                          Cancel
+                        </Button>
+                      </DialogClose>
+                      <Button 
+                        type="submit" 
+                        className="bg-[#2c6e49] hover:bg-[#245a3a] text-white"
+                        onClick={createWorkspace}
+                      >
+                        Create
+                      </Button>
                     </div>
                   </div>
-                  <DialogFooter>
-                    <DialogClose asChild>
-                      <Button variant="outline">Cancel</Button>
-                    </DialogClose>
-                    <Button 
-                      type="submit" 
-                      className="bg-[#2c6e49] hover:bg-[#245a3a]"
-                      onClick={createWorkspace}
-                    >
-                      Create
-                    </Button>
-                  </DialogFooter>
                 </DialogContent>
               </Dialog>
             </div>
