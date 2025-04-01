@@ -1,34 +1,37 @@
 import { useAuth } from "@/hooks/use-auth"
 import { Button } from "@/components/ui/button"
-import { ChevronDown, BarChartIcon } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useState, useEffect } from "react"
 import { Link } from "wouter"
 
-export default function Home() {
+export default function HomeNew() {
   const { user } = useAuth()
-  const [organization, setOrganization] = useState({ name: "Lit Big Things" })
   const [userName, setUserName] = useState("Sarah")
+  const [organizationName, setOrganizationName] = useState("Lit Big Things")
 
   useEffect(() => {
-    // Get organization and user data
+    // Update user info when available
     if (user) {
-      // Update with real user name when available
+      // Use user's name or extract from email
       setUserName(user.email?.split('@')[0] || "User")
     }
   }, [user])
 
   return (
-    <div className="min-h-screen flex bg-gray-50">
+    <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
-      <div className="w-56 bg-white shadow-sm z-10 border-r">
-        {/* Header */}
-        <div className="p-4 bg-[#2c6e49] text-white flex items-center">
-          <div className="w-7 h-7 bg-white rounded-full flex items-center justify-center text-[#2c6e49] font-bold">
-            {organization.name.charAt(0)}
+      <div className="w-56 bg-white border-r flex-shrink-0">
+        {/* Organization header */}
+        <div className="bg-[#2c6e49] text-white p-4 flex items-center justify-between">
+          <div className="flex items-center">
+            <div className="w-7 h-7 bg-white rounded-full flex items-center justify-center text-[#2c6e49] font-bold">
+              {organizationName.charAt(0)}
+            </div>
+            <span className="ml-2 font-medium">{organizationName}</span>
           </div>
-          <span className="font-medium ml-2">{organization.name}</span>
-          <button className="ml-auto">
-            <ChevronDown className="h-5 w-5" />
+          <button>
+            <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
           </button>
         </div>
 
@@ -80,7 +83,7 @@ export default function Home() {
               <ul className="pl-10">
                 <li>
                   <Link href="/list">
-                    <a className="block px-4 py-2 text-gray-600 bg-[#2c6e49] text-white">List</a>
+                    <a className="block px-4 py-2 text-white bg-[#2c6e49]">List</a>
                   </Link>
                 </li>
                 <li>
@@ -119,27 +122,24 @@ export default function Home() {
       </div>
 
       {/* Main content */}
-      <div className="flex-1 overflow-auto bg-[url('/background-pattern.svg')] bg-opacity-5">
+      <div className="flex-1 overflow-y-auto">
         <main className="p-8">
-          {/* Welcome section */}
-          <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-sm p-8 mb-8 text-center">
-            <h1 className="text-3xl font-semibold text-[#2c6e49] mb-4">Welcome {userName}!</h1>
-            
-            <div className="max-w-md mx-auto">
+          {/* Welcome header */}
+          <div className="max-w-4xl mx-auto mb-10 bg-white p-8 rounded-lg shadow-sm">
+            <div className="text-center max-w-md mx-auto">
+              <h1 className="text-3xl font-semibold text-[#2c6e49] mb-4">Welcome {userName}!</h1>
               <h2 className="text-xl font-medium mb-2">Kickstart Your Workspace Creation</h2>
               <p className="text-gray-600 mb-6">
-                A workspace is your central hub for organizing projects, tasks, and 
-                teams. Create one to start managing your work efficiently and 
-                collaborate seamlessly
+                A workspace is your central hub for organizing projects, tasks, and teams. 
+                Create one to start managing your work efficiently and collaborate seamlessly
               </p>
-              
-              <Button className="bg-[#2c6e49] hover:bg-[#245a3a] flex items-center mx-auto">
+              <Button className="bg-[#2c6e49] hover:bg-[#26593d] px-6">
                 <span className="mr-2">+</span> Create a workspace
               </Button>
             </div>
           </div>
 
-          {/* Projects section */}
+          {/* Project grids */}
           <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
             {/* Active projects */}
             <div className="bg-white rounded-lg shadow-sm p-6">
@@ -154,9 +154,11 @@ export default function Home() {
               
               <div className="text-center py-6">
                 <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <BarChartIcon className="w-6 h-6 text-gray-400" />
+                  <svg className="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
                 </div>
-                <p className="text-sm text-gray-500 mb-1">
+                <p className="text-sm text-gray-500">
                   Join a workspace or create your own to start adding & tracking your projects
                 </p>
               </div>
@@ -170,9 +172,11 @@ export default function Home() {
               
               <div className="text-center py-6">
                 <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <BarChartIcon className="w-6 h-6 text-gray-400" />
+                  <svg className="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
                 </div>
-                <p className="text-sm text-gray-500 mb-1">
+                <p className="text-sm text-gray-500">
                   Join a workspace or create your own to start adding & tracking your projects
                 </p>
               </div>
