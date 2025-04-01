@@ -3,18 +3,50 @@ import { Button } from "@/components/ui/button"
 import { ChevronDown, BarChartIcon } from "lucide-react"
 import { useEffect, useState } from "react"
 import { Link } from "wouter"
+import { supabase } from "@/lib/supabase"
 
 export default function Home() {
   const { user } = useAuth()
-  const [organization, setOrganization] = useState({ name: "Lit Big Things" })
+  const [organization, setOrganization] = useState({ name: "Lit Big Things", id: "" })
   const [userName, setUserName] = useState("Sarah")
+  const [activeMenu, setActiveMenu] = useState("dashboard") // Default active menu is dashboard
 
   useEffect(() => {
     // Get organization and user data
-    if (user) {
-      // Update with real user name when available
-      setUserName(user.email?.split('@')[0] || "User")
+    const fetchData = async () => {
+      if (user) {
+        // Update with real user name when available
+        setUserName(user.email?.split('@')[0] || "User")
+        
+        // Fetch user's organization
+        try {
+          const { data: memberships, error } = await supabase
+            .from('organization_members')
+            .select('organization_id')
+            .eq('user_id', user.id)
+            .limit(1)
+
+          if (memberships && memberships.length > 0) {
+            const { data: orgData } = await supabase
+              .from('organizations')
+              .select('*')
+              .eq('id', memberships[0].organization_id)
+              .single()
+              
+            if (orgData) {
+              setOrganization({
+                id: orgData.id,
+                name: orgData.name || "My Organization"
+              })
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching organization:", error)
+        }
+      }
     }
+    
+    fetchData()
   }, [user])
 
   return (
@@ -37,7 +69,12 @@ export default function Home() {
           <ul>
             <li>
               <Link href="/dashboard">
-                <a className="flex items-center px-4 py-2 text-gray-600 hover:bg-gray-100">
+                <a 
+                  className={`flex items-center px-4 py-2 ${activeMenu === 'dashboard' 
+                    ? 'bg-[#2c6e49] text-white' 
+                    : 'text-gray-600 hover:bg-gray-100'}`}
+                  onClick={() => setActiveMenu('dashboard')}
+                >
                   <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                   </svg>
@@ -50,7 +87,12 @@ export default function Home() {
             </li>
             <li>
               <Link href="/updates">
-                <a className="flex items-center px-4 py-2 text-gray-600 hover:bg-gray-100">
+                <a 
+                  className={`flex items-center px-4 py-2 ${activeMenu === 'updates' 
+                    ? 'bg-[#2c6e49] text-white' 
+                    : 'text-gray-600 hover:bg-gray-100'}`}
+                  onClick={() => setActiveMenu('updates')}
+                >
                   <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                   </svg>
@@ -68,7 +110,12 @@ export default function Home() {
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">APPLICATION</p>
             </li>
             <li>
-              <button className="w-full flex items-center px-4 py-2 text-gray-600 hover:bg-gray-100">
+              <button 
+                className={`w-full flex items-center px-4 py-2 ${activeMenu === 'list' 
+                  ? 'bg-[#2c6e49] text-white' 
+                  : 'text-gray-600 hover:bg-gray-100'}`}
+                onClick={() => setActiveMenu('list')}
+              >
                 <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                 </svg>
@@ -80,22 +127,38 @@ export default function Home() {
               <ul className="pl-10">
                 <li>
                   <Link href="/list">
-                    <a className="block px-4 py-2 text-gray-600 bg-[#2c6e49] text-white">List</a>
+                    <a className={`block px-4 py-2 ${activeMenu === 'list-main' 
+                      ? 'bg-[#2c6e49] text-white' 
+                      : 'text-gray-600 hover:bg-gray-100'}`}
+                      onClick={() => setActiveMenu('list-main')}
+                    >List</a>
                   </Link>
                 </li>
                 <li>
                   <Link href="/list/1">
-                    <a className="block px-4 py-2 text-gray-600 hover:bg-gray-100">List</a>
+                    <a className={`block px-4 py-2 ${activeMenu === 'list-1' 
+                      ? 'bg-[#2c6e49] text-white' 
+                      : 'text-gray-600 hover:bg-gray-100'}`}
+                      onClick={() => setActiveMenu('list-1')}
+                    >List</a>
                   </Link>
                 </li>
                 <li>
                   <Link href="/list/2">
-                    <a className="block px-4 py-2 text-gray-600 hover:bg-gray-100">List</a>
+                    <a className={`block px-4 py-2 ${activeMenu === 'list-2' 
+                      ? 'bg-[#2c6e49] text-white' 
+                      : 'text-gray-600 hover:bg-gray-100'}`}
+                      onClick={() => setActiveMenu('list-2')}
+                    >List</a>
                   </Link>
                 </li>
                 <li>
                   <Link href="/list/3">
-                    <a className="block px-4 py-2 text-gray-600 hover:bg-gray-100">List</a>
+                    <a className={`block px-4 py-2 ${activeMenu === 'list-3' 
+                      ? 'bg-[#2c6e49] text-white' 
+                      : 'text-gray-600 hover:bg-gray-100'}`}
+                      onClick={() => setActiveMenu('list-3')}
+                    >List</a>
                   </Link>
                 </li>
               </ul>
@@ -103,7 +166,12 @@ export default function Home() {
 
             <li>
               <Link href="/roles">
-                <a className="flex items-center px-4 py-2 text-gray-600 hover:bg-gray-100">
+                <a 
+                  className={`flex items-center px-4 py-2 ${activeMenu === 'roles' 
+                    ? 'bg-[#2c6e49] text-white' 
+                    : 'text-gray-600 hover:bg-gray-100'}`}
+                  onClick={() => setActiveMenu('roles')}
+                >
                   <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                   </svg>
@@ -119,7 +187,7 @@ export default function Home() {
       </div>
 
       {/* Main content */}
-      <div className="flex-1 overflow-auto bg-[url('/background-pattern.svg')] bg-opacity-5">
+      <div className="flex-1 overflow-auto bg-[url('/background-pattern.svg')]">
         <main className="p-8">
           {/* Welcome section */}
           <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-sm p-8 mb-8 text-center">
