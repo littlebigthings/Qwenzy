@@ -1,42 +1,29 @@
 import { useAuth } from "@/hooks/use-auth"
 import { Button } from "@/components/ui/button"
-import { ChevronDown, BarChartIcon, PlusIcon } from "lucide-react"
+import { ChevronDown, BarChartIcon } from "lucide-react"
 import { useEffect, useState } from "react"
-import { useLocation } from "wouter"
+import { Link } from "wouter"
 import { supabase } from "@/lib/supabase"
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
+import Modal from "@/components/ui/modal"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 
 export default function Home() {
   const { user } = useAuth()
-  const [location, navigate] = useLocation()
-  const [organization, setOrganization] = useState({ name: "Lit Big Things", id: "" })
-  const [userName, setUserName] = useState("Sarah")
-  const [activeMenu, setActiveMenu] = useState("dashboard") // Default active menu is dashboard
+  const [organization, setOrganization] = useState({ name: "", id: "" })
+  const [userName, setUserName] = useState("")
+  const [activeMenu, setActiveMenu] = useState("dashboard")
+  const [showWorkspacePrompt, setShowWorkspacePrompt] = useState(false)
   const [workspaceName, setWorkspaceName] = useState("")
-  const [workspaceDescription, setWorkspaceDescription] = useState("")
+  const [showWorkspaceModal, setShowWorkspaceModal] = useState(false)
 
   useEffect(() => {
-    // Get organization and user data
     const fetchData = async () => {
       if (user) {
-        // Update with real user name when available
         setUserName(user.email?.split('@')[0] || "User")
         
         // Fetch user's organization
         try {
-          const { data: memberships, error } = await supabase
+          const { data: memberships } = await supabase
             .from('organization_members')
             .select('organization_id')
             .eq('user_id', user.id)
@@ -52,12 +39,24 @@ export default function Home() {
             if (orgData) {
               setOrganization({
                 id: orgData.id,
-                name: orgData.name || "My Organization"
+                name: orgData.name
               })
             }
           }
+
+          const { data: workspaces } = await supabase
+          .from('workspaces')
+          .select('name, completed')
+          .eq('created_by', user.id)
+          .eq('completed', false) 
+          .limit(1)
+
+          if (workspaces && workspaces.length > 0) {
+            setWorkspaceName(workspaces[0].name)
+            setShowWorkspacePrompt(true)
+          }
         } catch (error) {
-          console.error("Error fetching organization:", error)
+          console.error("Error fetching data:", error)
         }
       }
     }
@@ -65,43 +64,49 @@ export default function Home() {
     fetchData()
   }, [user])
 
-  const createWorkspace = async () => {
-    if (!workspaceName.trim()) return
-    
-    try {
-      const { data, error } = await supabase
-        .from('workspaces')
-        .insert([
-          { 
-            name: workspaceName,
-            description: workspaceDescription,
-            organization_id: organization.id,
-            created_by: user?.id
-          }
-        ])
-        .select()
-        
-      if (error) throw error
-      
-      // Reset form
-      setWorkspaceName("")
-      setWorkspaceDescription("")
-      
-      // Navigate to the new workspace (commented out for now)
-      // if (data && data[0]) {
-      //   navigate(`/workspace/${data[0].id}`)
-      // }
-    } catch (error) {
-      console.error("Error creating workspace:", error)
-    }
-  }
-
   return (
     <div className="min-h-screen flex bg-gray-50">
+      {showWorkspacePrompt && (
+        <Modal
+          title="Complete Creating a Workspace"
+          onClose={() => setShowWorkspacePrompt(false)}
+          isOpen={showWorkspacePrompt}
+        >
+          <p className="mb-4">Do you want to continue setting up your workspace?</p>
+          <div className="flex justify-end space-x-2">
+            <Button onClick={() => setShowWorkspacePrompt(false)} variant="outline">
+              Not Now
+            </Button>
+            <Button onClick={() => { setShowWorkspacePrompt(false); setShowWorkspaceModal(true); }}>
+              Continue
+            </Button>
+          </div>
+        </Modal>
+      )}
+
+      {/* Workspace Setup Modal */}
+      {showWorkspaceModal && (
+        <Modal
+          title="Complete Your Workspace Setup"
+          onClose={() => setShowWorkspaceModal(false)}
+          isOpen={showWorkspaceModal}
+        >
+          <p className="mb-2">Enter your workspace name:</p>
+          <Input value={workspaceName} onChange={(e) => setWorkspaceName(e.target.value)} />
+          <div className="flex justify-end space-x-2 mt-4">
+            <Button onClick={() => setShowWorkspaceModal(false)} variant="outline">
+              Cancel
+            </Button>
+            <Button onClick={() => setShowWorkspaceModal(false)}>
+              Save
+            </Button>
+          </div>
+        </Modal>
+      )}
       {/* Sidebar */}
       <div className="w-56 bg-white shadow-sm z-10 border-r">
         {/* Header */}
-        <div className="p-4 bg-[#2c6e49] text-white flex items-center">
+        <div className="p-4 bg-[#579189] text-white flex items-center">
           <div className="w-7 h-7 bg-white rounded-full flex items-center justify-center text-[#2c6e49] font-bold">
             {organization.name.charAt(0)}
           </div>
@@ -115,43 +120,41 @@ export default function Home() {
         <nav className="py-2">
           <ul>
             <li>
-              <div 
-                className={`flex items-center px-4 py-2 cursor-pointer ${activeMenu === 'dashboard' 
-                  ? 'bg-[#2c6e49] text-white' 
-                  : 'text-gray-600 hover:bg-gray-100'}`}
-                onClick={() => {
-                  setActiveMenu('dashboard');
-                  navigate('/dashboard');
-                }}
-              >
-                <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                </svg>
-                Dashboard
-                <svg className="w-5 h-5 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </div>
+              <Link href="/dashboard">
+                <a 
+                  className={`flex items-center px-4 py-2 ${activeMenu === 'dashboard' 
+                    ? 'bg-[#579189] text-white' 
+                    : 'text-gray-600 hover:bg-gray-100'}`}
+                  onClick={() => setActiveMenu('dashboard')}
+                >
+                  <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                  </svg>
+                  Dashboard
+                  <svg className="w-5 h-5 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </a>
+              </Link>
             </li>
             <li>
-              <div
-                className={`flex items-center px-4 py-2 cursor-pointer ${activeMenu === 'updates' 
-                  ? 'bg-[#2c6e49] text-white' 
-                  : 'text-gray-600 hover:bg-gray-100'}`}
-                onClick={() => {
-                  setActiveMenu('updates');
-                  navigate('/updates');
-                }}
-              >
-                <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                </svg>
-                Updates
-                <span className="ml-auto bg-green-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">3</span>
-                <svg className="w-5 h-5 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </div>
+              <Link href="/updates">
+                <a 
+                  className={`flex items-center px-4 py-2 ${activeMenu === 'updates' 
+                    ? 'bg-[#579189] text-white' 
+                    : 'text-gray-600 hover:bg-gray-100'}`}
+                  onClick={() => setActiveMenu('updates')}
+                >
+                  <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                  Updates
+                  <span className="ml-auto bg-green-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">3</span>
+                  <svg className="w-5 h-5 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </a>
+              </Link>
             </li>
 
             {/* APPLICATION section */}
@@ -161,7 +164,7 @@ export default function Home() {
             <li>
               <button 
                 className={`w-full flex items-center px-4 py-2 ${activeMenu === 'list' 
-                  ? 'bg-[#2c6e49] text-white' 
+                  ? 'bg-[#579189] text-white' 
                   : 'text-gray-600 hover:bg-gray-100'}`}
                 onClick={() => setActiveMenu('list')}
               >
@@ -175,70 +178,61 @@ export default function Home() {
               </button>
               <ul className="pl-10">
                 <li>
-                  <div
-                    className={`block px-4 py-2 cursor-pointer ${activeMenu === 'list-main' 
-                      ? 'bg-[#2c6e49] text-white' 
+                  <Link href="/list">
+                    <a className={`block px-4 py-2 ${activeMenu === 'list-main' 
+                      ? 'bg-[#579189] text-white' 
                       : 'text-gray-600 hover:bg-gray-100'}`}
-                    onClick={() => {
-                      setActiveMenu('list-main');
-                      navigate('/list');
-                    }}
-                  >List</div>
+                      onClick={() => setActiveMenu('list-main')}
+                    >List</a>
+                  </Link>
                 </li>
                 <li>
-                  <div
-                    className={`block px-4 py-2 cursor-pointer ${activeMenu === 'list-1' 
-                      ? 'bg-[#2c6e49] text-white' 
+                  <Link href="/list/1">
+                    <a className={`block px-4 py-2 ${activeMenu === 'list-1' 
+                      ? 'bg-[#579189] text-white' 
                       : 'text-gray-600 hover:bg-gray-100'}`}
-                    onClick={() => {
-                      setActiveMenu('list-1');
-                      navigate('/list/1');
-                    }}
-                  >List</div>
+                      onClick={() => setActiveMenu('list-1')}
+                    >List</a>
+                  </Link>
                 </li>
                 <li>
-                  <div
-                    className={`block px-4 py-2 cursor-pointer ${activeMenu === 'list-2' 
-                      ? 'bg-[#2c6e49] text-white' 
+                  <Link href="/list/2">
+                    <a className={`block px-4 py-2 ${activeMenu === 'list-2' 
+                      ? 'bg-[#579189] text-white' 
                       : 'text-gray-600 hover:bg-gray-100'}`}
-                    onClick={() => {
-                      setActiveMenu('list-2');
-                      navigate('/list/2');
-                    }}
-                  >List</div>
+                      onClick={() => setActiveMenu('list-2')}
+                    >List</a>
+                  </Link>
                 </li>
                 <li>
-                  <div
-                    className={`block px-4 py-2 cursor-pointer ${activeMenu === 'list-3' 
-                      ? 'bg-[#2c6e49] text-white' 
+                  <Link href="/list/3">
+                    <a className={`block px-4 py-2 ${activeMenu === 'list-3' 
+                      ? 'bg-[#579189] text-white' 
                       : 'text-gray-600 hover:bg-gray-100'}`}
-                    onClick={() => {
-                      setActiveMenu('list-3');
-                      navigate('/list/3');
-                    }}
-                  >List</div>
+                      onClick={() => setActiveMenu('list-3')}
+                    >List</a>
+                  </Link>
                 </li>
               </ul>
             </li>
 
             <li>
-              <div
-                className={`flex items-center px-4 py-2 cursor-pointer ${activeMenu === 'roles' 
-                  ? 'bg-[#2c6e49] text-white' 
-                  : 'text-gray-600 hover:bg-gray-100'}`}
-                onClick={() => {
-                  setActiveMenu('roles');
-                  navigate('/roles');
-                }}
-              >
-                <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-                Roles & Permissions
-                <svg className="w-5 h-5 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </div>
+              <Link href="/roles">
+                <a 
+                  className={`flex items-center px-4 py-2 ${activeMenu === 'roles' 
+                    ? 'bg-[#579189] text-white' 
+                    : 'text-gray-600 hover:bg-gray-100'}`}
+                  onClick={() => setActiveMenu('roles')}
+                >
+                  <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                  Roles & Permissions
+                  <svg className="w-5 h-5 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </a>
+              </Link>
             </li>
           </ul>
         </nav>
@@ -259,61 +253,9 @@ export default function Home() {
                 collaborate seamlessly
               </p>
               
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button className="bg-[#2c6e49] hover:bg-[#245a3a] text-white">
-                    <PlusIcon className="w-4 h-4 mr-2" /> Create a workspace
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="bg-white rounded-lg p-0 overflow-hidden max-w-md mx-auto">
-                  <div className="bg-[#62AE85] p-4 text-center text-white rounded-t-lg">
-                    <h2 className="text-xl font-semibold">Create Workspace</h2>
-                  </div>
-                  <div className="p-6">
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="workspace-name" className="block text-sm font-medium text-gray-700">
-                          Name
-                        </Label>
-                        <Input
-                          id="workspace-name"
-                          value={workspaceName}
-                          onChange={(e) => setWorkspaceName(e.target.value)}
-                          className="w-full rounded-md border-gray-300"
-                          placeholder="Enter workspace name"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="workspace-description" className="block text-sm font-medium text-gray-700">
-                          Description
-                        </Label>
-                        <Textarea
-                          id="workspace-description"
-                          value={workspaceDescription}
-                          onChange={(e) => setWorkspaceDescription(e.target.value)}
-                          className="w-full rounded-md border-gray-300"
-                          placeholder="Enter workspace description"
-                          rows={4}
-                        />
-                      </div>
-                    </div>
-                    <div className="mt-6 flex justify-end space-x-3">
-                      <DialogClose asChild>
-                        <Button variant="outline" className="border-gray-300 text-gray-700">
-                          Cancel
-                        </Button>
-                      </DialogClose>
-                      <Button 
-                        type="submit" 
-                        className="bg-[#2c6e49] hover:bg-[#245a3a] text-white"
-                        onClick={createWorkspace}
-                      >
-                        Create
-                      </Button>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
+              <Button className="bg-[#2c6e49] hover:bg-[#245a3a] flex items-center mx-auto">
+                <span className="mr-2">+</span> Create a workspace
+              </Button>
             </div>
           </div>
 
