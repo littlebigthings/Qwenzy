@@ -1,0 +1,6 @@
+              <Button 
+                className="bg-[#2c6e49] hover:bg-[#245a3a] flex items-center mx-auto"
+                onClick={() => setShowWorkspacePrompt(true)}
+              >
+                <span className="mr-2">+</span> Create a workspace
+              </Button>

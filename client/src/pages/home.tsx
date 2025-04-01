@@ -6,6 +6,7 @@ import { Link } from "wouter"
 import { supabase } from "@/lib/supabase"
 import Modal from "@/components/ui/modal"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
 export default function Home() {
   const { user } = useAuth()
@@ -65,44 +66,7 @@ export default function Home() {
   }, [user])
 
   return (
-    <div className="min-h-screen flex bg-gray-50">
-      {showWorkspacePrompt && (
-        <Modal
-          title="Complete Creating a Workspace"
-          onClose={() => setShowWorkspacePrompt(false)}
-          isOpen={showWorkspacePrompt}
-        >
-          <p className="mb-4">Do you want to continue setting up your workspace?</p>
-          <div className="flex justify-end space-x-2">
-            <Button onClick={() => setShowWorkspacePrompt(false)} variant="outline">
-              Not Now
-            </Button>
-            <Button onClick={() => { setShowWorkspacePrompt(false); setShowWorkspaceModal(true); }}>
-              Continue
-            </Button>
-          </div>
-        </Modal>
-      )}
-
-      {/* Workspace Setup Modal */}
-      {showWorkspaceModal && (
-        <Modal
-          title="Complete Your Workspace Setup"
-          onClose={() => setShowWorkspaceModal(false)}
-          isOpen={showWorkspaceModal}
-        >
-          <p className="mb-2">Enter your workspace name:</p>
-          <Input value={workspaceName} onChange={(e) => setWorkspaceName(e.target.value)} />
-          <div className="flex justify-end space-x-2 mt-4">
-            <Button onClick={() => setShowWorkspaceModal(false)} variant="outline">
-              Cancel
-            </Button>
-            <Button onClick={() => setShowWorkspaceModal(false)}>
-              Save
-            </Button>
-          </div>
-        </Modal>
-      )}
+    <div className="flex min-h-screen">
       {/* Sidebar */}
       <div className="w-56 bg-white shadow-sm z-10 border-r">
         {/* Header */}
@@ -253,7 +217,10 @@ export default function Home() {
                 collaborate seamlessly
               </p>
               
-              <Button className="bg-[#2c6e49] hover:bg-[#245a3a] flex items-center mx-auto">
+              <Button 
+                className="bg-[#2c6e49] hover:bg-[#245a3a] flex items-center mx-auto"
+                onClick={() => setShowWorkspacePrompt(true)}
+              >
                 <span className="mr-2">+</span> Create a workspace
               </Button>
             </div>
@@ -300,6 +267,120 @@ export default function Home() {
           </div>
         </main>
       </div>
+
+      {/* First modal */}
+      {showWorkspacePrompt && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-[500px]">
+            <div className="flex flex-col space-y-6">
+              <div className="flex items-start space-x-4">
+                <div className="w-12 h-12 bg-[#edf2f0] rounded-md flex items-center justify-center">
+                  <div className="w-6 h-6 text-[#579189] flex items-center justify-center font-semibold">
+                    i
+                  </div>
+                </div>
+                <div>
+                  <h2 className="text-2xl font-semibold mb-2">Complete creating a workspace</h2>
+                  <p className="text-gray-600 text-lg">
+                    Add team members, projects & tasks and much more to your workspace
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex space-x-4">
+                <button 
+                  className="flex-1 bg-[#2c6e49] hover:bg-[#245a3a] text-white h-12 rounded-md flex items-center justify-center"
+                  onClick={() => { setShowWorkspacePrompt(false); setShowWorkspaceModal(true); }}
+                >
+                  Continue
+                </button>
+                <button 
+                  className="flex-1 bg-gray-100 text-gray-600 h-12 rounded-md flex items-center justify-center"
+                  onClick={() => setShowWorkspacePrompt(false)}
+                >
+                  Not now
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Second modal */}
+      {showWorkspaceModal && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-[500px] relative">
+            <button 
+              className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
+              onClick={() => setShowWorkspaceModal(false)}
+            >
+              &times;
+            </button>
+
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm text-gray-500">Step 1</p>
+                <h2 className="text-xl font-medium text-gray-800 mb-1">Create Workspace</h2>
+                <p className="text-sm text-gray-500">Let us know what your team is working on right now</p>
+              </div>
+              
+              <div className="space-y-2">
+                <label htmlFor="workspace-name" className="text-sm font-medium text-gray-700">Workspace name</label>
+                <input 
+                  id="workspace-name"
+                  value={workspaceName}
+                  onChange={(e) => setWorkspaceName(e.target.value)}
+                  className="w-full border border-gray-300 rounded-md p-2"
+                />
+                <p className="text-xs text-gray-400">
+                  Your workspace name has been set as initially added. You can change it now if you want
+                </p>
+              </div>
+              
+              <div className="space-y-2">
+                <label htmlFor="workspace-logo" className="text-sm font-medium text-gray-700">Workspace Logo</label>
+                <div className="flex items-center gap-3">
+                  <div className="w-16 h-16 bg-gray-100 flex items-center justify-center border border-gray-200 rounded-sm">
+                    <svg 
+                      xmlns="http://www.w3.org/2000/svg" 
+                      className="h-5 w-5 text-gray-400" 
+                      fill="none" 
+                      viewBox="0 0 24 24" 
+                      stroke="currentColor"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                  </div>
+                  
+                  <div className="space-x-2">
+                    <button 
+                      className="bg-[#2c6e49] text-white px-3 py-1 rounded-md text-sm"
+                    >
+                      Upload a photo
+                    </button>
+                    
+                    <button 
+                      className="border border-gray-200 text-gray-500 px-3 py-1 rounded-md text-sm"
+                    >
+                      Reset
+                    </button>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-400">
+                  Allowed JPG, GIF or PNG. Max size of 800K
+                </p>
+              </div>
+              
+              <button 
+                className="bg-[#2c6e49] hover:bg-[#245a3a] text-white w-full h-12 rounded-md mt-4"
+                onClick={() => setShowWorkspaceModal(false)}
+              >
+                Continue
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
