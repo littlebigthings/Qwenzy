@@ -440,7 +440,95 @@ export default function Home() {
               
               <button 
                 className="bg-[#2c6e49] hover:bg-[#245a3a] text-white w-full h-12 rounded-md mt-4"
-                onClick={() => setShowWorkspaceModal(false)}
+                onClick={async () => {
+                  try {
+                    // Validate workspace name
+                    if (!workspaceName.trim()) {
+                      toast({
+                        variant: "destructive",
+                        title: "Error",
+                        description: "Workspace name is required",
+                      })
+                      return
+                    }
+
+                    // Upload logo if exists
+                    let logoUrl = null
+                    if (logoFile) {
+                      const fileExt = logoFile.name.split(".").pop()
+                      const fileName = `workspace-${Date.now()}.${fileExt}`
+                      const filePath = fileName
+
+                      // Upload to the workspace-logos bucket
+                      const { data, error: uploadError } = await supabase.storage
+                        .from("workspace-logos")
+                        .upload(filePath, logoFile, {
+                          cacheControl: "3600",
+                          upsert: false,
+                          contentType: logoFile.type,
+                        })
+
+                      if (uploadError) {
+                        console.error("Supabase storage error:", uploadError)
+                        toast({
+                          variant: "destructive",
+                          title: "Error",
+                          description: uploadError.message.includes("policy") 
+                            ? "Storage permission denied. Please try again."
+                            : "Failed to upload file",
+                        })
+                        return
+                      }
+
+                      const { data: urlData } = supabase.storage
+                        .from("workspace-logos")
+                        .getPublicUrl(filePath)
+
+                      logoUrl = urlData.publicUrl
+                    }
+
+                    // Update workspace in database
+                    const { data, error } = await supabase
+                      .from("workspaces")
+                      .update({
+                        name: workspaceName.trim(),
+                        logo_url: logoUrl,
+                        completed: true,
+                        updated_at: new Date().toISOString()
+                      })
+                      .eq("created_by", user?.id)
+                      .eq("completed", false)
+
+                    if (error) {
+                      console.error("Error updating workspace:", error)
+                      toast({
+                        variant: "destructive",
+                        title: "Error",
+                        description: "Failed to create workspace",
+                      })
+                      return
+                    }
+
+                    // Close modal and show success
+                    setShowWorkspaceModal(false)
+                    toast({
+                      title: "Success",
+                      description: "Workspace created successfully!",
+                    })
+
+                    // Refresh the page to show the new workspace
+                    setTimeout(() => {
+                      window.location.reload()
+                    }, 1500)
+                  } catch (error) {
+                    console.error("Error creating workspace:", error)
+                    toast({
+                      variant: "destructive",
+                      title: "Error",
+                      description: "An unexpected error occurred",
+                    })
+                  }
+                }}
               >
                 Continue
               </button>
