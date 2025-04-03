@@ -1,6 +1,6 @@
 import { useAuth } from "@/hooks/use-auth"
 import { Button } from "@/components/ui/button"
-import { ChevronDown, BarChartIcon, Upload } from "lucide-react"
+import { ChevronDown, BarChartIcon, Upload, Plus } from "lucide-react"
 import { useEffect, useState, useRef } from "react"
 import { Link } from "wouter"
 import { supabase } from "@/lib/supabase"
@@ -21,6 +21,8 @@ export default function Home() {
   const [logoFile, setLogoFile] = useState(null)
   const [logoPreview, setLogoPreview] = useState(null)
   const fileInputRef = useRef(null)
+  const [workspaces, setWorkspaces] = useState([])
+
   // Add debugging to check if we are getting workspaces
   useEffect(() => {
     if (user) {
@@ -54,7 +56,6 @@ export default function Home() {
       fetchWorkspaces()
     }
   }, [user])
-  const [workspaces, setWorkspaces] = useState([])
 
   // Function to handle logo upload
   const handleLogoUpload = (file) => {
@@ -136,18 +137,18 @@ export default function Home() {
 
           if (workspaces && workspaces.length > 0) {
           
-          // Fetch completed workspaces
-          const { data: completedWorkspaces } = await supabase
-            .from("workspaces")
-            .select("*")
-            .eq("created_by", user.id)
-            .eq("completed", true)
-            .order("updated_at", { ascending: false })
+            // Fetch completed workspaces
+            const { data: completedWorkspaces } = await supabase
+              .from("workspaces")
+              .select("*")
+              .eq("created_by", user.id)
+              .eq("completed", true)
+              .order("updated_at", { ascending: false })
 
-          if (completedWorkspaces && completedWorkspaces.length > 0) {
-            setWorkspaces(completedWorkspaces)
-            console.log("Fetched workspaces:", completedWorkspaces)
-          }
+            if (completedWorkspaces && completedWorkspaces.length > 0) {
+              setWorkspaces(completedWorkspaces)
+              console.log("Fetched workspaces:", completedWorkspaces)
+            }
             setWorkspaceName(workspaces[0].name)
             setShowWorkspacePrompt(true)
           }
@@ -179,41 +180,37 @@ export default function Home() {
         <nav className="py-2">
           <ul>
             <li>
-              <Link href="/dashboard">
-                <a 
-                  className={`flex items-center px-4 py-2 ${activeMenu === 'dashboard' 
-                    ? 'bg-[#579189] text-white' 
-                    : 'text-gray-600 hover:bg-gray-100'}`}
-                  onClick={() => setActiveMenu('dashboard')}
-                >
-                  <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                  </svg>
-                  Dashboard
-                  <svg className="w-5 h-5 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </a>
-              </Link>
+              <button 
+                className={`w-full flex items-center px-4 py-2 ${activeMenu === 'dashboard' 
+                  ? 'bg-[#579189] text-white' 
+                  : 'text-gray-600 hover:bg-gray-100'}`}
+                onClick={() => setActiveMenu('dashboard')}
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+                Dashboard
+                <svg className="w-5 h-5 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
             </li>
             <li>
-              <Link href="/updates">
-                <a 
-                  className={`flex items-center px-4 py-2 ${activeMenu === 'updates' 
-                    ? 'bg-[#579189] text-white' 
-                    : 'text-gray-600 hover:bg-gray-100'}`}
-                  onClick={() => setActiveMenu('updates')}
-                >
-                  <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                  </svg>
-                  Updates
-                  <span className="ml-auto bg-green-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">3</span>
-                  <svg className="w-5 h-5 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </a>
-              </Link>
+              <button 
+                className={`w-full flex items-center px-4 py-2 ${activeMenu === 'updates' 
+                  ? 'bg-[#579189] text-white' 
+                  : 'text-gray-600 hover:bg-gray-100'}`}
+                onClick={() => setActiveMenu('updates')}
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+                Updates
+                <span className="ml-auto bg-green-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">3</span>
+                <svg className="w-5 h-5 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
             </li>
 
             {/* APPLICATION section */}
@@ -237,61 +234,59 @@ export default function Home() {
               </button>
               <ul className="pl-10">
                 <li>
-                  <Link href="/list">
-                    <a className={`block px-4 py-2 ${activeMenu === 'list-main' 
-                      ? 'bg-[#579189] text-white' 
-                      : 'text-gray-600 hover:bg-gray-100'}`}
-                      onClick={() => setActiveMenu('list-main')}
-                    >List</a>
-                  </Link>
+                  <button className={`w-full text-left px-4 py-2 ${activeMenu === 'list-main' 
+                    ? 'bg-[#579189] text-white' 
+                    : 'text-gray-600 hover:bg-gray-100'}`}
+                    onClick={() => setActiveMenu('list-main')}
+                  >
+                    List
+                  </button>
                 </li>
                 <li>
-                  <Link href="/list/1">
-                    <a className={`block px-4 py-2 ${activeMenu === 'list-1' 
-                      ? 'bg-[#579189] text-white' 
-                      : 'text-gray-600 hover:bg-gray-100'}`}
-                      onClick={() => setActiveMenu('list-1')}
-                    >List</a>
-                  </Link>
+                  <button className={`w-full text-left px-4 py-2 ${activeMenu === 'list-1' 
+                    ? 'bg-[#579189] text-white' 
+                    : 'text-gray-600 hover:bg-gray-100'}`}
+                    onClick={() => setActiveMenu('list-1')}
+                  >
+                    List
+                  </button>
                 </li>
                 <li>
-                  <Link href="/list/2">
-                    <a className={`block px-4 py-2 ${activeMenu === 'list-2' 
-                      ? 'bg-[#579189] text-white' 
-                      : 'text-gray-600 hover:bg-gray-100'}`}
-                      onClick={() => setActiveMenu('list-2')}
-                    >List</a>
-                  </Link>
+                  <button className={`w-full text-left px-4 py-2 ${activeMenu === 'list-2' 
+                    ? 'bg-[#579189] text-white' 
+                    : 'text-gray-600 hover:bg-gray-100'}`}
+                    onClick={() => setActiveMenu('list-2')}
+                  >
+                    List
+                  </button>
                 </li>
                 <li>
-                  <Link href="/list/3">
-                    <a className={`block px-4 py-2 ${activeMenu === 'list-3' 
-                      ? 'bg-[#579189] text-white' 
-                      : 'text-gray-600 hover:bg-gray-100'}`}
-                      onClick={() => setActiveMenu('list-3')}
-                    >List</a>
-                  </Link>
+                  <button className={`w-full text-left px-4 py-2 ${activeMenu === 'list-3' 
+                    ? 'bg-[#579189] text-white' 
+                    : 'text-gray-600 hover:bg-gray-100'}`}
+                    onClick={() => setActiveMenu('list-3')}
+                  >
+                    List
+                  </button>
                 </li>
               </ul>
             </li>
 
             <li>
-              <Link href="/roles">
-                <a 
-                  className={`flex items-center px-4 py-2 ${activeMenu === 'roles' 
-                    ? 'bg-[#579189] text-white' 
-                    : 'text-gray-600 hover:bg-gray-100'}`}
-                  onClick={() => setActiveMenu('roles')}
-                >
-                  <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                  </svg>
-                  Roles & Permissions
-                  <svg className="w-5 h-5 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </a>
-              </Link>
+              <button 
+                className={`w-full flex items-center px-4 py-2 ${activeMenu === 'roles' 
+                  ? 'bg-[#579189] text-white' 
+                  : 'text-gray-600 hover:bg-gray-100'}`}
+                onClick={() => setActiveMenu('roles')}
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+                Roles & Permissions
+                <svg className="w-5 h-5 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
             </li>
           </ul>
         </nav>
@@ -300,9 +295,9 @@ export default function Home() {
       {/* Main content */}
       <div className="flex-1 overflow-auto bg-[url('/background-pattern.svg')]">
         <main className="p-8">
-          {/* Welcome section */}
-          <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-sm p-8 mb-8 text-center">
-            <h1 className="text-3xl font-semibold text-[#2c6e49] mb-4">Welcome {userName}!</h1>
+          {/* Welcome section - Updated to match the design */}
+          <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-sm p-8 mb-8 text-center border border-[#eaecee]">
+            <h1 className="text-3xl font-medium text-[#2c6e49] mb-4">Welcome {userName}!</h1>
             
             <div className="max-w-md mx-auto">
               <h2 className="text-xl font-medium mb-2">Kickstart Your Workspace Creation</h2>
@@ -316,111 +311,116 @@ export default function Home() {
                 className="bg-[#2c6e49] hover:bg-[#245a3a] flex items-center mx-auto"
                 onClick={() => setShowWorkspacePrompt(true)}
               >
-                <span className="mr-2">+</span> Create a workspace
+                <Plus className="h-4 w-4 mr-2" /> Create a workspace
               </Button>
             </div>
           </div>
 
-          {/* Workspaces Table Section */}
-          <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-sm p-6 mb-8">
+          {/* Workspaces Section - Updated to match the design */}
+          <div className="max-w-4xl mx-auto">
             <div className="flex justify-between items-center mb-5">
-              <h2 className="text-xl font-semibold text-gray-800">Workspaces</h2>
+              <h2 className="text-xl font-medium text-gray-800">Workspaces</h2>
               <div className="flex items-center space-x-2">
                 <div className="relative">
-                  <input 
+                  <Input 
                     type="text" 
                     placeholder="Search" 
-                    className="pl-9 pr-4 py-2 border rounded-md text-sm w-72 focus:outline-none focus:ring-1 focus:ring-[#2c6e49]" 
+                    className="pl-9 w-72 focus:outline-none focus:ring-1 focus:ring-[#2c6e49]" 
                   />
                   <svg className="w-5 h-5 absolute left-2 top-2.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                 </div>
-                <button className="bg-[#2c6e49] hover:bg-[#245a3a] text-white rounded-md py-2 px-4 text-sm font-medium flex items-center"
-                  onClick={() => setShowWorkspacePrompt(true)}>
-                  <span className="mr-1">+</span> Create a workspace
-                </button>
-              </div>
-            </div>
-            
-            {/* Workspace Table Headers */}
-            <div className="grid grid-cols-12 border-b pb-2 mb-2 text-sm text-gray-500 font-medium">
-              <div className="col-span-1 px-2"></div>
-              <div className="col-span-4 px-2">Name</div>
-              <div className="col-span-3 px-2">Owner</div>
-              <div className="col-span-2 px-2">Team</div>
-              <div className="col-span-2 px-2 text-right"></div>
-            </div>
-            
-            {/* Workspace Rows */}
-            {workspaces.length > 0 ? (
-              <div className="space-y-1">
-                {workspaces.map((workspace) => (
-                  <div key={workspace.id} className="grid grid-cols-12 items-center py-3 border-b hover:bg-gray-50 transition-colors rounded-md">
-                    <div className="col-span-1 px-2 text-gray-500 text-sm text-center">WS</div>
-                    <div className="col-span-4 px-2">
-                      <div className="font-medium">{workspace.name}</div>
-                      <div className="text-xs text-gray-500">{new Date(workspace.created_at).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })}</div>
-                    </div>
-                    <div className="col-span-3 px-2 flex items-center">
-                      <div className="w-8 h-8 bg-[#2c6e49] rounded-full flex items-center justify-center text-white mr-2">
-                        {userName.charAt(0).toUpperCase()}
-                      </div>
-                      <div>{userName}</div>
-                    </div>
-                    <div className="col-span-2 px-2">
-                      <div className="flex -space-x-2">
-                        <div className="w-7 h-7 rounded-full bg-[#edf2f0] border-2 border-white flex items-center justify-center text-xs text-[#2c6e49] font-medium">
-                          {userName.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="w-7 h-7 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center text-xs font-medium">
-                          +{workspace.team_members ? workspace.team_members.length : 0}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="col-span-2 px-2 text-right">
-                      <button className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded text-sm">
-                        View
-                      </button>
-                      <button className="text-gray-400 ml-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                          <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <BarChartIcon className="w-6 h-6 text-gray-400" />
-                </div>
-                <p className="text-sm text-gray-500 mb-4">
-                  You don't have any workspaces yet
-                </p>
-                <button 
-                  className="bg-[#2c6e49] hover:bg-[#245a3a] text-white px-4 py-2 rounded-md text-sm flex items-center mx-auto"
+                <Button 
+                  className="bg-[#2c6e49] hover:bg-[#245a3a] text-white"
                   onClick={() => setShowWorkspacePrompt(true)}
                 >
-                  <span className="mr-1">+</span> Create a workspace
-                </button>
+                  <Plus className="h-4 w-4 mr-2" /> Create a workspace
+                </Button>
               </div>
-            )}
+            </div>
             
-            {/* Pagination */}
-            {workspaces.length > 0 && (
-              <div className="flex justify-between items-center mt-4 text-sm">
-                <div className="text-gray-500">
-                  Showing 1 to {workspaces.length} of {workspaces.length} entries
-                </div>
-                <div className="flex space-x-1">
-                  <button disabled className="px-3 py-1 border rounded text-gray-400 bg-gray-50">Previous</button>
-                  <button className="px-3 py-1 border rounded bg-[#2c6e49] text-white">1</button>
-                  <button disabled className="px-3 py-1 border rounded text-gray-400 bg-gray-50">Next</button>
-                </div>
+            {/* Workspace table */}
+            <div className="bg-white rounded-lg shadow-sm border border-[#eaecee]">
+              {/* Workspace Table Headers */}
+              <div className="grid grid-cols-10 py-3 border-b text-sm text-gray-500 font-medium">
+                <div className="col-span-1 px-6"></div>
+                <div className="col-span-4 px-2">Name</div>
+                <div className="col-span-3 px-2">Owner</div>
+                <div className="col-span-1 px-2">Team</div>
+                <div className="col-span-1 px-2 text-right pr-6"></div>
               </div>
-            )}
+              
+              {/* Workspace Rows */}
+              {workspaces.length > 0 ? (
+                <div>
+                  {workspaces.map((workspace) => (
+                    <div key={workspace.id} className="grid grid-cols-10 items-center py-4 border-b hover:bg-gray-50 transition-colors">
+                      <div className="col-span-1 px-6 text-gray-500 text-sm font-medium text-center">WS</div>
+                      <div className="col-span-4 px-2">
+                        <div className="font-medium">{workspace.name}</div>
+                        <div className="text-xs text-gray-500">{new Date(workspace.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                      </div>
+                      <div className="col-span-3 px-2 flex items-center">
+                        <div className="w-8 h-8 bg-[#2c6e49] rounded-full flex items-center justify-center text-white mr-2">
+                          {userName.charAt(0).toUpperCase()}
+                        </div>
+                        <div>{userName}</div>
+                      </div>
+                      <div className="col-span-1 px-2">
+                        <div className="flex -space-x-2">
+                          <div className="w-7 h-7 rounded-full bg-[#edf2f0] border-2 border-white flex items-center justify-center text-xs text-[#2c6e49] font-medium">
+                            N
+                          </div>
+                          <div className="w-7 h-7 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center text-xs font-medium">
+                            +{workspace.team_members ? workspace.team_members.length : 0}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="col-span-1 px-2 text-right pr-6 flex justify-end items-center">
+                        <button className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded text-sm mr-2">
+                          View
+                        </button>
+                        <button className="text-gray-400">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <BarChartIcon className="w-6 h-6 text-gray-400" />
+                  </div>
+                  <p className="text-sm text-gray-500 mb-4">
+                    You don't have any workspaces yet
+                  </p>
+                  <Button 
+                    className="bg-[#2c6e49] hover:bg-[#245a3a] text-white flex items-center mx-auto"
+                    onClick={() => setShowWorkspacePrompt(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-2" /> Create a workspace
+                  </Button>
+                </div>
+              )}
+            
+              {/* Pagination */}
+              {workspaces.length > 0 && (
+                <div className="flex justify-between items-center p-4 text-sm border-t">
+                  <div className="text-gray-500">
+                    Showing 1 to {workspaces.length} of {workspaces.length} entries
+                  </div>
+                  <div className="flex space-x-1">
+                    <button disabled className="px-3 py-1 border rounded text-gray-400 bg-gray-50">Previous</button>
+                    <button className="px-3 py-1 border rounded bg-[#2c6e49] text-white">1</button>
+                    <button disabled className="px-3 py-1 border rounded text-gray-400 bg-gray-50">Next</button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Complete creation modal */}
