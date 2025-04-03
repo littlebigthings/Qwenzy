@@ -21,6 +21,7 @@ export default function Home() {
   const [logoFile, setLogoFile] = useState(null)
   const [logoPreview, setLogoPreview] = useState(null)
   const fileInputRef = useRef(null)
+  const [workspaces, setWorkspaces] = useState([])
 
   // Function to handle logo upload
   const handleLogoUpload = (file) => {
@@ -101,6 +102,19 @@ export default function Home() {
           .limit(1)
 
           if (workspaces && workspaces.length > 0) {
+          
+          // Fetch completed workspaces
+          const { data: completedWorkspaces } = await supabase
+            .from("workspaces")
+            .select("*")
+            .eq("created_by", user.id)
+            .eq("completed", true)
+            .order("updated_at", { ascending: false })
+
+          if (completedWorkspaces && completedWorkspaces.length > 0) {
+            setWorkspaces(completedWorkspaces)
+            console.log("Fetched workspaces:", completedWorkspaces)
+          }
             setWorkspaceName(workspaces[0].name)
             setShowWorkspacePrompt(true)
           }
@@ -276,28 +290,59 @@ export default function Home() {
 
           {/* Projects section */}
           <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            {/* Active projects */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-lg font-medium text-gray-700">No Active Projects</h2>
-                <button className="text-gray-400">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            /* Active projects */
+            <div class="bg-white rounded-lg shadow-sm p-6">
+              <div class="flex justify-between items-center mb-6">
+                <h2 class="text-lg font-medium text-gray-700">
+                  {workspaces.length > 0 ? "Your Workspaces" : "No Active Projects"}
+                </h2>
+                <button class="text-gray-400">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                     <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
                   </svg>
                 </button>
               </div>
               
-              <div className="text-center py-6">
-                <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <BarChartIcon className="w-6 h-6 text-gray-400" />
+              {workspaces.length > 0 ? (
+                <div class="space-y-4">
+                  {workspaces.map((workspace) => (
+                    <div key={workspace.id} class="flex items-center p-3 border rounded-lg bg-gray-50 hover:bg-gray-100">
+                      <div class="flex-shrink-0 mr-3">
+                        {workspace.logo_url ? (
+                          <img 
+                            src={workspace.logo_url} 
+                            alt={workspace.name}
+                            class="w-10 h-10 rounded-md object-cover border"
+                          />
+                        ) : (
+                          <div class="w-10 h-10 bg-[#edf2f0] rounded-md flex items-center justify-center text-[#2c6e49] font-bold">
+                            {workspace.name.charAt(0)}
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <h3 class="font-medium text-gray-800">{workspace.name}</h3>
+                        <p class="text-xs text-gray-500">Created {new Date(workspace.created_at).toLocaleDateString()}</p>
+                      </div>
+                      <button class="ml-auto text-[#2c6e49] text-sm font-medium">
+                        Open
+                      </button>
+                    </div>
+                  ))}
                 </div>
-                <p className="text-sm text-gray-500 mb-1">
-                  Join a workspace or create your own to start adding & tracking your projects
-                </p>
-              </div>
+              ) : (
+                <div class="text-center py-6">
+                  <div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <BarChartIcon class="w-6 h-6 text-gray-400" />
+                  </div>
+                  <p class="text-sm text-gray-500 mb-1">
+                    Join a workspace or create your own to start adding & tracking your projects
+                  </p>
+                </div>
+              )}
             </div>
 
-            {/* Recent projects */}
+            /* Recent projects */
             <div className="bg-white rounded-lg shadow-sm p-6">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-lg font-medium text-gray-700">No recently opened projects</h2>
