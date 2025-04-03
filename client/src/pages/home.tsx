@@ -459,9 +459,9 @@ export default function Home() {
                       const fileName = `workspace-${Date.now()}.${fileExt}`
                       const filePath = fileName
 
-                      // Upload to the workspace-logos bucket
+                      // Upload to the workspace bucket
                       const { data, error: uploadError } = await supabase.storage
-                        .from("workspace-logos")
+                        .from("workspace")
                         .upload(filePath, logoFile, {
                           cacheControl: "3600",
                           upsert: false,
@@ -481,7 +481,7 @@ export default function Home() {
                       }
 
                       const { data: urlData } = supabase.storage
-                        .from("workspace-logos")
+                        .from("workspace")
                         .getPublicUrl(filePath)
 
                       logoUrl = urlData.publicUrl
