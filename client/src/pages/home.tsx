@@ -1,21 +1,69 @@
 import { useAuth } from "@/hooks/use-auth"
 import { Button } from "@/components/ui/button"
-import { ChevronDown, BarChartIcon } from "lucide-react"
-import { useEffect, useState } from "react"
+import { ChevronDown, BarChartIcon, Upload } from "lucide-react"
+import { useEffect, useState, useRef } from "react"
 import { Link } from "wouter"
 import { supabase } from "@/lib/supabase"
 import Modal from "@/components/ui/modal"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { useToast } from "@/hooks/use-toast"
 
 export default function Home() {
   const { user } = useAuth()
+  const { toast } = useToast()
   const [organization, setOrganization] = useState({ name: "", id: "" })
   const [userName, setUserName] = useState("")
   const [activeMenu, setActiveMenu] = useState("dashboard")
   const [showWorkspacePrompt, setShowWorkspacePrompt] = useState(false)
   const [workspaceName, setWorkspaceName] = useState("")
   const [showWorkspaceModal, setShowWorkspaceModal] = useState(false)
+  const [logoFile, setLogoFile] = useState(null)
+  const [logoPreview, setLogoPreview] = useState(null)
+  const fileInputRef = useRef(null)
+
+  // Function to handle logo upload
+  const handleLogoUpload = (file) => {
+    if (!file) return
+
+    // Check file size (800KB max)
+    if (file.size > 800 * 1024) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "File size must be less than 800K",
+      })
+      return
+    }
+
+    // Check file type
+    if (!["image/jpeg", "image/png", "image/gif"].includes(file.type)) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "File must be JPG, PNG or GIF",
+      })
+      return
+    }
+
+    setLogoFile(file)
+    
+    // Create a preview URL for the image
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      setLogoPreview(reader.result)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  // Reset logo
+  const resetLogo = () => {
+    setLogoFile(null)
+    setLogoPreview(null)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
+    }
+  }
 
   useEffect(() => {
     const fetchData = async () => {
@@ -341,26 +389,45 @@ export default function Home() {
                 <label htmlFor="workspace-logo" className="text-sm font-medium text-gray-700">Workspace Logo</label>
                 <div className="flex items-center gap-3">
                   <div className="w-16 h-16 bg-gray-100 flex items-center justify-center border border-gray-200 rounded-sm">
-                    <svg 
-                      xmlns="http://www.w3.org/2000/svg" 
-                      className="h-5 w-5 text-gray-400" 
-                      fill="none" 
-                      viewBox="0 0 24 24" 
-                      stroke="currentColor"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                    </svg>
+                    {logoPreview ? (
+                      <img
+                        src={logoPreview}
+                        alt="Logo preview"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <svg 
+                        xmlns="http://www.w3.org/2000/svg" 
+                        className="h-5 w-5 text-gray-400" 
+                        fill="none" 
+                        viewBox="0 0 24 24" 
+                        stroke="currentColor"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                      </svg>
+                    )}
                   </div>
                   
                   <div className="space-x-2">
+                    <input
+                      type="file"
+                      id="logo-upload"
+                      className="hidden"
+                      accept="image/jpeg,image/png,image/gif"
+                      onChange={(e) => e.target.files && handleLogoUpload(e.target.files[0])}
+                      ref={fileInputRef}
+                    />
                     <button 
                       className="bg-[#2c6e49] text-white px-3 py-1 rounded-md text-sm"
+                      onClick={() => fileInputRef.current?.click()}
                     >
                       Upload a photo
                     </button>
                     
                     <button 
                       className="border border-gray-200 text-gray-500 px-3 py-1 rounded-md text-sm"
+                      onClick={resetLogo}
+                      disabled={!logoFile}
                     >
                       Reset
                     </button>
