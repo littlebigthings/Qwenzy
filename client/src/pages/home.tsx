@@ -321,299 +321,306 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Projects section */}
-          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            /* Active projects */
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-lg font-medium text-gray-700">
-                  {workspaces.length > 0 ? "Your Workspaces" : "No Active Projects"}
-                </h2>
-                <button className="text-gray-400">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+          {/* Workspaces Table Section */}
+          <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-sm p-6 mb-8">
+            <div className="flex justify-between items-center mb-5">
+              <h2 className="text-xl font-semibold text-gray-800">Workspaces</h2>
+              <div className="flex items-center space-x-2">
+                <div className="relative">
+                  <input 
+                    type="text" 
+                    placeholder="Search" 
+                    className="pl-9 pr-4 py-2 border rounded-md text-sm w-72 focus:outline-none focus:ring-1 focus:ring-[#2c6e49]" 
+                  />
+                  <svg className="w-5 h-5 absolute left-2 top-2.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
+                </div>
+                <button className="bg-[#2c6e49] hover:bg-[#245a3a] text-white rounded-md py-2 px-4 text-sm font-medium flex items-center"
+                  onClick={() => setShowWorkspacePrompt(true)}>
+                  <span className="mr-1">+</span> Create a workspace
                 </button>
               </div>
-              
-              {workspaces.length > 0 ? (
-                <div className="space-y-4">
-                  {workspaces.map((workspace) => (
-                    <div key={workspace.id} className="flex items-center p-3 border rounded-lg bg-gray-50 hover:bg-gray-100">
-                      <div className="flex-shrink-0 mr-3">
-                        {workspace.logo_url ? (
-                          <img 
-                            src={workspace.logo_url} 
-                            alt={workspace.name}
-                            className="w-10 h-10 rounded-md object-cover border"
-                          />
-                        ) : (
-                          <div className="w-10 h-10 bg-[#edf2f0] rounded-md flex items-center justify-center text-[#2c6e49] font-bold">
-                            {workspace.name.charAt(0)}
-                          </div>
-                        )}
+            </div>
+            
+            {/* Workspace Table Headers */}
+            <div className="grid grid-cols-12 border-b pb-2 mb-2 text-sm text-gray-500 font-medium">
+              <div className="col-span-1 px-2"></div>
+              <div className="col-span-4 px-2">Name</div>
+              <div className="col-span-3 px-2">Owner</div>
+              <div className="col-span-2 px-2">Team</div>
+              <div className="col-span-2 px-2 text-right"></div>
+            </div>
+            
+            {/* Workspace Rows */}
+            {workspaces.length > 0 ? (
+              <div className="space-y-1">
+                {workspaces.map((workspace) => (
+                  <div key={workspace.id} className="grid grid-cols-12 items-center py-3 border-b hover:bg-gray-50 transition-colors rounded-md">
+                    <div className="col-span-1 px-2 text-gray-500 text-sm text-center">WS</div>
+                    <div className="col-span-4 px-2">
+                      <div className="font-medium">{workspace.name}</div>
+                      <div className="text-xs text-gray-500">{new Date(workspace.created_at).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })}</div>
+                    </div>
+                    <div className="col-span-3 px-2 flex items-center">
+                      <div className="w-8 h-8 bg-[#2c6e49] rounded-full flex items-center justify-center text-white mr-2">
+                        {userName.charAt(0).toUpperCase()}
                       </div>
-                      <div>
-                        <h3 className="font-medium text-gray-800">{workspace.name}</h3>
-                        <p className="text-xs text-gray-500">Created {new Date(workspace.created_at).toLocaleDateString()}</p>
+                      <div>{userName}</div>
+                    </div>
+                    <div className="col-span-2 px-2">
+                      <div className="flex -space-x-2">
+                        <div className="w-7 h-7 rounded-full bg-[#edf2f0] border-2 border-white flex items-center justify-center text-xs text-[#2c6e49] font-medium">
+                          {userName.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="w-7 h-7 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center text-xs font-medium">
+                          +{workspace.team_members ? workspace.team_members.length : 0}
+                        </div>
                       </div>
-                      <button className="ml-auto text-[#2c6e49] text-sm font-medium">
-                        Open
+                    </div>
+                    <div className="col-span-2 px-2 text-right">
+                      <button className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded text-sm">
+                        View
+                      </button>
+                      <button className="text-gray-400 ml-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                        </svg>
                       </button>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-6">
-                  <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <BarChartIcon className="w-6 h-6 text-gray-400" />
                   </div>
-                  <p className="text-sm text-gray-500 mb-1">
-                    Join a workspace or create your own to start adding & tracking your projects
-                  </p>
-                </div>
-              )}
-            </div>
-
-            /* Recent projects */
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-lg font-medium text-gray-700">No recently opened projects</h2>
+                ))}
               </div>
-              
-              <div className="text-center py-6">
+            ) : (
+              <div className="text-center py-8">
                 <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <BarChartIcon className="w-6 h-6 text-gray-400" />
                 </div>
-                <p className="text-sm text-gray-500 mb-1">
-                  Join a workspace or create your own to start adding & tracking your projects
+                <p className="text-sm text-gray-500 mb-4">
+                  You don't have any workspaces yet
                 </p>
-              </div>
-            </div>
-          </div>
-        </main>
-      </div>
-
-      {/* First modal */}
-      {showWorkspacePrompt && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-[500px]">
-            <div className="flex flex-col space-y-6">
-              <div className="flex items-start space-x-4">
-                <div className="w-12 h-12 bg-[#edf2f0] rounded-md flex items-center justify-center">
-                  <div className="w-6 h-6 text-[#579189] flex items-center justify-center font-semibold">
-                    i
-                  </div>
-                </div>
-                <div>
-                  <h2 className="text-2xl font-semibold mb-2">Complete creating a workspace</h2>
-                  <p className="text-gray-600 text-lg">
-                    Add team members, projects & tasks and much more to your workspace
-                  </p>
-                </div>
-              </div>
-              
-              <div className="flex space-x-4">
                 <button 
-                  className="flex-1 bg-[#2c6e49] hover:bg-[#245a3a] text-white h-12 rounded-md flex items-center justify-center"
-                  onClick={() => { setShowWorkspacePrompt(false); setShowWorkspaceModal(true); }}
+                  className="bg-[#2c6e49] hover:bg-[#245a3a] text-white px-4 py-2 rounded-md text-sm flex items-center mx-auto"
+                  onClick={() => setShowWorkspacePrompt(true)}
                 >
-                  Continue
-                </button>
-                <button 
-                  className="flex-1 bg-gray-100 text-gray-600 h-12 rounded-md flex items-center justify-center"
-                  onClick={() => setShowWorkspacePrompt(false)}
-                >
-                  Not now
+                  <span className="mr-1">+</span> Create a workspace
                 </button>
               </div>
-            </div>
+            )}
+            
+            {/* Pagination */}
+            {workspaces.length > 0 && (
+              <div className="flex justify-between items-center mt-4 text-sm">
+                <div className="text-gray-500">
+                  Showing 1 to {workspaces.length} of {workspaces.length} entries
+                </div>
+                <div className="flex space-x-1">
+                  <button disabled className="px-3 py-1 border rounded text-gray-400 bg-gray-50">Previous</button>
+                  <button className="px-3 py-1 border rounded bg-[#2c6e49] text-white">1</button>
+                  <button disabled className="px-3 py-1 border rounded text-gray-400 bg-gray-50">Next</button>
+                </div>
+              </div>
+            )}
           </div>
-        </div>
-      )}
 
-      {/* Second modal */}
-      {showWorkspaceModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-[500px] relative">
-            <button 
-              className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
-              onClick={() => setShowWorkspaceModal(false)}
+          {/* Complete creation modal */}
+          {showWorkspacePrompt && (
+            <Modal
+              isOpen={showWorkspacePrompt}
+              title="Complete creating a workspace"
+              onClose={() => setShowWorkspacePrompt(false)}
             >
-              &times;
-            </button>
-
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm text-gray-500">Step 1</p>
-                <h2 className="text-xl font-medium text-gray-800 mb-1">Create Workspace</h2>
-                <p className="text-sm text-gray-500">Let us know what your team is working on right now</p>
-              </div>
-              
-              <div className="space-y-2">
-                <label htmlFor="workspace-name" className="text-sm font-medium text-gray-700">Workspace name</label>
-                <input 
-                  id="workspace-name"
-                  value={workspaceName}
-                  onChange={(e) => setWorkspaceName(e.target.value)}
-                  className="w-full border border-gray-300 rounded-md p-2"
-                />
-                <p className="text-xs text-gray-400">
-                  Your workspace name has been set as initially added. You can change it now if you want
+              <div className="p-5">
+                <p className="text-center text-gray-600 mb-4">
+                  You have started creating a workspace called <span className="font-medium">{workspaceName}</span>.
+                  Would you like to continue where you left off?
                 </p>
-              </div>
-              
-              <div className="space-y-2">
-                <label htmlFor="workspace-logo" className="text-sm font-medium text-gray-700">Workspace Logo</label>
-                <div className="flex items-center gap-3">
-                  <div className="w-16 h-16 bg-gray-100 flex items-center justify-center border border-gray-200 rounded-sm">
-                    {logoPreview ? (
-                      <img
-                        src={logoPreview}
-                        alt="Logo preview"
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <svg 
-                        xmlns="http://www.w3.org/2000/svg" 
-                        className="h-5 w-5 text-gray-400" 
-                        fill="none" 
-                        viewBox="0 0 24 24" 
-                        stroke="currentColor"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                      </svg>
-                    )}
-                  </div>
-                  
-                  <div className="space-x-2">
-                    <input
-                      type="file"
-                      id="logo-upload"
-                      className="hidden"
-                      accept="image/jpeg,image/png,image/gif"
-                      onChange={(e) => e.target.files && handleLogoUpload(e.target.files[0])}
-                      ref={fileInputRef}
-                    />
-                    <button 
-                      className="bg-[#2c6e49] text-white px-3 py-1 rounded-md text-sm"
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      Upload a photo
-                    </button>
-                    
-                    <button 
-                      className="border border-gray-200 text-gray-500 px-3 py-1 rounded-md text-sm"
-                      onClick={resetLogo}
-                      disabled={!logoFile}
-                    >
-                      Reset
-                    </button>
-                  </div>
+                <div className="flex justify-center space-x-4 mt-6">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowWorkspacePrompt(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    className="bg-[#2c6e49] hover:bg-[#245a3a]"
+                    onClick={() => { setShowWorkspacePrompt(false); setShowWorkspaceModal(true); }}
+                  >
+                    Continue
+                  </Button>
                 </div>
-                <p className="text-xs text-gray-400">
-                  Allowed JPG, GIF or PNG. Max size of 800K
-                </p>
               </div>
-              
-              <button 
-                className="bg-[#2c6e49] hover:bg-[#245a3a] text-white w-full h-12 rounded-md mt-4"
-                onClick={async () => {
+            </Modal>
+          )}
+          
+          {/* Workspace create modal */}
+          {showWorkspaceModal && (
+            <Modal
+              isOpen={showWorkspaceModal}
+              title="Create Workspace"
+              onClose={() => setShowWorkspaceModal(false)}
+            >
+              <div className="p-5">
+                <form onSubmit={async (e) => {
+                  e.preventDefault()
+                  
+                  if (!workspaceName.trim()) {
+                    toast({
+                      variant: "destructive",
+                      title: "Error",
+                      description: "Workspace name is required",
+                    })
+                    return
+                  }
+                  
                   try {
-                    // Validate workspace name
-                    if (!workspaceName.trim()) {
-                      toast({
-                        variant: "destructive",
-                        title: "Error",
-                        description: "Workspace name is required",
-                      })
-                      return
-                    }
-
-                    // Upload logo if exists
+                    // Upload logo if present
                     let logoUrl = null
                     if (logoFile) {
-                      const fileExt = logoFile.name.split(".").pop()
-                      const fileName = `workspace-${Date.now()}.${fileExt}`
-                      const filePath = fileName
-
-                      // Upload to the workspace bucket
-                      const { data, error: uploadError } = await supabase.storage
-                        .from("workspace")
-                        .upload(filePath, logoFile, {
-                          cacheControl: "3600",
-                          upsert: false,
-                          contentType: logoFile.type,
-                        })
-
+                      const filename = `workspace-${Date.now()}.${logoFile.name.split('.').pop()}`
+                      const { data: uploadData, error: uploadError } = await supabase.storage
+                        .from('workspace')
+                        .upload(filename, logoFile)
+                        
                       if (uploadError) {
-                        console.error("Supabase storage error:", uploadError)
-                        toast({
-                          variant: "destructive",
-                          title: "Error",
-                          description: uploadError.message.includes("policy") 
-                            ? "Storage permission denied. Please try again."
-                            : "Failed to upload file",
-                        })
-                        return
+                        throw new Error(`Error uploading logo: ${uploadError.message}`)
                       }
-
-                      const { data: urlData } = supabase.storage
-                        .from("workspace")
-                        .getPublicUrl(filePath)
-
-                      logoUrl = urlData.publicUrl
+                      
+                      const { data } = supabase.storage
+                        .from('workspace')
+                        .getPublicUrl(filename)
+                        
+                      logoUrl = data.publicUrl
                     }
-
-                    // Update workspace in database
+                    
+                    // Create or update workspace
                     const { data, error } = await supabase
-                      .from("workspaces")
-                      .update({
-                        name: workspaceName.trim(),
-                        logo_url: logoUrl,
-                        completed: true,
-                        updated_at: new Date().toISOString()
-                      })
-                      .eq("created_by", user?.id)
-                      .eq("completed", false)
-
-                    if (error) {
-                      console.error("Error updating workspace:", error)
-                      toast({
-                        variant: "destructive",
-                        title: "Error",
-                        description: "Failed to create workspace",
-                      })
-                      return
-                    }
-
-                    // Close modal and show success
-                    setShowWorkspaceModal(false)
+                      .from('workspaces')
+                      .upsert([
+                        {
+                          name: workspaceName.trim(),
+                          organization_id: organization.id,
+                          created_by: user.id,
+                          logo_url: logoUrl,
+                          completed: true,
+                          updated_at: new Date().toISOString().split('T')[0]
+                        }
+                      ], { onConflict: 'id' })
+                    
+                    if (error) throw error
+                    
                     toast({
                       title: "Success",
-                      description: "Workspace created successfully!",
+                      description: "Workspace created successfully",
                     })
-
-                    // Refresh the page to show the new workspace
-                    setTimeout(() => {
-                      window.location.reload()
-                    }, 1500)
+                    
+                    // Fetch workspaces again to update the UI
+                    const { data: workspacesData } = await supabase
+                      .from("workspaces")
+                      .select("*")
+                      .eq("created_by", user.id)
+                      .eq("completed", true)
+                      
+                    if (workspacesData) {
+                      setWorkspaces(workspacesData)
+                    }
+                    
+                    // Reset form and close modal
+                    resetLogo()
+                    setWorkspaceName("")
+                    setShowWorkspaceModal(false)
+                    
                   } catch (error) {
                     console.error("Error creating workspace:", error)
                     toast({
                       variant: "destructive",
                       title: "Error",
-                      description: "An unexpected error occurred",
+                      description: `Failed to create workspace: ${error.message}`,
                     })
                   }
-                }}
-              >
-                Continue
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+                }}>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="name">Workspace Name</Label>
+                      <Input
+                        id="name"
+                        value={workspaceName}
+                        onChange={(e) => setWorkspaceName(e.target.value)}
+                        className="mt-1"
+                        placeholder="Enter workspace name"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label>Upload a logo</Label>
+                      <div className="mt-1 flex items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-6">
+                        {logoPreview ? (
+                          <div className="relative">
+                            <img 
+                              src={logoPreview} 
+                              alt="Logo preview" 
+                              className="w-24 h-24 object-cover rounded-md mx-auto"
+                            />
+                            <button 
+                              type="button"
+                              onClick={resetLogo}
+                              className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                              </svg>
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="text-center">
+                            <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                            <div className="mt-2">
+                              <label htmlFor="file-upload" className="cursor-pointer text-[#2c6e49] hover:text-[#245a3a] font-medium">
+                                Upload a photo
+                                <input 
+                                  id="file-upload" 
+                                  type="file" 
+                                  ref={fileInputRef}
+                                  className="sr-only"
+                                  accept="image/jpeg,image/png,image/gif"
+                                  onChange={(e) => {
+                                    if (e.target.files && e.target.files[0]) {
+                                      handleLogoUpload(e.target.files[0])
+                                    }
+                                  }}
+                                />
+                              </label>
+                              <p className="text-xs text-gray-500 mt-1">
+                                JPG, PNG or GIF up to 800K
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="flex justify-end space-x-3 pt-4">
+                      <Button 
+                        type="button"
+                        variant="outline"
+                        onClick={() => setShowWorkspaceModal(false)}
+                      >
+                        Cancel
+                      </Button>
+                      <Button 
+                        type="submit"
+                        className="bg-[#2c6e49] hover:bg-[#245a3a]"
+                      >
+                        Continue
+                      </Button>
+                    </div>
+                  </div>
+                </form>
+              </div>
+            </Modal>
+          )}
+        </main>
+      </div>
     </div>
   )
 }
