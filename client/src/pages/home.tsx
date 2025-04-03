@@ -22,6 +22,8 @@ export default function Home() {
   const [logoPreview, setLogoPreview] = useState(null)
   const fileInputRef = useRef(null)
   const [workspaces, setWorkspaces] = useState([])
+  const [hasIncompleteWorkspace, setHasIncompleteWorkspace] = useState(false)
+  const [incompleteWorkspaceName, setIncompleteWorkspaceName] = useState("")
 
   // Add debugging to check if we are getting workspaces
   useEffect(() => {
@@ -128,29 +130,32 @@ export default function Home() {
             }
           }
 
-          const { data: workspaces } = await supabase
-          .from('workspaces')
-          .select('name, completed')
-          .eq('created_by', user.id)
-          .eq('completed', false) 
-          .limit(1)
+          // Check for incomplete workspaces
+          const { data: incompleteWorkspaces } = await supabase
+            .from('workspaces')
+            .select('name, completed')
+            .eq('created_by', user.id)
+            .eq('completed', false) 
+            .limit(1)
 
-          if (workspaces && workspaces.length > 0) {
+          if (incompleteWorkspaces && incompleteWorkspaces.length > 0) {
+            setHasIncompleteWorkspace(true)
+            setIncompleteWorkspaceName(incompleteWorkspaces[0].name)
+          } else {
+            setHasIncompleteWorkspace(false)
+          }
           
-            // Fetch completed workspaces
-            const { data: completedWorkspaces } = await supabase
-              .from("workspaces")
-              .select("*")
-              .eq("created_by", user.id)
-              .eq("completed", true)
-              .order("updated_at", { ascending: false })
+          // Fetch completed workspaces
+          const { data: completedWorkspaces } = await supabase
+            .from("workspaces")
+            .select("*")
+            .eq("created_by", user.id)
+            .eq("completed", true)
+            .order("updated_at", { ascending: false })
 
-            if (completedWorkspaces && completedWorkspaces.length > 0) {
-              setWorkspaces(completedWorkspaces)
-              console.log("Fetched workspaces:", completedWorkspaces)
-            }
-            setWorkspaceName(workspaces[0].name)
-            setShowWorkspacePrompt(true)
+          if (completedWorkspaces && completedWorkspaces.length > 0) {
+            setWorkspaces(completedWorkspaces)
+            console.log("Fetched workspaces:", completedWorkspaces)
           }
         } catch (error) {
           console.error("Error fetching data:", error)
@@ -160,6 +165,17 @@ export default function Home() {
     
     fetchData()
   }, [user])
+
+  // Function to handle creating a new workspace
+  const handleCreateWorkspace = () => {
+    if (hasIncompleteWorkspace) {
+      setWorkspaceName(incompleteWorkspaceName)
+      setShowWorkspacePrompt(true)
+    } else {
+      setWorkspaceName("")
+      setShowWorkspaceModal(true)
+    }
+  }
 
   return (
     <div className="flex min-h-screen">
@@ -295,26 +311,28 @@ export default function Home() {
       {/* Main content */}
       <div className="flex-1 overflow-auto bg-[url('/background-pattern.svg')]">
         <main className="p-8">
-          {/* Welcome section - Updated to match the design */}
-          <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-sm p-8 mb-8 text-center border border-[#eaecee]">
-            <h1 className="text-3xl font-medium text-[#2c6e49] mb-4">Welcome {userName}!</h1>
-            
-            <div className="max-w-md mx-auto">
-              <h2 className="text-xl font-medium mb-2">Kickstart Your Workspace Creation</h2>
-              <p className="text-gray-600 mb-6">
-                A workspace is your central hub for organizing projects, tasks, and 
-                teams. Create one to start managing your work efficiently and 
-                collaborate seamlessly
-              </p>
+          {/* Welcome section - Only shows when no workspaces exist */}
+          {workspaces.length === 0 && (
+            <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-sm p-8 mb-8 text-center border border-[#eaecee]">
+              <h1 className="text-3xl font-medium text-[#2c6e49] mb-4">Welcome {userName}!</h1>
               
-              <Button 
-                className="bg-[#2c6e49] hover:bg-[#245a3a] flex items-center mx-auto"
-                onClick={() => setShowWorkspacePrompt(true)}
-              >
-                <Plus className="h-4 w-4 mr-2" /> Create a workspace
-              </Button>
+              <div className="max-w-md mx-auto">
+                <h2 className="text-xl font-medium mb-2">Kickstart Your Workspace Creation</h2>
+                <p className="text-gray-600 mb-6">
+                  A workspace is your central hub for organizing projects, tasks, and 
+                  teams. Create one to start managing your work efficiently and 
+                  collaborate seamlessly
+                </p>
+                
+                <Button 
+                  className="bg-[#2c6e49] hover:bg-[#245a3a] flex items-center mx-auto"
+                  onClick={handleCreateWorkspace}
+                >
+                  <Plus className="h-4 w-4 mr-2" /> Create a workspace
+                </Button>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Workspaces Section - Updated to match the design */}
           <div className="max-w-4xl mx-auto">
@@ -333,7 +351,7 @@ export default function Home() {
                 </div>
                 <Button 
                   className="bg-[#2c6e49] hover:bg-[#245a3a] text-white"
-                  onClick={() => setShowWorkspacePrompt(true)}
+                  onClick={handleCreateWorkspace}
                 >
                   <Plus className="h-4 w-4 mr-2" /> Create a workspace
                 </Button>
@@ -363,7 +381,7 @@ export default function Home() {
                       </div>
                       <div className="col-span-3 px-2 flex items-center">
                         <div className="w-8 h-8 bg-[#2c6e49] rounded-full flex items-center justify-center text-white mr-2">
-                          {userName.charAt(0).toUpperCase()}
+                          N
                         </div>
                         <div>{userName}</div>
                       </div>
@@ -400,7 +418,7 @@ export default function Home() {
                   </p>
                   <Button 
                     className="bg-[#2c6e49] hover:bg-[#245a3a] text-white flex items-center mx-auto"
-                    onClick={() => setShowWorkspacePrompt(true)}
+                    onClick={handleCreateWorkspace}
                   >
                     <Plus className="h-4 w-4 mr-2" /> Create a workspace
                   </Button>
@@ -423,7 +441,7 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Complete creation modal */}
+          {/* Complete creation modal - only shows when there's an incomplete workspace */}
           {showWorkspacePrompt && (
             <Modal
               isOpen={showWorkspacePrompt}
