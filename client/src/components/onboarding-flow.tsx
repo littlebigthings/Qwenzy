@@ -94,11 +94,10 @@ const profileSchema = z.object({
 });
 
 interface OnboardingFlowProps {
-  isInvitation?: boolean;
-  invitationOrgId?: string | null;
+  orgId?: string | null;
 }
 
-export function OnboardingFlow() {
+export function OnboardingFlow({orgId}: OnboardingFlowProps) {
   const { user, hasOrganization, setHasOrganization } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();

@@ -6,7 +6,7 @@ import { useLocation } from "wouter";
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [hasOrganization, setHasOrganization] = useState<boolean>(false);
+  const [hasOrganization, setHasOrganization] = useState<boolean | null>(false);
   const [location, setLocation] = useLocation();
 
   useEffect(() => {

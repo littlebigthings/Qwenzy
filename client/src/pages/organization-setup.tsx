@@ -9,20 +9,13 @@ export default function OrganizationSetup() {
   const { hasOrganization, setHasOrganization } = useAuth();
   const { user } = useAuthContext();
   const [location] = useLocation();
-  const [isInvitation, setIsInvitation] = useState(false);
-  const [invitationOrgId, setInvitationOrgId] = useState<string | null>(null);
+  const [orgId, setOrgId] = useState<string | null>(null);
 
   // Check for invitation in URL parameters
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
-    const invitation = searchParams.get('invitation');
-    const orgId = searchParams.get('organization');
-
-    if (invitation === 'true' && orgId) {
-      console.log("URL indicates invitation with org ID:", orgId);
-      setIsInvitation(true);
-      setInvitationOrgId(orgId);
-    }
+    const orgId = searchParams.get('org');
+    setOrgId(orgId);
   }, []);
 
   // Check organization membership and update state
@@ -65,5 +58,5 @@ export default function OrganizationSetup() {
     return <Redirect to="/login" />;
   }
 
-  return <OnboardingFlow />;
+  return <OnboardingFlow orgId={orgId} />;
 }
