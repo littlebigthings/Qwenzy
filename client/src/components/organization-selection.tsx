@@ -83,7 +83,7 @@ export function OrganizationSelection() {
 
   const handleSelectOrganization = (orgId: string) => {
     // Set selected organization and navigate to the dashboard
-    navigate(`/organization-setup?org=${orgId}`); 
+    navigate("/organization-setup"); 
   };
 
   return (
