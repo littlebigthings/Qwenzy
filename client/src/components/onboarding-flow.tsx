@@ -29,6 +29,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { WorkspaceSection } from "./workspace-section";
 import { sendInvitationEmail, checkInvitation, markInvitationAsAccepted } from "@/lib/invitation-handler";
 import { Check, Copy } from "lucide-react";
+import { invitations } from "@shared/schema";
 
 // Add type for organization data
 type Organization = {
@@ -65,21 +66,40 @@ const steps = [
   },
 ];
 
-const organizationSchema = z.object({
-  name: z
-    .string()
-    .min(2, {
-      message: "Organization name must be at least 2 characters",
-    })
-    .max(50, {
-      message: "Organization name must be less than 50 characters",
-    })
-    .regex(/^[a-zA-Z0-9\s.-]+$/, {
-      message:
-        "Organization name can only contain letters, numbers, spaces, dots and hyphens",
-    }),
-  logo: z.any().optional(),
-});
+const organizationSchema = (newOrganization: boolean) => z
+  .object({
+    name: z
+      .string()
+      .min(2, {
+        message: "Organization name must be at least 2 characters",
+      })
+      .max(50, {
+        message: "Organization name must be less than 50 characters",
+      })
+      .regex(/^[a-zA-Z0-9\s.-]+$/, {
+        message:
+          "Organization name can only contain letters, numbers, spaces, dots and hyphens",
+      }),
+
+    domain: z
+      .string()
+      .regex(/^[a-zA-Z0-9-]+\.[a-zA-Z]{2,}$/, {
+        message: "Enter a valid domain (e.g., example.com)",
+      })
+      .optional(),
+
+    logo: z.any().optional(),
+  })
+
+  .superRefine((data, ctx) => {
+    if (newOrganization && !data.domain) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['domain'],
+        message: "Domain is required for new organizations",
+      });
+    }
+  });
 
 const profileSchema = z.object({
   fullName: z
@@ -98,6 +118,7 @@ interface OnboardingFlowProps {
 }
 
 export function OnboardingFlow({orgId}: OnboardingFlowProps) {
+  console.log("orgId: ",orgId);
   const { user, hasOrganization, setHasOrganization } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
@@ -149,6 +170,7 @@ export function OnboardingFlow({orgId}: OnboardingFlowProps) {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isProfileEditing, setIsProfileEditing] = useState(false);
+  const [newOrganization,setNewOrganization] = useState(false);
   
   // Invite state
   const [inviteEmails, setInviteEmails] = useState<string[]>([]);
@@ -162,6 +184,8 @@ export function OnboardingFlow({orgId}: OnboardingFlowProps) {
   useEffect(() => {
     const loadOnboardingProgress = async () => {
       if (!user || !invitationChecked) return; 
+      const emailDomain = user?.email.split("@")[1]; 
+      const finalDomain = emailDomain;
       try {
         // First check organization membership and get organization details
         const { data: memberships, error: membershipError } = await supabase
@@ -207,8 +231,10 @@ export function OnboardingFlow({orgId}: OnboardingFlowProps) {
         if (!existingProgress) {
           // For invited users, start directly at profile step
           // Otherwise, follow normal flow
-          const initialStep = isInvitation ? 'profile' : (userHasOrg ? 'profile' : 'organization');
-          const initialCompletedSteps = isInvitation ? ['organization'] : (userHasOrg ? ['organization'] : []);
+          const isInvitedOrHasOrgId = isInvitation || !!orgId;
+
+          const initialStep = isInvitedOrHasOrgId || userHasOrg ? 'profile' : 'organization';
+          const initialCompletedSteps = isInvitedOrHasOrgId || userHasOrg ? ['organization'] : [];
           // Only create new progress if it doesn't exist
           const { data: newProgress, error: progressError } = await supabase
             .from('onboarding_progress')
@@ -229,8 +255,20 @@ export function OnboardingFlow({orgId}: OnboardingFlowProps) {
           // Use existing progress without modifying it
           progress = existingProgress;
         }
+        const { data: domainMatchedOrgs, error: domainMatchError } = await supabase
+          .from('organizations')
+          .select('*')
+          .eq('domain', finalDomain)
+          .maybeSingle();
 
-        // Check if user has a profile already
+        if (domainMatchError) {
+          console.error('Error checking domain match:', domainMatchError);
+        }
+
+        if (domainMatchedOrgs) {
+          setNewOrganization(true); 
+        }
+          // Check if user has a profile already
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('*')
@@ -273,87 +311,95 @@ export function OnboardingFlow({orgId}: OnboardingFlowProps) {
 
   // Handle invited user flow
   useEffect(() => {
-    if (isInvitation && invitationOrgId !== "null" && user && invitationChecked) {
-      // For invited users, we should skip directly to profile setup
-      const loadInvitedOrganization = async () => {
+    const handleOrgIdOrInvitation = async () => {
+      if ((isInvitation || orgId) && user && invitationChecked) {
+        const targetOrgId = isInvitation ? invitationOrgId : orgId;
+  
+        if (!targetOrgId || targetOrgId === "null") return;
+  
         try {
           setLoading(true);
-          
-          // First check if the user is already a member
+  
+          // Check if user is already a member of the organization
           const { data: memberships, error: membershipError } = await supabase
             .from("organization_members")
             .select("organization_id")
             .eq("user_id", user.id)
-            .eq("organization_id", invitationOrgId)
+            .eq("organization_id", targetOrgId)
             .maybeSingle();
-            
+  
           if (membershipError) {
             console.error("Error checking membership:", membershipError);
           }
-          
-          // If already a member, proceed normally
+  
+          // If already a member, skip to profile step
           if (memberships) {
             setHasOrganization(true);
             return;
           }
-          
-          // Get the organization data
-          const { data: org, error } = await supabase
+  
+          // Get organization details
+          const { data: org, error: orgError } = await supabase
             .from("organizations")
             .select("*")
-            .eq("id", invitationOrgId)
+            .eq("id", targetOrgId)
             .single();
-            
-          if (error) {
-            console.error("Error loading invited organization:", error);
+  
+          if (orgError) {
+            console.error("Error fetching organization:", orgError);
             return;
           }
-          
-          // Set the organization in state
+  
           setOrganization(org);
           setHasOrganization(true);
-          // Create the user's membership to this organization
+  
+          // Add user to organization members
           const { error: insertError } = await supabase
             .from("organization_members")
             .insert({
               user_id: user.id,
-              organization_id: invitationOrgId,
-              is_owner: false
+              organization_id: targetOrgId,
+              is_owner: false,
             });
-              
+  
           if (insertError) {
-            console.error("Error creating membership:", insertError);
+            console.error("Error adding user to organization:", insertError);
             return;
           }
-          
-          // Set the current step to profile setup
+  
+          // Set current step to profile
           setCompletedSteps(["organization"]);
           setCurrentStep("profile");
-          
-          // Save progress
           await saveProgress("profile", ["organization"]);
-          // Mark the invitation as accepted
-          if (user.email) {
+  
+          // If invitation, mark as accepted
+          if (isInvitation && user.email) {
             await markInvitationAsAccepted(user.email, invitationOrgId);
           }
-          
         } catch (error) {
-          console.error("Error in invitation flow:", error);
+          console.error("Error handling orgId/invitation flow:", error);
         } finally {
           setLoading(false);
         }
-      };
-      
-      loadInvitedOrganization();
-    }
-  }, [user, isInvitation, invitationOrgId, setHasOrganization, invitationChecked]);
+      }
+    };
+  
+    handleOrgIdOrInvitation();
+  }, [user, orgId, isInvitation, invitationOrgId, setHasOrganization, invitationChecked]);
+  
 
   // Initialize form with organization data if it exists
-  const orgForm = useForm<z.infer<typeof organizationSchema>>({
-    resolver: zodResolver(organizationSchema),
-    defaultValues: {
-      name: organization?.name || ""},
-  });
+  const orgForm = useForm<z.infer<ReturnType<typeof organizationSchema>>>({
+    resolver: zodResolver(organizationSchema(newOrganization)),
+    defaultValues: newOrganization
+      ? {
+          name: organization?.name || "",
+          domain: "",
+        }
+      : {
+          name: organization?.name || "",
+        },
+  });  
   
   // Initialize profile form
   const profileForm = useForm<z.infer<typeof profileSchema>>({
@@ -400,11 +446,11 @@ export function OnboardingFlow({orgId}: OnboardingFlowProps) {
   };
 
   // Handle organization form submission (create or update)
-  const handleOrganizationSubmit = async (data: z.infer<typeof organizationSchema>) => {
+  const handleOrganizationSubmit = async (data: z.infer<ReturnType<typeof organizationSchema>>) => {
     try {
       if (!user?.id) throw new Error("Missing user information");
       const emailDomain = user?.email.split("@")[1]; 
-      const finalDomain = emailDomain;
+      const finalDomain = newOrganization ? data.domain : emailDomain;
       
       setLoading(true);
 
@@ -496,9 +542,9 @@ export function OnboardingFlow({orgId}: OnboardingFlowProps) {
       
       // For invited users, use the invitation org ID
       // Otherwise use the organization from state
-      const orgId = isInvitation && invitationOrgId ? invitationOrgId : organization?.id;
+      const targetOrgId = orgId ?? (isInvitation ? invitationOrgId : organization?.id);
       
-      if (!orgId) throw new Error("Missing organization information");
+      if (!targetOrgId) throw new Error("Missing organization information");
 
       setLoading(true);
 
@@ -575,7 +621,7 @@ export function OnboardingFlow({orgId}: OnboardingFlowProps) {
           }
         }
         
-if (isInvitation) {
+if (isInvitation || orgId) {
           // For invited users, go directly to home page after profile setup
           await saveProgress("completed", newCompleted);
           
@@ -827,7 +873,7 @@ if (isInvitation) {
           <div className="space-y-2">
             {steps
               // For invited users, only show profile step
-              .filter(step => !isInvitation || (step.id === "profile"))
+              .filter(step => (!isInvitation && orgId === null) || (step.id === "profile"))
               .map((step, index) => {
                 const isCompleted = completedSteps.includes(step.id);
                 const isCurrent = currentStep === step.id;
@@ -879,7 +925,7 @@ if (isInvitation) {
 
         {/* Right content area */}
         <div className="p-6">
-          {(currentStep === "organization" && !isInvitation) && (
+          {(currentStep === "organization" && (!isInvitation && orgId===null)) && (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
                 <div>
@@ -929,7 +975,28 @@ if (isInvitation) {
                       </FormItem>
                     )}
                   />
-
+                    {newOrganization && (
+                      <FormField
+                        control={orgForm.control}
+                        name="domain"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Organization domain</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder="e.g. example.com"
+                                {...field}
+                                disabled={organization && !isEditing}
+                              />
+                            </FormControl>
+                            <p className="text-sm text-muted-foreground">
+                              We'll use this to help match users from the same domain
+                            </p>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
                   <div>
                     <FormLabel>Organization Logo</FormLabel>
                     <div className="flex items-start gap-4 mt-2">
@@ -1141,7 +1208,7 @@ if (isInvitation) {
               </Form>
             </div>
           )}
-          {(currentStep === "invite" && !isInvitation) && (
+          {(currentStep === "invite" && (!isInvitation && orgId===null)) && (
             <div className="space-y-6">
               <div>
                 <h2 className="text-2xl font-semibold">Invite your team to your organization</h2>
@@ -1342,7 +1409,7 @@ if (isInvitation) {
               </div>
             </div>
           )}
-          {currentStep === "workspace" && user && organization && (
+          {currentStep === "workspace" && (!isInvitation && orgId === null) && user && organization && (
             <WorkspaceSection
               user={user}
               organization={organization}
