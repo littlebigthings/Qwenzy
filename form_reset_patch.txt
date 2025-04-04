@@ -1,9 +1,9 @@
-// Update form values when organization data is loaded
-useEffect(() => {
-  if (organization) {
-    orgForm.reset({
-      name: organization.name,
-      domain: organization.domain,
-    });
-  }
-}, [organization]);
+      // For invited users, use the invitation org ID
+      // For direct orgId parameter, use that
+      // Otherwise use the organization from state
+      let organizationId = organization?.id;
+      if (isInvitation && invitationOrgId) {
+        organizationId = invitationOrgId;
+      } else if (orgId) {
+        organizationId = orgId;
+      }

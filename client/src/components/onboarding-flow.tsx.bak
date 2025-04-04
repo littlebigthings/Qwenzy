@@ -26,6 +26,7 @@ import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
+import { WorkspaceSection } from "./workspace-section";
 import { sendInvitationEmail, checkInvitation, markInvitationAsAccepted } from "@/lib/invitation-handler";
 import { Check, Copy } from "lucide-react";
 
@@ -93,11 +94,10 @@ const profileSchema = z.object({
 });
 
 interface OnboardingFlowProps {
-  isInvitation?: boolean;
-  invitationOrgId?: string | null;
+  organizationId?: string | null;
 }
 
-export function OnboardingFlow() {
+export function OnboardingFlow({organizationId}: OnboardingFlowProps) {
   const { user, hasOrganization, setHasOrganization } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
@@ -123,7 +123,6 @@ export function OnboardingFlow() {
         }
 
         if (data) {
-          console.log("Found invitation for organization:", data.organization_id);
           setIsInvitation(true);
           setInvitationOrgId(data.organization_id);
         } else {
@@ -139,9 +138,6 @@ export function OnboardingFlow() {
     loadInvitation();
   }, [user?.email]);
   
-  console.log("Is invitation:", isInvitation);
-  console.log("Invitation org ID:", invitationOrgId);
-  console.log("Invitation checked:", invitationChecked);
   // Add organization state
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [currentStep, setCurrentStep] = useState<string>("organization");
@@ -189,7 +185,6 @@ export function OnboardingFlow() {
     
         // Update organization state and hasOrganization
         const userHasOrg = !!memberships;
-        console.log("userHasOrg: ",userHasOrg);
         setHasOrganization(userHasOrg);
 
         if (userHasOrg && memberships.organizations) {
@@ -207,18 +202,13 @@ export function OnboardingFlow() {
           .eq('user_id', user.id)
           .maybeSingle();
 
-        console.log(existingProgress);
         let progress;
         
         if (!existingProgress) {
-          console.log("enter");
           // For invited users, start directly at profile step
           // Otherwise, follow normal flow
-          console.log("isInvitation: ",isInvitation);
           const initialStep = isInvitation ? 'profile' : (userHasOrg ? 'profile' : 'organization');
-          console.log('initialStep', initialStep);
           const initialCompletedSteps = isInvitation ? ['organization'] : (userHasOrg ? ['organization'] : []);
-          console.log(initialCompletedSteps);
           // Only create new progress if it doesn't exist
           const { data: newProgress, error: progressError } = await supabase
             .from('onboarding_progress')
@@ -280,6 +270,154 @@ export function OnboardingFlow() {
 
     loadOnboardingProgress();
   }, [user, setHasOrganization, invitationChecked]);
+
+  // Handle organizationId parameter similar to invitation flow
+  useEffect(() => {
+    if (organizationId && user && invitationChecked && !isInvitation) {
+      // For users with direct organizationId parameter, skip to profile setup
+      const handleDirectOrgId = async () => {
+        try {
+          setLoading(true);
+          
+          // First check if the user is already a member
+          const { data: memberships, error: membershipError } = await supabase
+            .from("organization_members")
+            .select("organization_id")
+            .eq("user_id", user.id)
+            .eq("organization_id", organizationId)
+            .maybeSingle();
+            
+          if (membershipError) {
+            console.error("Error checking membership:", membershipError);
+          }
+          
+          // If already a member, proceed normally
+          if (memberships) {
+            setHasOrganization(true);
+            return;
+          }
+          
+          // Get the organization data
+          const { data: org, error } = await supabase
+            .from("organizations")
+            .select("*")
+            .eq("id", organizationId)
+            .single();
+            
+          if (error) {
+            console.error("Error loading organization:", error);
+            return;
+          }
+          
+          // Set the organization in state
+          setOrganization(org);
+          setHasOrganization(true);
+          
+          // Create the user's membership to this organization
+          const { error: insertError } = await supabase
+            .from("organization_members")
+            .insert({
+              user_id: user.id,
+              organization_id: finalOrgId,
+              is_owner: false
+            });
+              
+          if (insertError) {
+            console.error("Error creating membership:", insertError);
+            return;
+          }
+          
+          // Set the current step to profile setup
+          setCompletedSteps(["organization"]);
+          setCurrentStep("profile");
+          
+          // Save progress
+          await saveProgress("profile", ["organization"]);
+          
+        } catch (error) {
+          console.error("Error in direct organizationId flow:", error);
+        } finally {
+          setLoading(false);
+        }
+      };
+      
+      handleDirectOrgId();
+    }
+  }, [user, organizationId, setHasOrganization, invitationChecked, isInvitation]);
+
+  // Handle orgId parameter similar to invitation flow
+  useEffect(() => {
+    if (orgId && user && invitationChecked && !isInvitation) {
+      // For users with direct orgId parameter, skip to profile setup
+      const handleDirectOrgId = async () => {
+        try {
+          setLoading(true);
+          
+          // First check if the user is already a member
+          const { data: memberships, error: membershipError } = await supabase
+            .from("organization_members")
+            .select("organization_id")
+            .eq("user_id", user.id)
+            .eq("organization_id", orgId)
+            .maybeSingle();
+            
+          if (membershipError) {
+            console.error("Error checking membership:", membershipError);
+          }
+          
+          // If already a member, proceed normally
+          if (memberships) {
+            setHasOrganization(true);
+            return;
+          }
+          
+          // Get the organization data
+          const { data: org, error } = await supabase
+            .from("organizations")
+            .select("*")
+            .eq("id", orgId)
+            .single();
+            
+          if (error) {
+            console.error("Error loading organization:", error);
+            return;
+          }
+          
+          // Set the organization in state
+          setOrganization(org);
+          setHasOrganization(true);
+          
+          // Create the user's membership to this organization
+          const { error: insertError } = await supabase
+            .from("organization_members")
+            .insert({
+              user_id: user.id,
+              organization_id: orgId,
+              is_owner: false
+            });
+              
+          if (insertError) {
+            console.error("Error creating membership:", insertError);
+            return;
+          }
+          
+          // Set the current step to profile setup
+          setCompletedSteps(["organization"]);
+          setCurrentStep("profile");
+          
+          // Save progress
+          await saveProgress("profile", ["organization"]);
+          
+        } catch (error) {
+          console.error("Error in direct orgId flow:", error);
+        } finally {
+          setLoading(false);
+        }
+      };
+      
+      handleDirectOrgId();
+    }
+  }, [user, orgId, setHasOrganization, invitationChecked, isInvitation]);
 
   // Handle invited user flow
   useEffect(() => {
@@ -388,8 +526,6 @@ export function OnboardingFlow() {
     if (!user) return;
 
     try {
-      console.log("Completed: ",completed);
-      console.log("step: ",step);
       const { error } = await supabase
         .from('onboarding_progress')
         .upsert({
@@ -414,7 +550,6 @@ export function OnboardingFlow() {
   // Handle organization form submission (create or update)
   const handleOrganizationSubmit = async (data: z.infer<typeof organizationSchema>) => {
     try {
-      console.log(data);
       if (!user?.id) throw new Error("Missing user information");
       const emailDomain = user?.email.split("@")[1]; 
       const finalDomain = emailDomain;
@@ -508,10 +643,20 @@ export function OnboardingFlow() {
       if (!user?.id) throw new Error("Missing user information");
       
       // For invited users, use the invitation org ID
+      // For direct organizationId parameter, use that
       // Otherwise use the organization from state
-      const orgId = isInvitation && invitationOrgId ? invitationOrgId : organization?.id;
+      let finalOrgId = organization?.id;
+      if (isInvitation && invitationOrgId !== "null") {
+        finalOrgId = invitationOrgId;
+      } else if (organizationId) {
+        finalOrgId = organizationId;
+      }
       
-      if (!orgId) throw new Error("Missing organization information");
+      if (!finalOrgId) throw new Error("Missing organization information");
+
+      }
+      
+      if (!finalOrgId) throw new Error("Missing organization information");
 
       setLoading(true);
 
@@ -522,8 +667,6 @@ export function OnboardingFlow() {
       } else if (avatarPreview) {
         avatarUrl = avatarPreview;
       }
-
-      console.log("Saving profile with data:", { name: data.fullName, avatarUrl, orgId });
 
       // Extract first and last name from full name
       const nameParts = data.fullName.trim().split(" ");
@@ -557,7 +700,7 @@ export function OnboardingFlow() {
           .from("profiles")
           .insert({
             user_id: user.id,
-            organization_id: orgId,
+            organization_id: finalOrgId,
             name: data.fullName,
             avatar_url: avatarUrl,
             email: user.email,
@@ -578,21 +721,19 @@ export function OnboardingFlow() {
       let newCompleted = completedSteps;
       if (!alreadyCompleted) {
         newCompleted = [...completedSteps, "profile"];
-        console.log(newCompleted);
-        setCompletedSteps(newCompleted);
         
         // For invited users, mark the invitation as accepted
         if (isInvitation && invitationOrgId && user?.email) {
           try {
             await markInvitationAsAccepted(user.email, invitationOrgId);
-            console.log("Invitation marked as accepted");
+
           } catch (invitationError) {
             console.error("Error marking invitation as accepted:", invitationError);
             // Don't throw here, as we still want to continue with the flow
           }
         }
         
-        if (isInvitation) {
+if (isInvitation) {
           // For invited users, go directly to home page after profile setup
           await saveProgress("completed", newCompleted);
           
@@ -604,9 +745,8 @@ export function OnboardingFlow() {
             description: "Profile setup complete! Taking you to the dashboard.",
           });
           
-          console.log("Redirecting invited user to home page");
           // Navigate directly to home page - use timeout to ensure state updates first
-          console.log("hasOrganization set to:", true);
+          console.log("hasOrganization set to:", hasOrganization);
           setTimeout(() => {
             setLocation("/");
           }, 100);
@@ -647,8 +787,6 @@ export function OnboardingFlow() {
     if (currentIndex < steps.length - 1) {
       const nextStep = steps[currentIndex + 1].id;
       setCurrentStep(nextStep);
-      console.log("Steps from next: ",completedSteps);
-      console.log("Steps to next: ",nextStep);
       // Update progress
       //await saveProgress(nextStep, completedSteps);
     } else {
@@ -795,7 +933,6 @@ export function OnboardingFlow() {
       const fileName = `${Math.random()}.${fileExt}`;
       const filePath = `${userId}/${fileName}`; // Include user ID in path
 
-      console.log("Uploading file to path:", filePath);
 
       // Upload to the specified bucket
       const { data, error: uploadError } = await supabase.storage
@@ -1363,25 +1500,16 @@ export function OnboardingFlow() {
               </div>
             </div>
           )}
-          {currentStep === "workspace" && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-semibold">Create your workspace</h2>
-                <p className="text-gray-500">
-                  Set up your collaboration workspace
-                </p>
-              </div>
-              {/* Workspace setup form will be implemented here */}
-              <Button
-                onClick={() => {
-                  const newCompletedSteps = [...completedSteps, "workspace"];
-                  setCompletedSteps(newCompletedSteps);
-                  saveProgress("completed", newCompletedSteps).then(()=>setLocation("/"));
-                }}
-              >
-                Complete Setup
-              </Button>
-            </div>
+          {currentStep === "workspace" && user && organization && (
+            <WorkspaceSection
+              user={user}
+              organization={organization}
+              completedSteps={completedSteps}
+              setCompletedSteps={setCompletedSteps}
+              saveProgress={saveProgress}
+              setCurrentStep={setCurrentStep}
+              moveToNextStep={moveToNextStep}
+            />
           )}
         </div>
       </Card>

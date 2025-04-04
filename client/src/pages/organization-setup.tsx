@@ -58,5 +58,5 @@ export default function OrganizationSetup() {
     return <Redirect to="/login" />;
   }
 
-  return <OnboardingFlow orgId={orgId} />;
+  return <OnboardingFlow organizationId={orgId} />;
 }

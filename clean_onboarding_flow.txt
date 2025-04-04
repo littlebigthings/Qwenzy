@@ -6,9 +6,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, CheckCircle, ArrowRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
-import { useProgress } from "@/hooks/use-progress";
+import { useProgress } from "@/lib/progress";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -101,7 +101,7 @@ interface OnboardingFlowProps {
   orgId?: string | null;
 }
 
-export function OnboardingFlow({orgId}: OnboardingFlowProps) {
+export function OnboardingFlow({organizationId}: OnboardingFlowProps) {
   const { user, hasOrganization, setHasOrganization } = useAuth();
   const { toast } = useToast();
   const { getProgress, saveProgress } = useProgress();
@@ -109,7 +109,6 @@ export function OnboardingFlow({orgId}: OnboardingFlowProps) {
   const [isInvitation, setIsInvitation] = useState<boolean>(false);
   const [invitationOrgId, setInvitationOrgId] = useState<string>("null");
   const [invitationChecked, setInvitationChecked] = useState<boolean>(false);
-  const [organizationId, setOrganizationId] = useState<string | null>(orgId || null);
   
   // State for organization, steps, and loading
   const [currentStep, setCurrentStep] = useState<string>("organization");
@@ -172,7 +171,7 @@ export function OnboardingFlow({orgId}: OnboardingFlowProps) {
             setIsInvitation(true);
             setInvitationOrgId(inviteParam);
           } else if (orgIdParam) {
-            setOrganizationId(orgIdParam);
+            organizationId = orgIdParam;
           }
           
           setInvitationChecked(true);
