@@ -2,18 +2,26 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ChevronLeft, X } from "lucide-react";
+import { ChevronLeft, X , ChevronDown} from "lucide-react";
 
 interface WorkspaceFormStep2Props {
   onPrevious: () => void;
   onComplete: () => void;
+  setEmails: React.Dispatch<React.SetStateAction<string[]>>;
+  setEmailRoles: React.Dispatch<React.SetStateAction<{ [email: string]: string }>>;
+  emails: string[];
+  emailRoles: { [email: string]: string };
 }
+
 
 export function WorkspaceFormStep2({
   onPrevious,
   onComplete,
+  setEmails,
+  setEmailRoles,
+  emails,
+  emailRoles
 }: WorkspaceFormStep2Props) {
-  const [emails, setEmails] = useState<string[]>([]);
   const [currentEmail, setCurrentEmail] = useState("");
   const [isValid, setIsValid] = useState(false);
 
@@ -25,9 +33,13 @@ export function WorkspaceFormStep2({
 
   const handleAddEmail = () => {
     if (currentEmail && isValid && !emails.includes(currentEmail)) {
-      setEmails([...emails, currentEmail]);
+      const updated = [...emails, currentEmail];
+      setEmails(updated);
       setCurrentEmail("");
     }
+  };
+  const handleRoleChange = (email: string, role: string) => {
+    setEmailRoles(prev => ({ ...prev, [email]: role }));
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -64,12 +76,13 @@ export function WorkspaceFormStep2({
         </div>
 
         {/* Email chips */}
-        <div className="flex flex-wrap gap-2 mt-2">
-          {emails.map((email, index) => (
-            <div
-              key={index}
-              className="flex items-center gap-1 bg-gray-100 text-gray-700 text-sm px-2 py-1 rounded"
-            >
+        <div className="flex flex-wrap gap-2 mt-2 items-center">
+        {emails.map((email, index) => (
+          <div
+            key={index}
+            className="flex items-center justify-between w-full"
+          >
+            <div className="flex items-center gap-1 bg-gray-100 text-gray-700 text-sm px-2 py-1 rounded">
               <span>{email}</span>
               <button
                 type="button"
@@ -79,8 +92,23 @@ export function WorkspaceFormStep2({
                 <X className="h-3 w-3" />
               </button>
             </div>
-          ))}
-        </div>
+            <div className="relative">
+              <select
+                  value={emailRoles[email] || "Client"}
+                  onChange={(e) => handleRoleChange(email, e.target.value)}
+                  className="bg-violet-100 text-violet-700 text-sm rounded px-2 py-1 appearance-none pr-6"
+                >
+                  <option value="Client">Client</option>
+                  <option value="Manager">Manager</option>
+                  <option value="User">User</option>
+                  <option value="Admin">Admin</option>
+                </select>
+              <ChevronDown className="absolute right-1 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500 pointer-events-none" />
+            </div>
+          </div>
+        ))}
+      </div>
+
       </div>
 
       <div className="flex flex-col space-y-3 pt-4">

@@ -24,6 +24,8 @@ export function MultiStepWorkspaceModal({
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [emails, setEmails] = useState<string[]>([]);
+  const [emailRoles, setEmailRoles] = useState<{ [email: string]: string }>({});
 
   const resetForm = () => {
     setCurrentStep(1);
@@ -54,74 +56,163 @@ export function MultiStepWorkspaceModal({
       });
       return;
     }
-
+  
     setIsSubmitting(true);
-
+  
     try {
       // Upload logo if present
       let logoUrl = null;
       if (logoFile) {
-        const filename = `workspace-${Date.now()}.${logoFile.name.split('.').pop()}`;
+        const filename = `workspace-${Date.now()}.${logoFile.name.split(".").pop()}`;
         const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('workspace')
+          .from("workspace")
           .upload(filename, logoFile);
-
-        if (uploadError) {
-          throw new Error(`Error uploading logo: ${uploadError.message}`);
-        }
-
-        const { data } = supabase.storage
-          .from('workspace')
-          .getPublicUrl(filename);
-
+  
+        if (uploadError) throw new Error(`Error uploading logo: ${uploadError.message}`);
+  
+        const { data } = supabase.storage.from("workspace").getPublicUrl(filename);
         logoUrl = data.publicUrl;
       }
-
+  
       // Get organization ID
       const { data: orgMemberData, error: orgError } = await supabase
-        .from('organization_members')
-        .select('organization_id')
-        .eq('user_id', user.id)
+        .from("organization_members")
+        .select("organization_id")
+        .eq("user_id", user.id)
         .single();
-
-      if (orgError) {
-        throw new Error(`Error getting organization: ${orgError.message}`);
-      }
-
+  
+      if (orgError) throw new Error(`Error getting organization: ${orgError.message}`);
+      const organizationId = orgMemberData.organization_id;
+  
       // Create workspace
-      const { data, error } = await supabase
-        .from('workspaces')
+      const { data: workspaceData, error: workspaceError } = await supabase
+        .from("workspaces")
         .insert({
           name: workspaceName.trim(),
-          organization_id: orgMemberData.organization_id,
+          organization_id: organizationId,
           created_by: user.id,
           logo_url: logoUrl,
           completed: true,
-          updated_at: new Date().toISOString().split('T')[0]
+          updated_at: new Date().toISOString().split("T")[0],
         })
         .select()
         .single();
-
-      if (error) throw error;
-
+  
+      if (workspaceError) throw workspaceError;
+      const workspaceId = workspaceData.id;
+  
+      console.log("workspaceId: ",workspaceId);
+      // Handle user roles and invitations
+      for (const email of emails) {
+        const role = emailRoles[email] || "Client";
+  
+        // First check if user exists in profiles
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("user_id, workspace_ids")
+          .eq("email", email)
+          .single();
+        console.log(profile);
+        if (profile) {
+          const updatedProfileWorkspaceIds = Array.from(new Set([
+            ...(role === "Manager" ? [] : profile.workspace_ids || []),
+            ...(role === "Manager" ? [] : [workspaceId]),
+          ]));
+          console.log("updatedProfileWorkspaceIds: ",updatedProfileWorkspaceIds);
+          const { data: updatedProfile, error: updateProfileError } = await supabase
+          .from("profiles")
+          .update({
+            workspace_ids: updatedProfileWorkspaceIds,
+            job_title: role,
+          })
+          .eq("user_id", profile.user_id)
+          .select("*");
+        
+        if (updateProfileError) {
+          console.error("Error updating profile:", updateProfileError);
+        } else {
+          console.log("Profile update successful:", updatedProfile);
+        }
+        
+        } else {
+          // If not in profiles, then check in invitations
+          const { data: existingInvitation } = await supabase
+            .from("invitations")
+            .select("id, accepted, workspace_ids")
+            .eq("email", email)
+            .eq("organization_id", organizationId)
+            .single();
+  
+          if (existingInvitation) {
+            if (!existingInvitation.accepted) {
+              const updatedWorkspaceIds = Array.from(new Set([
+                ...(existingInvitation.workspace_ids || []),
+                ...(role === "Manager" ? [] : [workspaceId]),
+              ]));
+  
+              await supabase
+                .from("invitations")
+                .update({
+                  workspace_ids: updatedWorkspaceIds,
+                  role,
+                  invited_by: user.id,
+                  created_at: new Date().toISOString(),
+                })
+                .eq("id", existingInvitation.id);
+            }
+            // If accepted, this branch won't be reached anymore due to profiles check above
+          } else {
+            // New invitation
+            await supabase.from("invitations").insert({
+              email,
+              organization_id: organizationId,
+              invited_by: user.id,
+              role,
+              created_at: new Date().toISOString(),
+              accepted: false,
+              auto_join: true,
+              workspace_ids: role === "Manager" ? [] : [workspaceId],
+            });
+          }
+  
+          // Create email content
+          const link = "http://localhost:3000/signup";
+          console.log(`
+            To: ${email}
+            Subject: You're invited to join "${workspaceName}" as ${role}
+  
+            Message:
+            Hi there,
+  
+            You’ve been invited to join the workspace "${workspaceName}" as a ${role}.
+            Please accept the invitation by clicking the link below:
+  
+            ${link}
+  
+            — Your Team
+          `);
+        }
+      }
+  
       toast({
         title: "Success",
-        description: "Workspace created successfully",
+        description: "Workspace created and invitations handled",
       });
-
+  
       resetForm();
-      onComplete(data.id);
+      onComplete(workspaceId);
     } catch (error: any) {
-      console.error("Error creating workspace:", error);
+      console.error("Error creating workspace or sending invitations:", error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: `Failed to create workspace: ${error.message}`,
+        description: `Failed to complete setup: ${error.message}`,
       });
     } finally {
       setIsSubmitting(false);
     }
   };
+  
 
   return (
     <Modal
@@ -150,6 +241,10 @@ export function MultiStepWorkspaceModal({
         <WorkspaceFormStep2
           onPrevious={goToPreviousStep}
           onComplete={handleComplete}
+          setEmailRoles={setEmailRoles}
+          emailRoles={emailRoles}
+          setEmails={setEmails}
+          emails={emails}
         />
       )}
     </Modal>

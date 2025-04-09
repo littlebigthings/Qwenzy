@@ -25,40 +25,58 @@ export default function Home() {
   const [workspaces, setWorkspaces] = useState([])
   const [hasIncompleteWorkspace, setHasIncompleteWorkspace] = useState(false)
   const [incompleteWorkspaceName, setIncompleteWorkspaceName] = useState("")
+  const [role,setRole] = useState();
 
   // Add debugging to check if we are getting workspaces
   useEffect(() => {
     if (user) {
       const fetchWorkspaces = async () => {
         try {
-          const { data, error } = await supabase
-            .from("workspaces")
-            .select("*")
-            .eq("created_by", user.id)
-            .eq("completed", true)
-          
-          console.log("DEBUG - Fetched workspaces:", data)
-          console.log("DEBUG - User ID:", user.id)
-          
-          if (error) {
-            console.error("Error fetching workspaces:", error)
-            return
+          // Step 1: Get user profile
+          const { data: profile, error: profileError } = await supabase
+            .from("profiles")
+            .select("job_title, workspace_ids, organization_id")
+            .eq("user_id", user.id)
+            .single();
+  
+          if (profileError) {
+            console.error("Error fetching profile:", profileError);
+            return;
           }
-          
-          if (data && data.length > 0) {
-            setWorkspaces(data)
-            console.log("Setting workspaces:", data)
+  
+          const { job_title, workspace_ids, organization_id } = profile || {};
+          let workspaceQuery = supabase.from("workspaces").select("*, profiles(name)").eq("completed", true);
+  
+          setRole(job_title);
+          if (job_title === "Admin" || job_title === "Manager") {
+            workspaceQuery = workspaceQuery.eq("organization_id", organization_id);
+            
           } else {
-            console.log("No completed workspaces found")
+            if (workspace_ids && workspace_ids.length > 0) {
+              workspaceQuery = workspaceQuery.in("id", workspace_ids);
+            } else {
+              setWorkspaces([]);
+              return;
+            }
           }
+  
+          const { data, error } = await workspaceQuery;
+          console.log("WorkspaceData: ", data);
+          if (error) {
+            console.error("Error fetching workspaces:", error);
+            return;
+          }
+  
+          setWorkspaces(data || []);
         } catch (error) {
-          console.error("Error in fetchWorkspaces:", error)
+          console.error("Error in fetchWorkspaces:", error);
         }
-      }
-      
-      fetchWorkspaces()
+      };
+  
+      fetchWorkspaces();
     }
-  }, [user])
+  }, [user]);
+  
 
   // Function to handle logo upload
   const handleLogoUpload = (file) => {
@@ -345,7 +363,6 @@ export default function Home() {
                   teams. Create one to start managing your work efficiently and 
                   collaborate seamlessly
                 </p>
-                
                 <Button 
                   className="bg-[#2c6e49] hover:bg-[#245a3a] flex items-center mx-auto"
                   onClick={handleCreateWorkspace}
@@ -403,17 +420,17 @@ export default function Home() {
                       </div>
                       <div className="col-span-3 px-2 flex items-center">
                         <div className="w-8 h-8 bg-[#2c6e49] rounded-full flex items-center justify-center text-white font-medium mr-2">
-                          {userName?.charAt(0)?.toUpperCase() || "U"}
+                          {workspace.profiles?.name?.charAt(0)?.toUpperCase() || "U"}
                         </div>
                         <div>
-                          <div className="font-medium">{userName}</div>
+                          <div className="font-medium">{workspace.profiles?.name}</div>
                           <div className="text-xs text-gray-500">Owner</div>
                         </div>
                       </div>
                       <div className="col-span-1 px-2">
                         <div className="flex -space-x-2">
                           <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white font-medium border-2 border-white z-10">
-                            {userName?.charAt(0)?.toUpperCase() || "U"}
+                            {workspace.profiles?.name?.charAt(0)?.toUpperCase() || "U"}
                           </div>
                           <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-medium border-2 border-white z-0">
                             A

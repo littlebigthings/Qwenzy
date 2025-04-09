@@ -124,6 +124,8 @@ export function OnboardingFlow({orgId}: OnboardingFlowProps) {
   const [, setLocation] = useLocation();
   const [isInvitation, setIsInvitation] = useState<boolean>(false);
   const [invitationOrgId, setInvitationOrgId] = useState<string>("null");
+  const [invitationRole, setInvitationRole] = useState<string>();
+  const [invitationWorkspaces, setInvitationWorkspaces] = useState<string[]>([]);
   const [invitationChecked, setInvitationChecked] = useState<boolean>(false);
   
   useEffect(() => {
@@ -133,7 +135,7 @@ export function OnboardingFlow({orgId}: OnboardingFlowProps) {
       try {
         const { data, error } = await supabase
           .from("invitations")
-          .select("organization_id")
+          .select("organization_id,workspace_ids, role")
           .eq("email", user?.email)
           .maybeSingle(); // Expecting a single record
 
@@ -146,6 +148,8 @@ export function OnboardingFlow({orgId}: OnboardingFlowProps) {
         if (data) {
           setIsInvitation(true);
           setInvitationOrgId(data.organization_id);
+          setInvitationWorkspaces(data.workspace_ids || []);
+          setInvitationRole(data.role || "User");
         } else {
           setIsInvitation(false);
         }
@@ -571,19 +575,27 @@ export function OnboardingFlow({orgId}: OnboardingFlowProps) {
       if (checkError) throw checkError;
 
       if (existingProfile) {
-        // Update existing profile
         const { error: updateError } = await supabase
           .from("profiles")
           .update({
             name: data.fullName,
             avatar_url: avatarUrl,
-            // Keep the existing data for other fields
           })
           .eq('id', existingProfile.id);
-
+      
         if (updateError) throw updateError;
       } else {
-        // Create new profile
+        let jobTitle = "Admin";
+        let workspaceIds: string[] = [];
+      
+        if (isInvitation) {
+          jobTitle = invitationRole || "User";
+          workspaceIds = invitationWorkspaces || [];
+        } else if (orgId) {
+          jobTitle = "User";
+          workspaceIds = [];
+        }
+      
         const { error: insertError } = await supabase
           .from("profiles")
           .insert({
@@ -592,8 +604,10 @@ export function OnboardingFlow({orgId}: OnboardingFlowProps) {
             name: data.fullName,
             avatar_url: avatarUrl,
             email: user.email,
+            job_title: jobTitle,
+            workspace_ids: workspaceIds,
           });
-
+      
         if (insertError) throw insertError;
       }
 

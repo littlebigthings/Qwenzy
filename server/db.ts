@@ -3,7 +3,7 @@ import { drizzle } from 'drizzle-orm/neon-serverless';
 import ws from "ws";
 import * as schema from "@shared/schema";
 // Load environment variables directly - no dependency needed
-// Environment variables are already loaded in Replit environments
+// Environment variables are already loaded in Replit environment
 
 neonConfig.webSocketConstructor = ws;
 
