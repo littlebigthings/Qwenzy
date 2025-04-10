@@ -1,133 +1,111 @@
-import React, { useState } from 'react'
-import { Link, useLocation } from 'wouter'
-import { ChevronDown, ChevronRight, LayoutDashboard, Menu, FileIcon, Users } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+// components/Sidebar.tsx
+import { ChevronDown } from "lucide-react";
+import { useState } from "react";
 
-type SidebarProps = {
-  organizationName: string
+interface SidebarProps {
+  organization: { name: string };
+  activeMenu: string;
+  setActiveMenu: (menu: string) => void;
 }
 
-export function Sidebar({ organizationName }: SidebarProps) {
-  const [location] = useLocation()
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const [isListExpanded, setIsListExpanded] = useState(true)
-  
+export default function Sidebar({ organization, activeMenu, setActiveMenu }: SidebarProps) {
+  const [isListOpen, setIsListOpen] = useState(true);
+
   return (
-    <div className="h-screen flex flex-col bg-white border-r">
-      {/* Organization header */}
-      <div className="p-4 bg-[#2c6e49] text-white flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <div className="w-7 h-7 bg-white rounded-full flex items-center justify-center text-[#2c6e49] font-bold">
-            {organizationName.charAt(0)}
-          </div>
-          <span className="font-medium">{organizationName}</span>
+    <div className="w-56 bg-white shadow-sm z-10 border-r">
+      {/* Header */}
+      <div className="p-4 bg-[#579189] text-white flex items-center">
+        <div className="w-7 h-7 bg-white rounded-full flex items-center justify-center text-[#2c6e49] font-bold">
+          {organization.name.charAt(0)}
         </div>
-        <Button variant="ghost" size="icon" className="md:hidden text-white" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
-          <Menu className="h-5 w-5" />
-        </Button>
+        <span className="font-medium ml-2">{organization.name}</span>
+        <button className="ml-auto">
+          <ChevronDown className="h-5 w-5" />
+        </button>
       </div>
 
-      {/* Navigation links */}
-      <nav className={cn(
-        "flex-1 overflow-y-auto",
-        isMobileMenuOpen ? "block" : "hidden md:block"
-      )}>
-        <div className="px-3 py-2">
-          <div className="space-y-1">
-            <Link href="/dashboard">
-              <a className={cn(
-                "flex items-center px-3 py-2 rounded-md text-sm font-medium",
-                location === "/dashboard" 
-                  ? "bg-gray-100 text-gray-900" 
-                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-              )}>
-                <LayoutDashboard className="mr-3 h-5 w-5" />
-                Dashboard
-                <ChevronRight className="ml-auto h-5 w-5" />
-              </a>
-            </Link>
-            
-            <Link href="/updates">
-              <a className={cn(
-                "flex items-center px-3 py-2 rounded-md text-sm font-medium",
-                location === "/updates" 
-                  ? "bg-gray-100 text-gray-900" 
-                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-              )}>
-                <LayoutDashboard className="mr-3 h-5 w-5" />
-                Updates
-                <div className="ml-auto bg-green-500 text-white rounded-full h-5 w-5 flex items-center justify-center text-xs">3</div>
-                <ChevronRight className="ml-2 h-5 w-5" />
-              </a>
-            </Link>
-          </div>
-          
-          <div className="mt-6">
-            <p className="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-              APPLICATION
-            </p>
-            <div className="mt-2 space-y-1">
-              <button 
-                className="w-full flex items-center px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                onClick={() => setIsListExpanded(!isListExpanded)}
-              >
-                <FileIcon className="mr-3 h-5 w-5" />
-                List
-                {isListExpanded ? 
-                  <ChevronDown className="ml-auto h-5 w-5" /> : 
-                  <ChevronRight className="ml-auto h-5 w-5" />
-                }
-              </button>
-              
-              {isListExpanded && (
-                <div className="pl-10 space-y-1">
-                  <Link href="/list">
-                    <a className={cn(
-                      "block px-3 py-2 rounded-md text-sm font-medium",
-                      location === "/list" 
-                        ? "bg-[#2c6e49] text-white" 
-                        : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                    )}>
+      {/* Navigation */}
+      <nav className="py-2">
+        <ul>
+          <li>
+            <button 
+              className={`w-full flex items-center px-4 py-2 ${activeMenu === 'dashboard' 
+                ? 'bg-[#579189] text-white' 
+                : 'text-gray-600 hover:bg-gray-100'}`}
+              onClick={() => setActiveMenu('dashboard')}
+            >
+              <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+              Dashboard
+            </button>
+          </li>
+          <li>
+            <button 
+              className={`w-full flex items-center px-4 py-2 ${activeMenu === 'updates' 
+                ? 'bg-[#579189] text-white' 
+                : 'text-gray-600 hover:bg-gray-100'}`}
+              onClick={() => setActiveMenu('updates')}
+            >
+              <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+              Updates
+              <span className="ml-auto bg-green-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">3</span>
+            </button>
+          </li>
+
+          {/* Application Section */}
+          <li className="mt-6 px-4">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Application</p>
+          </li>
+          <li>
+            <button 
+              className={`w-full flex items-center px-4 py-2 ${activeMenu.startsWith('list') 
+                ? 'bg-[#579189] text-white' 
+                : 'text-gray-600 hover:bg-gray-100'}`}
+              onClick={() => setIsListOpen(!isListOpen)}
+            >
+              <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+              List
+              <svg className="w-5 h-5 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {isListOpen && (
+              <ul className="pl-10">
+                {['list-main', 'list-1', 'list-2', 'list-3'].map((key) => (
+                  <li key={key}>
+                    <button 
+                      className={`w-full text-left px-4 py-2 ${activeMenu === key 
+                        ? 'bg-[#579189] text-white' 
+                        : 'text-gray-600 hover:bg-gray-100'}`}
+                      onClick={() => setActiveMenu(key)}
+                    >
                       List
-                    </a>
-                  </Link>
-                  <Link href="/list/1">
-                    <a className="block px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900">
-                      List
-                    </a>
-                  </Link>
-                  <Link href="/list/2">
-                    <a className="block px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900">
-                      List
-                    </a>
-                  </Link>
-                  <Link href="/list/3">
-                    <a className="block px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900">
-                      List
-                    </a>
-                  </Link>
-                </div>
-              )}
-            </div>
-          </div>
-          
-          <div className="mt-6">
-            <Link href="/roles">
-              <a className={cn(
-                "flex items-center px-3 py-2 rounded-md text-sm font-medium",
-                location === "/roles" 
-                  ? "bg-gray-100 text-gray-900" 
-                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-              )}>
-                <Users className="mr-3 h-5 w-5" />
-                Roles & Permissions
-                <ChevronRight className="ml-auto h-5 w-5" />
-              </a>
-            </Link>
-          </div>
-        </div>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </li>
+          <li>
+            <button 
+              className={`w-full flex items-center px-4 py-2 ${activeMenu === 'roles' 
+                ? 'bg-[#579189] text-white' 
+                : 'text-gray-600 hover:bg-gray-100'}`}
+              onClick={() => setActiveMenu('roles')}
+            >
+              <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+              Roles & Permissions
+            </button>
+          </li>
+        </ul>
       </nav>
     </div>
-  )
+  );
 }

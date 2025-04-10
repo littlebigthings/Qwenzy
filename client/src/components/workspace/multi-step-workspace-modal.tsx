@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Modal from "@/components/ui/modal";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/lib/supabase";
@@ -26,7 +26,30 @@ export function MultiStepWorkspaceModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [emails, setEmails] = useState<string[]>([]);
   const [emailRoles, setEmailRoles] = useState<{ [email: string]: string }>({});
+  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
+  const [currentUserOrg, setCurrentUserOrg] = useState<string | null>(null);
 
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      if (user?.id) {
+        const { data: profile, error } = await supabase
+          .from("profiles")
+          .select("job_title, organization_id")
+          .eq("user_id", user.id)
+          .single();
+  
+        if (error) {
+          console.error("Error fetching user profile:", error);
+        } else {
+          setCurrentUserRole(profile?.job_title || null);
+          setCurrentUserOrg(profile?.organization_id || null);
+        }
+      }
+    };
+  
+    fetchUserRole();
+  }, [user?.id]);
+  
   const resetForm = () => {
     setCurrentStep(1);
     setWorkspaceName("");
@@ -74,7 +97,6 @@ export function MultiStepWorkspaceModal({
         logoUrl = data.publicUrl;
       }
   
-      // Get organization ID
       const { data: orgMemberData, error: orgError } = await supabase
         .from("organization_members")
         .select("organization_id")
@@ -114,10 +136,12 @@ export function MultiStepWorkspaceModal({
           .single();
         console.log(profile);
         if (profile) {
+
           const updatedProfileWorkspaceIds = Array.from(new Set([
-            ...(role === "Manager" ? [] : profile.workspace_ids || []),
-            ...(role === "Manager" ? [] : [workspaceId]),
+            ...(profile.workspace_ids || []),
+            workspaceId,
           ]));
+        
           console.log("updatedProfileWorkspaceIds: ",updatedProfileWorkspaceIds);
           const { data: updatedProfile, error: updateProfileError } = await supabase
           .from("profiles")
@@ -145,9 +169,10 @@ export function MultiStepWorkspaceModal({
   
           if (existingInvitation) {
             if (!existingInvitation.accepted) {
+
               const updatedWorkspaceIds = Array.from(new Set([
                 ...(existingInvitation.workspace_ids || []),
-                ...(role === "Manager" ? [] : [workspaceId]),
+                workspaceId,
               ]));
   
               await supabase
@@ -160,9 +185,7 @@ export function MultiStepWorkspaceModal({
                 })
                 .eq("id", existingInvitation.id);
             }
-            // If accepted, this branch won't be reached anymore due to profiles check above
           } else {
-            // New invitation
             await supabase.from("invitations").insert({
               email,
               organization_id: organizationId,
@@ -245,6 +268,8 @@ export function MultiStepWorkspaceModal({
           emailRoles={emailRoles}
           setEmails={setEmails}
           emails={emails}
+          currentUserRole={currentUserRole}
+          currentUserOrg={currentUserOrg}
         />
       )}
     </Modal>

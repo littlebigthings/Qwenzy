@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ChevronLeft, X , ChevronDown} from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 interface WorkspaceFormStep2Props {
   onPrevious: () => void;
@@ -11,6 +12,8 @@ interface WorkspaceFormStep2Props {
   setEmailRoles: React.Dispatch<React.SetStateAction<{ [email: string]: string }>>;
   emails: string[];
   emailRoles: { [email: string]: string };
+  currentUserRole: string | null;
+  currentUserOrg: string | null;
 }
 
 
@@ -20,16 +23,78 @@ export function WorkspaceFormStep2({
   setEmails,
   setEmailRoles,
   emails,
-  emailRoles
+  emailRoles,
+  currentUserRole,
+  currentUserOrg
 }: WorkspaceFormStep2Props) {
   const [currentEmail, setCurrentEmail] = useState("");
   const [isValid, setIsValid] = useState(false);
+  const [suggestions, setSuggestions] = useState<{ email: string; status: "sent" | "accepted" }[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
 
   useEffect(() => {
     // Simple email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     setIsValid(emailRegex.test(currentEmail) || currentEmail === "");
   }, [currentEmail]);
+
+  useEffect(() => {
+    const fetchSuggestions = async () => {
+      if (!currentEmail || currentEmail.length < 2 || !currentUserOrg) {
+        setSuggestions([]);
+        return;
+      }
+
+      setLoadingSuggestions(true);
+
+      try {
+        const [profilesRes, invitationsRes] = await Promise.all([
+          supabase
+            .from("profiles")
+            .select("email")
+            .eq("organization_id", currentUserOrg)
+            .ilike("email", `%${currentEmail}%`),
+
+          supabase
+            .from("invitations")
+            .select("email, accepted")
+            .eq("organization_id", currentUserOrg)
+            .eq("accepted", false)
+            .ilike("email", `%${currentEmail}%`)
+        ]);
+
+        const profileEmails =
+          profilesRes.data?.map((p) => ({
+            email: p.email,
+            status: "accepted" as const
+          })) || [];
+
+        const invitationEmails =
+          invitationsRes.data?.map((i) => ({
+            email: i.email,
+            status: "sent" as const
+          })) || [];
+
+        const combined = [...profileEmails, ...invitationEmails];
+        const seen = new Set();
+        const filtered = combined.filter(({ email }) => {
+          const lower = email.toLowerCase();
+          if (seen.has(lower) || emails.includes(lower)) return false;
+          seen.add(lower);
+          return true;
+        });
+
+        setSuggestions(filtered);
+      } catch (err) {
+        console.error("Failed to fetch suggestions", err);
+      } finally {
+        setLoadingSuggestions(false);
+      }
+    };
+
+    const timeout = setTimeout(fetchSuggestions, 100);
+    return () => clearTimeout(timeout);
+  }, [currentEmail, emails, currentUserOrg]);
 
   const handleAddEmail = () => {
     if (currentEmail && isValid && !emails.includes(currentEmail)) {
@@ -61,17 +126,37 @@ export function WorkspaceFormStep2({
           <Input
             id="invite-emails"
             value={currentEmail}
+            autoComplete="off"
             onChange={(e) => setCurrentEmail(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Type or paste in emails"
-            className={`border-gray-300 focus-visible:ring-[#407c87] ${
-              !isValid && currentEmail ? "border-red-500" : ""
-            }`}
+            className={`border-gray-300 focus-visible:ring-[#407c87] ${!isValid && currentEmail ? "border-red-500" : ""}`}
           />
           {!isValid && currentEmail && (
-            <p className="text-xs text-red-500 mt-1">
-              Please enter a valid email address
-            </p>
+            <p className="text-xs text-red-500 mt-1">Please enter a valid email address</p>
+          )}
+          {suggestions.length > 0 && (
+            <div className="absolute z-10 bg-white border border-gray-300 rounded mt-1 w-full max-h-60 overflow-y-auto shadow-lg">
+              {suggestions.map((sugg, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  className={`flex justify-between items-center w-full text-left px-3 py-2 hover:bg-gray-100 text-sm ${
+                    sugg.status === "accepted" ? "bg-green-50" : ""
+                  }`}
+                  onClick={() => {
+                    setEmails((prev) => [...prev, sugg.email]);
+                    setCurrentEmail("");
+                    setSuggestions([]);
+                  }}
+                >
+                  <span>{sugg.email}</span>
+                  <span className="text-xs text-gray-500">
+                    {sugg.status === "accepted" ? "Invite accepted" : "Invite sent"}
+                  </span>
+                </button>
+              ))}
+            </div>
           )}
         </div>
 
@@ -99,9 +184,9 @@ export function WorkspaceFormStep2({
                   className="bg-violet-100 text-violet-700 text-sm rounded px-2 py-1 appearance-none pr-6"
                 >
                   <option value="Client">Client</option>
-                  <option value="Manager">Manager</option>
+                  {currentUserRole !== "Manager" && <option value="Manager">Manager</option>}
                   <option value="User">User</option>
-                  <option value="Admin">Admin</option>
+                  <option value="Admin">Guest User</option>
                 </select>
               <ChevronDown className="absolute right-1 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500 pointer-events-none" />
             </div>
