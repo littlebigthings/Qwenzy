@@ -509,7 +509,8 @@ export default function Home() {
                               variant="outline"
                               className="text-[#2c6e49] border-[#2c6e49] hover:bg-[#f0f9f6]"
                               onClick={() => {
-                                // Navigate to workspace
+                                // Navigate to workspace project page
+                                window.location.href = `/project/${workspace.id}`;
                               }}
                             >
                               View
@@ -531,7 +532,8 @@ export default function Home() {
                             variant="outline"
                             className="text-[#2c6e49] border-[#2c6e49] hover:bg-[#f0f9f6]"
                             onClick={() => {
-                              // Navigate to workspace
+                              // Navigate to workspace project page
+                              window.location.href = `/project/${workspace.id}`;
                             }}
                           >
                             View

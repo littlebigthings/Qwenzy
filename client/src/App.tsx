@@ -13,6 +13,7 @@ import Home from "@/pages/home"
 import OrganizationSetup from "@/pages/organization-setup"
 import ProfileSetup from "@/pages/profile-setup"
 import OrganizationSelection from "@/pages/organization-selection"
+import ProjectPage from "@/pages/project"
 import { Protected } from "@/layouts/protected"
 
 function Router() {
@@ -41,6 +42,12 @@ function Router() {
       <Route path="/profile-setup">
         <Protected>
           <ProfileSetup />
+        </Protected>
+      </Route>
+
+      <Route path="/project/:workspaceId">
+        <Protected>
+          <ProjectPage />
         </Protected>
       </Route>
 
