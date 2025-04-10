@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
 import { MultiStepWorkspaceModal } from "@/components/workspace/multi-step-workspace-modal"
+import Sidebar from "@/components/dashboard/sidebar"
 
 export default function Home() {
   const { user } = useAuth()
@@ -25,41 +26,195 @@ export default function Home() {
   const [workspaces, setWorkspaces] = useState([])
   const [hasIncompleteWorkspace, setHasIncompleteWorkspace] = useState(false)
   const [incompleteWorkspaceName, setIncompleteWorkspaceName] = useState("")
+  const [role,setRole] = useState<string | null>(null);
+  const [managerWorkspaces, setManagerWorkspaces] = useState<string[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<any[]>([]);
 
   // Add debugging to check if we are getting workspaces
   useEffect(() => {
     if (user) {
       const fetchWorkspaces = async () => {
         try {
-          const { data, error } = await supabase
-            .from("workspaces")
-            .select("*")
-            .eq("created_by", user.id)
-            .eq("completed", true)
-          
-          console.log("DEBUG - Fetched workspaces:", data)
-          console.log("DEBUG - User ID:", user.id)
-          
-          if (error) {
-            console.error("Error fetching workspaces:", error)
-            return
+          // Step 1: Get user profile
+          const { data: profile, error: profileError } = await supabase
+            .from("profiles")
+            .select("job_title, workspace_ids, organization_id")
+            .eq("user_id", user.id)
+            .single();
+  
+          if (profileError) {
+            console.error("Error fetching profile:", profileError);
+            return;
           }
-          
-          if (data && data.length > 0) {
-            setWorkspaces(data)
-            console.log("Setting workspaces:", data)
+  
+          const { job_title, workspace_ids, organization_id } = profile || {};
+          let workspaceQuery = supabase.from("workspaces").select("*, profiles(name)").eq("completed", true);
+  
+          setRole(job_title);
+          if (job_title === "Admin" || job_title === "Manager") {
+            if(job_title === "Manager"){
+              setManagerWorkspaces(workspace_ids);
+            }
+            workspaceQuery = workspaceQuery.eq("organization_id", organization_id);
+            
           } else {
-            console.log("No completed workspaces found")
+            if (workspace_ids && workspace_ids.length > 0) {
+              workspaceQuery = workspaceQuery.in("id", workspace_ids);
+            } else {
+              setWorkspaces([]);
+              return;
+            }
           }
+  
+          const { data, error } = await workspaceQuery;
+          console.log("WorkspaceData: ", data);
+          if (error) {
+            console.error("Error fetching workspaces:", error);
+            return;
+          }
+  
+          setWorkspaces(data || []);
+
+          if (job_title === "Admin") {
+            const fetchPendingRequests = async () => {
+              try {
+                const { data: requests, error } = await supabase
+                  .from("request_join")
+                  .select("*, manager:manager_id(name), organization:workspace_id(name)")
+                  .eq("admin_id", user.id)
+                  .eq("status", "pending");
+          
+                if (error) {
+                  console.error("Error fetching pending requests:", error);
+                  return;
+                }
+          
+                setPendingRequests(requests || []);
+              } catch (error) {
+                console.error("Error in fetchPendingRequests:", error);
+              }
+            };
+          
+            fetchPendingRequests();
+          }
+          
         } catch (error) {
-          console.error("Error in fetchWorkspaces:", error)
+          console.error("Error in fetchWorkspaces:", error);
+        }
+      };
+  
+      fetchWorkspaces();
+    }
+  }, [user]);
+  
+  const handleJoinRequest = async (request: any, action: "accepted" | "rejected") => {
+    try {
+      // 1. Update status in request_join
+      const { error: updateError } = await supabase
+        .from("request_join")
+        .update({ status: action })
+        .eq("id", request.id);
+  
+      if (updateError) {
+        console.error("Error updating request_join status:", updateError);
+        return;
+      }
+  
+      if (action === "accepted") {
+        // 2. Add workspace_id to manager's profile
+        const { data: managerProfile, error: profileError } = await supabase
+          .from("profiles")
+          .select("workspace_ids")
+          .eq("user_id", request.manager_id)
+          .single();
+  
+        if (profileError || !managerProfile) {
+          console.error("Error fetching manager profile:", profileError);
+          return;
+        }
+  
+        const updatedWorkspaceIds = Array.isArray(managerProfile.workspace_ids)
+          ? [...new Set([...managerProfile.workspace_ids, request.workspace_id])]
+          : [request.workspace_id];
+  
+        const { error: updateProfileError } = await supabase
+          .from("profiles")
+          .update({ workspace_ids: updatedWorkspaceIds })
+          .eq("user_id", request.manager_id);
+  
+        if (updateProfileError) {
+          console.error("Error updating manager's profile:", updateProfileError);
+          return;
         }
       }
-      
-      fetchWorkspaces()
+  
+      // Refresh pending requests
+      setPendingRequests((prev) => prev.filter((r) => r.id !== request.id));
+    } catch (error) {
+      console.error("Error handling join request:", error);
     }
-  }, [user])
+  };
+  
 
+  const handleRequestToJoin = async (workspace: {
+    id: string;
+    organization_id: string;
+    created_by: string;
+  }) => {
+    if (!user || !workspace) return;
+  
+    const { id: manager_id } = user;
+    const { id: workspace_id, organization_id, created_by } = workspace;
+  
+    try {
+      const { data: existingRequest, error: fetchError } = await supabase
+        .from("request_join")
+        .select("*")
+        .eq("workspace_id", workspace_id)
+        .eq("manager_id", manager_id)
+        .single();
+  
+      if (fetchError && fetchError.code !== "PGRST116") {
+        console.error("Error checking request:", fetchError.message);
+        return;
+      }
+  
+      if (existingRequest) {
+        // Step 2: Update existing request
+        const { error: updateError } = await supabase
+          .from("request_join")
+          .update({ status: "pending", created_at: new Date().toISOString() })
+          .eq("id", existingRequest.id);
+  
+        if (updateError) {
+          console.error("Error updating request:", updateError.message);
+          return;
+        }
+  
+        alert("Request updated to pending.");
+      } else {
+        const { error: insertError } = await supabase.from("request_join").insert([
+          {
+            organization_id,
+            workspace_id,
+            admin_id: created_by,
+            manager_id,
+            status: "pending",
+          },
+        ]);
+  
+        if (insertError) {
+          console.error("Error inserting request:", insertError.message);
+          return;
+        }
+  
+        alert("Request to join sent successfully.");
+      }
+    } catch (error) {
+      console.error("Unexpected error:", error);
+    }
+  };
+  
   // Function to handle logo upload
   const handleLogoUpload = (file) => {
     if (!file) return
@@ -155,8 +310,8 @@ export default function Home() {
             .order("updated_at", { ascending: false })
 
           if (completedWorkspaces && completedWorkspaces.length > 0) {
-            setWorkspaces(completedWorkspaces)
-            console.log("Fetched workspaces:", completedWorkspaces)
+            setWorkspaces(completedWorkspaces);
+            console.log("Fetched workspaces:", completedWorkspaces);
           }
         } catch (error) {
           console.error("Error fetching data:", error)
@@ -201,138 +356,29 @@ export default function Home() {
 
   return (
     <div className="flex min-h-screen">
-      {/* Sidebar */}
-      <div className="w-56 bg-white shadow-sm z-10 border-r">
-        {/* Header */}
-        <div className="p-4 bg-[#579189] text-white flex items-center">
-          <div className="w-7 h-7 bg-white rounded-full flex items-center justify-center text-[#2c6e49] font-bold">
-            {organization.name.charAt(0)}
-          </div>
-          <span className="font-medium ml-2">{organization.name}</span>
-          <button className="ml-auto">
-            <ChevronDown className="h-5 w-5" />
-          </button>
-        </div>
-
-        {/* Navigation */}
-        <nav className="py-2">
-          <ul>
-            <li>
-              <button 
-                className={`w-full flex items-center px-4 py-2 ${activeMenu === 'dashboard' 
-                  ? 'bg-[#579189] text-white' 
-                  : 'text-gray-600 hover:bg-gray-100'}`}
-                onClick={() => setActiveMenu('dashboard')}
-              >
-                <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                </svg>
-                Dashboard
-                <svg className="w-5 h-5 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-            </li>
-            <li>
-              <button 
-                className={`w-full flex items-center px-4 py-2 ${activeMenu === 'updates' 
-                  ? 'bg-[#579189] text-white' 
-                  : 'text-gray-600 hover:bg-gray-100'}`}
-                onClick={() => setActiveMenu('updates')}
-              >
-                <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                </svg>
-                Updates
-                <span className="ml-auto bg-green-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">3</span>
-                <svg className="w-5 h-5 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-            </li>
-
-            {/* APPLICATION section */}
-            <li className="mt-6 px-4">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">APPLICATION</p>
-            </li>
-            <li>
-              <button 
-                className={`w-full flex items-center px-4 py-2 ${activeMenu === 'list' 
-                  ? 'bg-[#579189] text-white' 
-                  : 'text-gray-600 hover:bg-gray-100'}`}
-                onClick={() => setActiveMenu('list')}
-              >
-                <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-                List
-                <svg className="w-5 h-5 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              <ul className="pl-10">
-                <li>
-                  <button className={`w-full text-left px-4 py-2 ${activeMenu === 'list-main' 
-                    ? 'bg-[#579189] text-white' 
-                    : 'text-gray-600 hover:bg-gray-100'}`}
-                    onClick={() => setActiveMenu('list-main')}
-                  >
-                    List
-                  </button>
-                </li>
-                <li>
-                  <button className={`w-full text-left px-4 py-2 ${activeMenu === 'list-1' 
-                    ? 'bg-[#579189] text-white' 
-                    : 'text-gray-600 hover:bg-gray-100'}`}
-                    onClick={() => setActiveMenu('list-1')}
-                  >
-                    List
-                  </button>
-                </li>
-                <li>
-                  <button className={`w-full text-left px-4 py-2 ${activeMenu === 'list-2' 
-                    ? 'bg-[#579189] text-white' 
-                    : 'text-gray-600 hover:bg-gray-100'}`}
-                    onClick={() => setActiveMenu('list-2')}
-                  >
-                    List
-                  </button>
-                </li>
-                <li>
-                  <button className={`w-full text-left px-4 py-2 ${activeMenu === 'list-3' 
-                    ? 'bg-[#579189] text-white' 
-                    : 'text-gray-600 hover:bg-gray-100'}`}
-                    onClick={() => setActiveMenu('list-3')}
-                  >
-                    List
-                  </button>
-                </li>
-              </ul>
-            </li>
-
-            <li>
-              <button 
-                className={`w-full flex items-center px-4 py-2 ${activeMenu === 'roles' 
-                  ? 'bg-[#579189] text-white' 
-                  : 'text-gray-600 hover:bg-gray-100'}`}
-                onClick={() => setActiveMenu('roles')}
-              >
-                <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-                Roles & Permissions
-                <svg className="w-5 h-5 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-            </li>
-          </ul>
-        </nav>
-      </div>
+          <Sidebar 
+            organization={organization}
+            activeMenu={activeMenu}
+            setActiveMenu={setActiveMenu}
+          />
 
       {/* Main content */}
       <div className="flex-1 overflow-auto bg-[url('/background-pattern.svg')]">
         <main className="p-8">
+        {role === "Admin" && pendingRequests.map((req) => (
+          <div key={req.id} className="p-4 mb-2 rounded border shadow">
+            <p>
+              <strong>{req.manager?.name}</strong> wants to join <strong>{req.organization?.name}</strong>
+            </p>
+            <button onClick={() => handleJoinRequest(req, "accepted")} className="mr-2 bg-green-500 text-white px-3 py-1 rounded">
+              Accept
+            </button>
+            <button onClick={() => handleJoinRequest(req, "rejected")} className="bg-red-500 text-white px-3 py-1 rounded">
+              Reject
+            </button>
+          </div>
+        ))}
+
           {/* Welcome section - Only shows when no workspaces exist */}
           {workspaces.length === 0 && (
             <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-sm p-8 mb-8 text-center border border-[#eaecee]">
@@ -345,13 +391,14 @@ export default function Home() {
                   teams. Create one to start managing your work efficiently and 
                   collaborate seamlessly
                 </p>
-                
-                <Button 
-                  className="bg-[#2c6e49] hover:bg-[#245a3a] flex items-center mx-auto"
-                  onClick={handleCreateWorkspace}
-                >
-                  <Plus className="h-4 w-4 mr-2" /> Create a workspace
-                </Button>
+                {(role === "Admin" || role === "Manager") && (
+                  <Button 
+                    className="bg-[#2c6e49] hover:bg-[#245a3a] text-white"
+                    onClick={handleCreateWorkspace}
+                  >
+                    <Plus className="h-4 w-4 mr-2" /> Create a workspace
+                  </Button>
+                )}
               </div>
             </div>
           )}
@@ -371,12 +418,15 @@ export default function Home() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                 </div>
-                <Button 
-                  className="bg-[#2c6e49] hover:bg-[#245a3a] text-white"
-                  onClick={handleCreateWorkspace}
-                >
-                  <Plus className="h-4 w-4 mr-2" /> Create a workspace
-                </Button>
+                {(role === "Admin" || role === "Manager") && (
+                  <Button 
+                    className="bg-[#2c6e49] hover:bg-[#245a3a] text-white"
+                    onClick={handleCreateWorkspace}
+                  >
+                    <Plus className="h-4 w-4 mr-2" /> Create a workspace
+                  </Button>
+                )}
+
               </div>
             </div>
             
@@ -403,17 +453,17 @@ export default function Home() {
                       </div>
                       <div className="col-span-3 px-2 flex items-center">
                         <div className="w-8 h-8 bg-[#2c6e49] rounded-full flex items-center justify-center text-white font-medium mr-2">
-                          {userName?.charAt(0)?.toUpperCase() || "U"}
+                          {workspace.profiles?.name?.charAt(0)?.toUpperCase() || "U"}
                         </div>
                         <div>
-                          <div className="font-medium">{userName}</div>
+                          <div className="font-medium">{workspace.profiles?.name}</div>
                           <div className="text-xs text-gray-500">Owner</div>
                         </div>
                       </div>
                       <div className="col-span-1 px-2">
                         <div className="flex -space-x-2">
                           <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white font-medium border-2 border-white z-10">
-                            {userName?.charAt(0)?.toUpperCase() || "U"}
+                            {workspace.profiles?.name?.charAt(0)?.toUpperCase() || "U"}
                           </div>
                           <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-medium border-2 border-white z-0">
                             A
@@ -421,15 +471,37 @@ export default function Home() {
                         </div>
                       </div>
                       <div className="col-span-1 px-2 text-right pr-6">
-                        <Button 
-                          variant="outline" 
-                          className="text-[#2c6e49] border-[#2c6e49] hover:bg-[#f0f9f6]"
-                          onClick={() => {
-                            // Open workspace
-                          }}
-                        >
-                          Open
-                        </Button>
+                        {role === 'Manager' ? (
+                          managerWorkspaces.includes(workspace.id) ? (
+                            <Button
+                              variant="outline"
+                              className="text-[#2c6e49] border-[#2c6e49] hover:bg-[#f0f9f6]"
+                              onClick={() => {
+                                // Navigate to workspace
+                              }}
+                            >
+                              View
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              className="text-gray-600 border-gray-400 hover:bg-gray-100"
+                              onClick={() => handleRequestToJoin(workspace)}
+                            >
+                              Request to Join
+                            </Button>
+                          )
+                        ) : (
+                          <Button
+                            variant="outline"
+                            className="text-[#2c6e49] border-[#2c6e49] hover:bg-[#f0f9f6]"
+                            onClick={() => {
+                              // Navigate to workspace
+                            }}
+                          >
+                            View
+                          </Button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -442,7 +514,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Complete creation modal - only shows when there's an incomplete workspace */}
           {showWorkspacePrompt && (
             <Modal
               isOpen={showWorkspacePrompt}
