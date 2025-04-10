@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
 import { MultiStepWorkspaceModal } from "@/components/workspace/multi-step-workspace-modal"
 import Sidebar from "@/components/dashboard/sidebar"
+import ConfirmDialog from "@/components/ui/confirm-dialog"
+import info from "@/assets/info-circle.svg";
 
 export default function Home() {
   const { user } = useAuth()
@@ -29,7 +31,13 @@ export default function Home() {
   const [role,setRole] = useState<string | null>(null);
   const [managerWorkspaces, setManagerWorkspaces] = useState<string[]>([]);
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
-
+  const [showRequestDialog,setShowRequestDialog] = useState<boolean>(false);
+  const [reqWorkspace, setReqWorkspace] = useState<{
+    id: string;
+    organization_id: string;
+    created_by: string;
+  }>(null);
+  
   // Add debugging to check if we are getting workspaces
   useEffect(() => {
     if (user) {
@@ -215,6 +223,11 @@ export default function Home() {
     }
   };
   
+  const sendRequest = async () => {
+
+    await handleRequestToJoin(reqWorkspace);
+
+  };
   // Function to handle logo upload
   const handleLogoUpload = (file) => {
     if (!file) return
@@ -378,6 +391,25 @@ export default function Home() {
             </button>
           </div>
         ))}
+        {showRequestDialog && (
+          <ConfirmDialog
+            logo={info}
+            title={"Send Request?"}
+            subtitle={"Send request to join workspace?"}
+            primaryButtonText={"Send"}
+            secondaryButtonText={"Not Now"}
+            onPrimaryClick={() => {
+              sendRequest();     
+              setShowRequestDialog(false);
+            }}
+            onSecondaryClick={() =>{
+              setShowRequestDialog(false);
+            }}
+            onClose={() =>{
+              setShowRequestDialog(false);
+            }}
+          ></ConfirmDialog>
+        )}
 
           {/* Welcome section - Only shows when no workspaces exist */}
           {workspaces.length === 0 && (
@@ -486,7 +518,10 @@ export default function Home() {
                             <Button
                               variant="outline"
                               className="text-gray-600 border-gray-400 hover:bg-gray-100"
-                              onClick={() => handleRequestToJoin(workspace)}
+                              onClick={() => {
+                                setReqWorkspace(workspace);
+                                setShowRequestDialog(true);
+                              }}
                             >
                               Request to Join
                             </Button>
