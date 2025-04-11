@@ -43,15 +43,15 @@ export function useAuth() {
       setLoading(false);
 
       // Handle redirects after checking organization status
-      if (
-        session?.user &&
-        location !== "/organization-selection" &&
-        location !== "/organization-setup" &&
-        location !== "/profile-setup" &&
-        location !== "/"
-      ) {
-        setLocation("/organization-selection");
-      }
+      // if (
+      //   session?.user &&
+      //   location !== "/organization-selection" &&
+      //   location !== "/organization-setup" &&
+      //   location !== "/profile-setup" &&
+      //   location !== "/"
+      // ) {
+      //   setLocation("/organization-selection");
+      // }
     };
 
     initializeAuth();
@@ -78,7 +78,7 @@ export function useAuth() {
         console.log(
           "[useAuth] Sign in/up successful, redirecting to organization selection",
         );
-        setTimeout(() => setLocation("/organization-selection"), 100);
+        // setTimeout(() => setLocation("/organization-selection"), 100);
       } else if (event === "SIGNED_OUT") {
         console.log("[useAuth] Sign out detected, redirecting to login");
         setLocation("/login");
