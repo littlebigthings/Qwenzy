@@ -71,6 +71,9 @@ export function MultiStepWorkspaceModal({
   };
 
   const handleComplete = async () => {
+
+    const teamMemberIds: string[] = [];
+
     if (!workspaceName.trim() || !user) {
       toast({
         variant: "destructive",
@@ -151,13 +154,13 @@ export function MultiStepWorkspaceModal({
           })
           .eq("user_id", profile.user_id)
           .select("*");
-        
-        if (updateProfileError) {
-          console.error("Error updating profile:", updateProfileError);
-        } else {
-          console.log("Profile update successful:", updatedProfile);
-        }
-        
+          teamMemberIds.push(profile.user_id);
+          if (updateProfileError) {
+            console.error("Error updating profile:", updateProfileError);
+          } else {
+            console.log("Profile update successful:", updatedProfile);
+          }
+          teamMemberIds.push(profile.user_id);
         } else {
           // If not in profiles, then check in invitations
           const { data: existingInvitation } = await supabase
@@ -184,9 +187,14 @@ export function MultiStepWorkspaceModal({
                   created_at: new Date().toISOString(),
                 })
                 .eq("id", existingInvitation.id);
-            }
+                
+              teamMemberIds.push(existingInvitation.id);
+                              
+              }
           } else {
-            await supabase.from("invitations").insert({
+            const { data: insertedInvitation, error: invitationError } = await supabase
+            .from("invitations")
+            .insert({
               email,
               organization_id: organizationId,
               invited_by: user.id,
@@ -195,7 +203,15 @@ export function MultiStepWorkspaceModal({
               accepted: false,
               auto_join: true,
               workspace_ids: role === "Manager" ? [] : [workspaceId],
-            });
+            })
+            .select("id")
+            .single();
+        
+            if (invitationError) {
+              console.error("Error inserting invitation:", invitationError);
+            } else {
+              teamMemberIds.push(insertedInvitation.id);
+            }
           }
   
           // Create email content
@@ -224,6 +240,10 @@ export function MultiStepWorkspaceModal({
   
       resetForm();
       onComplete(workspaceId);
+      await supabase
+      .from("workspaces")
+      .update({ team_members: teamMemberIds })
+      .eq("id", workspaceId);
     } catch (error: any) {
       console.error("Error creating workspace or sending invitations:", error);
       toast({

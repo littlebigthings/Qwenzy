@@ -127,6 +127,7 @@ export function OnboardingFlow({orgId}: OnboardingFlowProps) {
   const [invitationRole, setInvitationRole] = useState<string>();
   const [invitationWorkspaces, setInvitationWorkspaces] = useState<string[]>([]);
   const [invitationChecked, setInvitationChecked] = useState<boolean>(false);
+  const [invitationId,setInvitationId] = useState<number | null>(null);
   
   useEffect(() => {
     const loadInvitation = async () => {
@@ -135,7 +136,7 @@ export function OnboardingFlow({orgId}: OnboardingFlowProps) {
       try {
         const { data, error } = await supabase
           .from("invitations")
-          .select("organization_id,workspace_ids, role")
+          .select("organization_id,workspace_ids, role,id")
           .eq("email", user?.email)
           .maybeSingle(); // Expecting a single record
 
@@ -149,6 +150,7 @@ export function OnboardingFlow({orgId}: OnboardingFlowProps) {
           setIsInvitation(true);
           setInvitationOrgId(data.organization_id);
           setInvitationWorkspaces(data.workspace_ids || []);
+          setInvitationId(data.id);
           setInvitationRole(data.role || "User");
         } else {
           setIsInvitation(false);
@@ -611,27 +613,55 @@ export function OnboardingFlow({orgId}: OnboardingFlowProps) {
         if (insertError) throw insertError;
       }
 
-      // Turn off edit mode if it was on
       if (isProfileEditing) {
         setIsProfileEditing(false);
       }
-
-      // Check if profile step was already completed
+      if (isInvitation && invitationWorkspaces?.length) {
+        const { data: profileRecord } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("user_id", user.id)
+          .single();
+      
+        if (profileRecord) {
+          for (const workspaceId of invitationWorkspaces) {
+            const { data: workspace, error: workspaceError } = await supabase
+              .from("workspaces")
+              .select("team_members")
+              .eq("id", workspaceId)
+              .single();
+      
+            if (workspaceError) {
+              console.error(`Error fetching workspace ${workspaceId}:`, workspaceError);
+              continue;
+            }
+      
+            const currentMembers = workspace?.team_members || [];
+      
+            const updatedMembers = currentMembers
+              .filter((id) => id !== invitationId) 
+              .concat(profileRecord.id);
+      
+            await supabase
+              .from("workspaces")
+              .update({ team_members: updatedMembers })
+              .eq("id", workspaceId);
+          }
+        }
+      }
+      
       const alreadyCompleted = completedSteps.includes("profile");
       
-      // Only add to completed steps if not already there
       let newCompleted = completedSteps;
       if (!alreadyCompleted) {
         newCompleted = [...completedSteps, "profile"];
         
-        // For invited users, mark the invitation as accepted
         if (isInvitation && invitationOrgId && user?.email) {
           try {
             await markInvitationAsAccepted(user.email, invitationOrgId);
 
           } catch (invitationError) {
             console.error("Error marking invitation as accepted:", invitationError);
-            // Don't throw here, as we still want to continue with the flow
           }
         }
         

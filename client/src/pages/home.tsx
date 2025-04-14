@@ -1,6 +1,7 @@
 import { useAuth } from "@/hooks/use-auth"
 import { Button } from "@/components/ui/button"
-import { ChevronDown, BarChartIcon, Upload, Plus } from "lucide-react"
+import { Pencil, Trash2,ChevronDown, BarChartIcon, Upload, Plus,MoreVertical } from "lucide-react"
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useEffect, useState, useRef } from "react"
 import { Link } from "wouter"
 import { supabase } from "@/lib/supabase"
@@ -10,8 +11,17 @@ import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
 import { MultiStepWorkspaceModal } from "@/components/workspace/multi-step-workspace-modal"
 import Sidebar from "@/components/dashboard/sidebar"
+import { WorkspaceFormStep2 } from "@/components/workspace/workspace-form-step2";
 import ConfirmDialog from "@/components/ui/confirm-dialog"
 import info from "@/assets/info-circle.svg";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 
 export default function Home() {
   const { user } = useAuth()
@@ -22,8 +32,8 @@ export default function Home() {
   const [showWorkspacePrompt, setShowWorkspacePrompt] = useState(false)
   const [workspaceName, setWorkspaceName] = useState("")
   const [showWorkspaceModal, setShowWorkspaceModal] = useState(false)
-  const [logoFile, setLogoFile] = useState(null)
-  const [logoPreview, setLogoPreview] = useState(null)
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
   const fileInputRef = useRef(null)
   const [workspaces, setWorkspaces] = useState([])
   const [hasIncompleteWorkspace, setHasIncompleteWorkspace] = useState(false)
@@ -32,11 +42,27 @@ export default function Home() {
   const [managerWorkspaces, setManagerWorkspaces] = useState<string[]>([]);
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
   const [showRequestDialog,setShowRequestDialog] = useState<boolean>(false);
+  const [emailRoles, setEmailRoles] = useState<{ [email: string]: string }>({});
+  const [editWorkspaceId,setEditWorkspaceId] = useState<string>("");
+  const [showAddUser,setShowAddUser] = useState<boolean>(false);
+  const [userOrgId, setUserOrgId] = useState<string | null>(null);
+  const [emails, setEmails] = useState<string[]>([]);
   const [reqWorkspace, setReqWorkspace] = useState<{
     id: string;
     organization_id: string;
     created_by: string;
-  }>(null);
+  }>();
+  const [selectedWorkspace, setSelectedWorkspace] = useState<{
+    team_members: []
+    name: string
+  }>();
+  const [teamMembers, setTeamMembers] = useState<{ email: string; role: string,id: string }[]>([]);
+  const [showEditModal,setShowEditModal] = useState<boolean>(false);
+  const [isEditingName,setIsEditingName] = useState<boolean>(false);
+
+  useEffect(() => {
+    console.log(isEditingName);
+  },[isEditingName])
   
   // Add debugging to check if we are getting workspaces
   useEffect(() => {
@@ -54,7 +80,7 @@ export default function Home() {
             console.error("Error fetching profile:", profileError);
             return;
           }
-  
+          setUserOrgId(profile.organization_id);
           const { job_title, workspace_ids, organization_id } = profile || {};
           let workspaceQuery = supabase.from("workspaces").select("*, profiles(name)").eq("completed", true);
   
@@ -162,8 +188,123 @@ export default function Home() {
       console.error("Error handling join request:", error);
     }
   };
+  const getProfileByUserId = async (userId: string) => {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("email, job_title")
+      .eq("user_id", userId)
+      .single();
   
+    if (error) {
+      console.error("Failed to fetch profile:", error.message);
+      throw new Error("Profile not found");
+    }
+  
+    return data;
+  }
 
+  useEffect(() => {
+    const fetchMembers = async () => {
+      if (!selectedWorkspace) return;
+  
+      const teamMembers = selectedWorkspace.team_members || [];
+  
+      const members = await Promise.all(
+        teamMembers.map(async (id) => {
+          try {
+            // Try fetching from profiles first
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("email, job_title,user_id")
+              .eq("user_id", id)
+              .single();
+  
+            if (profile) {
+              return {
+                email: profile.email,
+                role: profile.job_title,
+                id: profile.user_id
+              };
+            }
+  
+            const { data: invitation } = await supabase
+              .from("invitations")
+              .select("email, role,id")
+              .eq("id", id)
+              .single();
+  
+            if (invitation) {
+              return {
+                email: invitation.email,
+                role: invitation.role,
+                id: invitation.id
+              };
+            }
+  
+            return null;
+          } catch (error) {
+            console.error("Error fetching member info:", error);
+            return null;
+          }
+        })
+      );
+  
+      const filteredMembers = members.filter((m) => m !== null) as {
+        email: string;
+        role: string;
+        id: string;
+      }[];
+  
+      setTeamMembers(filteredMembers);
+    };
+  
+    fetchMembers();
+  }, [selectedWorkspace]);
+  
+  
+  const handleRoleChange = (email: string, role: string) => {
+    setEmailRoles(prev => ({ ...prev, [email]: role }));
+  };
+  const populateEmailRolesFromTeam = async (teamMembers: string[]) => {
+    const { data: profilesData, error: profilesError } = await supabase
+      .from("profiles")
+      .select("user_id, email, job_title")
+      .in("user_id", teamMembers);
+  
+    if (profilesError) {
+      console.error("Error fetching profiles:", profilesError);
+      return;
+    }
+  
+    const profileUserIds = (profilesData || []).map(p => p.user_id);
+  
+    for (const profile of profilesData || []) {
+      if (profile.email && profile.job_title) {
+        handleRoleChange(profile.email, profile.job_title);
+      }
+    }
+  
+    const remainingIds = teamMembers.filter(id => !profileUserIds.includes(id));
+  
+    if (remainingIds.length > 0) {
+      const { data: invitationsData, error: invitationsError } = await supabase
+        .from("invitations")
+        .select("id, email, role")
+        .in("id", remainingIds);
+  
+      if (invitationsError) {
+        console.error("Error fetching invitations:", invitationsError);
+        return;
+      }
+  
+      for (const invitation of invitationsData || []) {
+        if (invitation.email && invitation.role) {
+          handleRoleChange(invitation.email, invitation.role);
+        }
+      }
+    }
+  };
+  
   const handleRequestToJoin = async (workspace: {
     id: string;
     organization_id: string;
@@ -261,6 +402,49 @@ export default function Home() {
     }
     reader.readAsDataURL(file)
   }
+  const handleLogoChange = async (file: File) => {
+    try {
+      if (!file) return null;
+
+      // Check file size (800KB max)
+      if (file.size > 800 * 1024) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "File size must be less than 800K",
+        });
+        return null;
+      }
+
+      // Check file type
+      if (!["image/jpeg", "image/png", "image/gif"].includes(file.type)) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "File must be JPG, PNG or GIF",
+        });
+        return null;
+      }
+
+      // Create file preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setLogoPreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+
+      setLogoFile(file);
+      return file;
+    } catch (error: any) {
+      console.error("Logo upload error:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Error preparing logo",
+      });
+      return null;
+    }
+  };
 
   // Reset logo
   const resetLogo = () => {
@@ -271,6 +455,294 @@ export default function Home() {
     }
   }
 
+  const uploadToSupabase = async (file: File, bucketName: string) => {
+    try {
+      if (!file || !user?.id) return null;
+
+      // Check file size (800KB max)
+      if (file.size > 800 * 1024) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "File size must be less than 800K",
+        });
+        return null;
+      }
+
+      // Check file type
+      if (!["image/jpeg", "image/png", "image/gif"].includes(file.type)) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "File must be JPG, PNG or GIF",
+        });
+        return null;
+      }
+
+      // Use user-specific folder structure for RLS compliance
+      // Use user-specific folder structure for RLS compliance
+      // Ensure UUID is properly formatted for storage path (no need for toString as it is already a string)
+      const userId = user.id;
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `${userId}/${fileName}`; // Include user ID in path
+
+
+      // Upload to the specified bucket
+      const { data, error: uploadError } = await supabase.storage
+        .from(bucketName)
+        .upload(filePath, file, {
+          cacheControl: "3600",
+          upsert: true, // Change to upsert to overwrite if exists
+          contentType: file.type,
+        });
+
+      if (uploadError) {
+        console.error("Supabase storage error:", uploadError);
+        if (uploadError.message.includes("policy")) {
+          throw new Error("Storage permission denied. Please try again.");
+        }
+        throw new Error("Failed to upload file");
+      }
+
+      // Get the public URL
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from(bucketName).getPublicUrl(filePath);
+
+      return publicUrl;
+    } catch (error: any) {
+      console.error("Upload to Supabase error:", error);
+      toast({
+        variant: "destructive",
+        title: "Upload Error",
+        description: error.message || "Failed to upload file to storage",
+      });
+      return null;
+    }
+  };
+
+  const handleComplete = async (workspaceId: string) => {
+
+    const teamMemberIds: string[] = [];
+    // setIsSubmitting(true);
+  
+    try {
+  
+  
+      const { data: orgMemberData, error: orgError } = await supabase
+        .from("organization_members")
+        .select("organization_id")
+        .eq("user_id", user?.id)
+        .single();
+  
+      if (orgError) throw new Error(`Error getting organization: ${orgError.message}`);
+      const organizationId = orgMemberData.organization_id;
+  
+  
+      // Handle user roles and invitations
+      for (const email of emails) {
+        const role = emailRoles[email] || "Client";
+  
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("user_id, workspace_ids")
+          .eq("email", email)
+          .single();
+        console.log(profile);
+        if (profile) {
+
+          const updatedProfileWorkspaceIds = Array.from(new Set([
+            ...(profile.workspace_ids || []),
+            workspaceId,
+          ]));
+        
+          console.log("updatedProfileWorkspaceIds: ",updatedProfileWorkspaceIds);
+          const { data: updatedProfile, error: updateProfileError } = await supabase
+          .from("profiles")
+          .update({
+            workspace_ids: updatedProfileWorkspaceIds,
+            job_title: role,
+          })
+          .eq("user_id", profile.user_id)
+          .select("*");
+          teamMemberIds.push(profile.user_id);
+          if (updateProfileError) {
+            console.error("Error updating profile:", updateProfileError);
+          } else {
+            console.log("Profile update successful:", updatedProfile);
+          }
+          teamMemberIds.push(profile.user_id);
+        } else {
+          // If not in profiles, then check in invitations
+          const { data: existingInvitation } = await supabase
+            .from("invitations")
+            .select("id, accepted, workspace_ids")
+            .eq("email", email)
+            .eq("organization_id", organizationId)
+            .single();
+  
+          if (existingInvitation) {
+            if (!existingInvitation.accepted) {
+
+              const updatedWorkspaceIds = Array.from(new Set([
+                ...(existingInvitation.workspace_ids || []),
+                workspaceId,
+              ]));
+  
+              await supabase
+                .from("invitations")
+                .update({
+                  workspace_ids: updatedWorkspaceIds,
+                  role,
+                  invited_by: user?.id,
+                  created_at: new Date().toISOString(),
+                })
+                .eq("id", existingInvitation.id);
+                
+              teamMemberIds.push(existingInvitation.id);
+                              
+              }
+          } else {
+            const { data: insertedInvitation, error: invitationError } = await supabase
+            .from("invitations")
+            .insert({
+              email,
+              organization_id: organizationId,
+              invited_by: user?.id,
+              role,
+              created_at: new Date().toISOString(),
+              accepted: false,
+              auto_join: true,
+              workspace_ids: role === "Manager" ? [] : [workspaceId],
+            })
+            .select("id")
+            .single();
+        
+            if (invitationError) {
+              console.error("Error inserting invitation:", invitationError);
+            } else {
+              teamMemberIds.push(insertedInvitation.id);
+            }
+          }
+  
+          // Create email content
+          const link = "http://localhost:3000/signup";
+          console.log(`
+            To: ${email}
+            Subject: You're invited to join "${workspaceName}" as ${role}
+  
+            Message:
+            Hi there,
+  
+            You’ve been invited to join the workspace "${workspaceName}" as a ${role}.
+            Please accept the invitation by clicking the link below:
+  
+            ${link}
+  
+            — Your Team
+          `);
+        }
+      }
+  
+      toast({
+        title: "Success",
+        description: "Workspace created and invitations handled",
+      });
+  
+      resetForm();
+      // onComplete(workspaceId);
+      await supabase
+      .from("workspaces")
+      .update({ team_members: teamMemberIds })
+      .eq("id", workspaceId);
+    } catch (error: any) {
+      console.error("Error creating workspace or sending invitations:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: `Failed to complete setup: ${error.message}`,
+      });
+    } finally {
+      // setIsSubmitting(false);
+    }
+  };
+
+  const resetForm = () => {
+    // setCurrentStep(1);
+    setWorkspaceName("");
+    setLogoFile(null);
+    setLogoPreview(null);
+  };
+
+  const updateWorkspaceDetails = async () => {
+    if (!editWorkspaceId) return;
+  
+    try {
+      // setLoading(true);
+  
+      let logoUrl = logoPreview;
+      if (logoFile) {
+        logoUrl = await uploadToSupabase(logoFile, "workspace");
+      }
+  
+      await supabase
+        .from("workspaces")
+        .update({
+          name: workspaceName,
+          logo_url: logoUrl,
+        })
+        .eq("id", editWorkspaceId);
+  
+      for (const member of teamMembers) {
+        const newRole = emailRoles[member.email];
+        if (!newRole) continue;
+  
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("email", member.email)
+          .maybeSingle();
+  
+        if (profile?.id) {
+          await supabase
+            .from("profiles")
+            .update({ job_title: newRole })
+            .eq("id", profile.id);
+        } else {
+          const { data: invitation } = await supabase
+            .from("invitations")
+            .select("id")
+            .eq("email", member.email)
+            .maybeSingle();
+  
+          if (invitation?.id) {
+            await supabase
+              .from("invitations")
+              .update({ role: newRole })
+              .eq("id", invitation.id);
+          }
+        }
+      }
+  
+      toast({
+        title: "Workspace Updated",
+        description: "Your changes have been saved successfully.",
+      });
+  
+      setShowEditModal(false);
+    } catch (error) {
+      console.error("Update workspace error:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Something went wrong while saving changes.",
+      });
+    } finally {
+      // setLoading(false);
+    }
+  };
+  
   useEffect(() => {
     const fetchData = async () => {
       if (user) {
@@ -335,7 +807,76 @@ export default function Home() {
     fetchData()
   }, [user])
 
-  // Function to handle creating a new workspace
+  const removeTeamMember = async (teamMemberId: string, workspaceId: string) => {
+    try {
+      // Try to remove from profiles
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("workspace_ids")
+        .eq("user_id", teamMemberId)
+        .maybeSingle();
+  
+      if (profile) {
+        const updatedWorkspaceIds = (profile.workspace_ids || []).filter(
+          (id: string) => id !== workspaceId
+        );
+  
+        await supabase
+          .from("profiles")
+          .update({ workspace_ids: updatedWorkspaceIds })
+          .eq("user_id", teamMemberId);
+      } else {
+        const { data: invitation } = await supabase
+          .from("invitations")
+          .select("workspace_ids")
+          .eq("id", teamMemberId)
+          .maybeSingle();
+  
+        if (invitation) {
+          const updatedInvitationWorkspaceIds = (invitation.workspace_ids || []).filter(
+            (id: string) => id !== workspaceId
+          );
+  
+          await supabase
+            .from("invitations")
+            .update({ workspace_ids: updatedInvitationWorkspaceIds })
+            .eq("id", teamMemberId);
+        }
+      }
+  
+      // Remove from workspace's team_members
+      const { data: workspace } = await supabase
+        .from("workspaces")
+        .select("team_members")
+        .eq("id", workspaceId)
+        .single();
+  
+      if (workspace?.team_members) {
+        const updatedTeam = workspace.team_members.filter(
+          (id: string) => id !== teamMemberId
+        );
+  
+        await supabase
+          .from("workspaces")
+          .update({ team_members: updatedTeam })
+          .eq("id", workspaceId);
+      }
+  
+      toast({
+        title: "Removed",
+        description: "Team member removed successfully.",
+      });
+    } catch (error) {
+      console.error("Error removing team member:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to remove team member.",
+      });
+    }
+  };
+  
+
   const handleCreateWorkspace = () => {
     if (hasIncompleteWorkspace) {
       setWorkspaceName(incompleteWorkspaceName)
@@ -346,7 +887,6 @@ export default function Home() {
     }
   }
 
-  // Function to handle the completion of workspace creation
   const handleWorkspaceCreated = async (workspaceId) => {
     setShowWorkspaceModal(false);
     
@@ -413,7 +953,7 @@ export default function Home() {
 
           {/* Welcome section - Only shows when no workspaces exist */}
           {workspaces.length === 0 && (
-            <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-sm p-8 mb-8 text-center border border-[#eaecee]">
+            <div className="mx-auto bg-white rounded-lg shadow-sm p-8 mb-8 text-center border border-[#eaecee]">
               <h1 className="text-3xl font-medium text-[#2c6e49] mb-4">Welcome {userName}!</h1>
               
               <div className="max-w-md mx-auto">
@@ -436,7 +976,7 @@ export default function Home() {
           )}
 
           {/* Workspaces Section - Updated to match the design */}
-          <div className="max-w-4xl mx-auto">
+          <div className="mx-auto">
             <div className="flex justify-between items-center mb-5">
               <h2 className="text-xl font-medium text-gray-800">Workspaces</h2>
               <div className="flex items-center space-x-2">
@@ -465,7 +1005,7 @@ export default function Home() {
             {/* Workspace table */}
             <div className="bg-white rounded-lg shadow-sm border border-[#eaecee]">
               {/* Workspace Table Headers */}
-              <div className="grid grid-cols-10 py-3 border-b text-sm text-gray-500 font-medium">
+              <div className="grid grid-cols-11 py-3 border-b text-sm text-gray-500 font-medium">
                 <div className="col-span-1 px-6"></div>
                 <div className="col-span-4 px-2">Name</div>
                 <div className="col-span-3 px-2">Owner</div>
@@ -477,7 +1017,7 @@ export default function Home() {
               {workspaces.length > 0 ? (
                 <div>
                   {workspaces.map((workspace) => (
-                    <div key={workspace.id} className="grid grid-cols-10 items-center py-4 border-b hover:bg-gray-50 transition-colors">
+                    <div key={workspace.id} className="grid grid-cols-11 items-center py-4 border-b hover:bg-gray-50 transition-colors">
                       <div className="col-span-1 px-6 text-gray-500 text-sm font-medium text-center">WS</div>
                       <div className="col-span-4 px-2">
                         <div className="font-medium">{workspace.name}</div>
@@ -540,6 +1080,48 @@ export default function Home() {
                           </Button>
                         )}
                       </div>
+                      <div className="col-span-1 px-2 text-right pr-6">
+                        <DropdownMenu.Root>
+                          <DropdownMenu.Trigger asChild>
+                            <button className="p-2 rounded-full hover:bg-gray-100">
+                              <MoreVertical className="h-5 w-5 text-gray-600" />
+                            </button>
+                          </DropdownMenu.Trigger>
+
+                          <DropdownMenu.Content
+                            side="bottom"
+                            align="end"
+                            className="bg-white border border-gray-200 rounded-md shadow-md p-1 w-40"
+                          >
+                            <DropdownMenu.Item
+                              onSelect={() => {
+                                setSelectedWorkspace(workspace);
+                                setWorkspaceName(workspace?.name);
+                                setLogoPreview(workspace?.logo_url)
+                                setLogoFile(workspace?.logo_url)
+                                populateEmailRolesFromTeam(workspace?.team_members)
+                                setEditWorkspaceId(workspace?.id)
+                                setShowEditModal(true);
+                              }}                              
+                              className="px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md cursor-pointer"
+                            >
+                              Edit
+                            </DropdownMenu.Item>
+                            <DropdownMenu.Item
+                              onSelect={() => console.log("Archive clicked")}
+                              className="px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md cursor-pointer"
+                            >
+                              Archive
+                            </DropdownMenu.Item>
+                            <DropdownMenu.Item
+                              onSelect={() => console.log("Delete clicked")}
+                              className="px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-md cursor-pointer"
+                            >
+                              Delete
+                            </DropdownMenu.Item>
+                          </DropdownMenu.Content>
+                        </DropdownMenu.Root>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -579,15 +1161,153 @@ export default function Home() {
               </div>
             </Modal>
           )}
-          
-          {/* Multi-step Workspace creation modal */}
+          <Modal
+            isOpen={showEditModal}
+            title="Edit workspace"
+            onClose={() => setShowEditModal(false)}
+          >
+            <div className="p-6">
+              <p className="text-gray-500 mb-4">
+                Add colleagues & clients by email and define their permissions and roles
+              </p>
+
+              {/* Workspace Name */}
+              <div className="mb-4">
+                <label className="text-sm font-medium text-gray-700">Workspace name</label>
+                <div className="flex items-center gap-2 mt-1">
+                  <input
+                    value={workspaceName}
+                    onChange={(e) => setWorkspaceName(e.target.value)}
+                    className={`border rounded-md px-3 py-2 w-full text-sm text-gray-700 ${
+                      isEditingName ? "bg-white" : "bg-gray-100"
+                    }`}
+                    disabled={!isEditingName}
+                  />
+                  <button onClick={() => setIsEditingName((prev) => !prev)}>
+                    <Pencil className="w-4 h-4 text-gray-500" />
+                  </button>
+                </div>
+                <p className="text-xs text-gray-400 mt-1">
+                  Your workspace name has been set as initially added. You can change it by clicking the edit icon
+                </p>
+              </div>
+
+              <div className="mb-6">
+                <div>Your workspace logo</div>
+                <div className="flex items-start gap-4 mt-2">
+                  <div className="h-24 w-24 border border-dashed rounded flex items-center justify-center bg-gray-50">
+                    {logoPreview ? (
+                      <img
+                        src={logoPreview}
+                        alt="Logo preview"
+                        className="h-full w-full object-cover rounded"
+                      />
+                    ) : (
+                      <Upload className="h-6 w-6 text-gray-400" />
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <label
+                        htmlFor="logo-upload"
+                        className="inline-flex items-center justify-center px-4 py-2 rounded cursor-pointer transition-colors bg-[#407c87] text-white hover:bg-[#386d77]"
+                      >
+                        Upload a photo
+                        <input
+                          id="logo-upload"
+                          type="file"
+                          className="hidden"
+                          accept="image/jpeg,image/png,image/gif"
+                          onChange={(e) => handleLogoChange(e.target.files?.[0])}
+                        />
+                      </label>
+                      {logoPreview && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            setLogoPreview(null);
+                            setLogoFile(null);
+                          }}
+                        >
+                          Reset
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Allowed JPG, GIF or PNG. Max size of 800K
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Team Members */}
+              <div className="mb-6">
+                <button onClick={()=> {setShowAddUser(true)}} className="w-full bg-[#7aa9a1] text-white py-2 rounded text-sm font-medium">
+                  + Add people
+                </button>
+                <div className="mt-4 max-h-60 overflow-y-auto divide-y border rounded">
+                  {teamMembers.map((member, index) => (
+                    <div key={index} className="flex justify-between items-center py-2 px-3">
+                      <div>
+                        <div className="text-sm">{member.email}</div>
+                        <div className="text-xs text-gray-500">{member.role}</div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="relative">
+                          <select
+                            value={emailRoles[member.email] || "Client"}
+                            onChange={(e) => handleRoleChange(member.email, e.target.value)}
+                            className="bg-violet-100 text-violet-700 text-sm rounded px-2 py-1 appearance-none pr-6"
+                          >
+                            <option value="Client">Client</option>
+                            {role !== "Manager" && <option value="Manager">Manager</option>}
+                            <option value="User">User</option>
+                            <option value="Admin">Guest User</option>
+                          </select>
+                          <ChevronDown className="absolute right-1 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500 pointer-events-none" />
+                        </div>
+
+                        <Trash2 onClick={() => removeTeamMember(member.id,editWorkspaceId)} className="text-gray-400 cursor-pointer" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-6">
+                <Button onClick={() => {updateWorkspaceDetails()}} className="w-full bg-[#2c6e49] text-white hover:bg-[#245a3a]">
+                  Save & continue
+                </Button>
+              </div>
+            </div>
+          </Modal>
+
           <MultiStepWorkspaceModal
             isOpen={showWorkspaceModal}
             onClose={() => setShowWorkspaceModal(false)}
             onComplete={handleWorkspaceCreated}
           />
+            {showAddUser === true && (
+              <Modal
+              isOpen={showAddUser}
+              title=""
+              onClose={() => setShowAddUser(false)}>
+                <WorkspaceFormStep2
+                  onPrevious={()=> {setShowAddUser(false)}}
+                  onComplete={() => handleComplete(editWorkspaceId)}
+                  setEmailRoles={setEmailRoles}
+                  emailRoles={emailRoles}
+                  setEmails={setEmails}
+                  emails={emails}
+                  currentUserRole={role}
+                  currentUserOrg={userOrgId}
+                />
+              </Modal>
+          )}
         </main>
       </div>
+
     </div>
   )
 }
