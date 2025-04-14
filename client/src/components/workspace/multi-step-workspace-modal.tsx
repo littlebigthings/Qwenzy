@@ -154,7 +154,6 @@ export function MultiStepWorkspaceModal({
           })
           .eq("user_id", profile.user_id)
           .select("*");
-          teamMemberIds.push(profile.user_id);
           if (updateProfileError) {
             console.error("Error updating profile:", updateProfileError);
           } else {

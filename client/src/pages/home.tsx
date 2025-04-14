@@ -180,6 +180,32 @@ export default function Home() {
           console.error("Error updating manager's profile:", updateProfileError);
           return;
         }
+        const { data: workspaceData, error: workspaceError } = await supabase
+        .from("workspaces")
+        .select("team_members")
+        .eq("id", request.workspace_id)
+        .single();
+
+      if (workspaceError || !workspaceData) {
+        console.error("Error fetching workspace data:", workspaceError);
+        return;
+      }
+
+      const currentTeam = Array.isArray(workspaceData.team_members)
+        ? workspaceData.team_members
+        : [];
+
+      const updatedTeam = [...new Set([...currentTeam, request.manager_id])];
+
+      const { error: updateTeamError } = await supabase
+        .from("workspaces")
+        .update({ team_members: updatedTeam })
+        .eq("id", request.workspace_id);
+
+      if (updateTeamError) {
+        console.error("Error updating team_members in workspace:", updateTeamError);
+        return;
+      }
       }
   
       // Refresh pending requests
