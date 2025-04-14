@@ -682,6 +682,8 @@ export default function Home() {
       // setLoading(true);
   
       let logoUrl = logoPreview;
+      console.log(logoUrl);
+      console.log(logoFile);
       if (logoFile) {
         logoUrl = await uploadToSupabase(logoFile, "workspace");
       }
@@ -1098,7 +1100,7 @@ export default function Home() {
                                 setSelectedWorkspace(workspace);
                                 setWorkspaceName(workspace?.name);
                                 setLogoPreview(workspace?.logo_url)
-                                setLogoFile(workspace?.logo_url)
+                                // setLogoFile(workspace?.logo_url)
                                 populateEmailRolesFromTeam(workspace?.team_members)
                                 setEditWorkspaceId(workspace?.id)
                                 setShowEditModal(true);
