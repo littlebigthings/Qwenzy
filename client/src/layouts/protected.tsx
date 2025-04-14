@@ -48,13 +48,13 @@ export function Protected({ children }: ProtectedProps) {
     );
   }
   
-  if (!onboardingStatus && location !== "/organization-selection") {    
+  if (!onboardingStatus && location !== "/organization-selection" && location!=="/organization-setup") {    
     return <Redirect to="/organization-selection" />;
   }  
   if(onboardingStatus && onboardingStatus?.current_step === "completed" && (location === "/organization-selection" || location === "/organization-setup")){
     return <Redirect to="/" />;
   }
-  if (onboardingStatus && onboardingStatus?.current_step === "organization" && location !== "/organization-selection") {
+  if (onboardingStatus && onboardingStatus?.current_step === "organization" && location !== "/organization-selection" && location!=="/organization-setup") {
     return <Redirect to="/organization-selection" />;
   }
   if (onboardingStatus && onboardingStatus?.current_step !== "completed" && onboardingStatus?.current_step !== "organization" && location !== "/organization-setup") {

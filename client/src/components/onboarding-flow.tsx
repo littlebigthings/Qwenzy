@@ -20,7 +20,8 @@ import {
   Link, 
   X, 
   ChevronLeft, 
-  ChevronRight 
+  ChevronRight, 
+  Underline
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
@@ -129,6 +130,9 @@ export function OnboardingFlow({orgId}: OnboardingFlowProps) {
   const [invitationChecked, setInvitationChecked] = useState<boolean>(false);
   const [invitationId,setInvitationId] = useState<number | null>(null);
   
+  useEffect(() =>{
+    console.log(isInvitation);
+  },[isInvitation])
   useEffect(() => {
     const loadInvitation = async () => {
       if (!user?.email) return;
@@ -917,7 +921,7 @@ if (isInvitation || orgId) {
           <div className="space-y-2">
             {steps
               // For invited users, only show profile step
-              .filter(step => (!isInvitation && orgId === null) || (step.id === "profile"))
+              .filter(step => (!isInvitation && (orgId === null || orgId === undefined)) || (step.id === "profile"))
               .map((step, index) => {
                 const isCompleted = completedSteps.includes(step.id);
                 const isCurrent = currentStep === step.id;
@@ -969,7 +973,7 @@ if (isInvitation || orgId) {
 
         {/* Right content area */}
         <div className="p-6">
-          {(currentStep === "organization" && (!isInvitation && orgId===null)) && (
+          {(currentStep === "organization" && (!isInvitation && (orgId === null || orgId === undefined))) && (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
                 <div>
@@ -1252,7 +1256,7 @@ if (isInvitation || orgId) {
               </Form>
             </div>
           )}
-          {(currentStep === "invite" && (!isInvitation && orgId===null)) && (
+          {(currentStep === "invite" && (!isInvitation && (orgId === null || orgId === undefined))) && (
             <div className="space-y-6">
               <div>
                 <h2 className="text-2xl font-semibold">Invite your team to your organization</h2>
@@ -1453,7 +1457,7 @@ if (isInvitation || orgId) {
               </div>
             </div>
           )}
-          {currentStep === "workspace" && (!isInvitation && orgId === null) && user && organization && (
+          {currentStep === "workspace" && (!isInvitation && (orgId === null || orgId === undefined)) && user && organization && (
             <WorkspaceSection
               user={user}
               organization={organization}
